@@ -6,10 +6,6 @@ import h5py
 
 from utils import calculateRoverZfromEta
 
-"""
-Fills split clusters information according to the Stage2 FPGA fixed binning.
-"""
-
 class SupressSettingWithCopyWarning:
     """
     Temporarily supress pandas SettingWithCopyWarning.
@@ -29,8 +25,10 @@ class SupressSettingWithCopyWarning:
     def __exit__(self, *args):
         pd.options.mode.chained_assignment = self.saved_swcw
 
-### Data Extraction ####################################################
 def filling(**kwargs):
+    """
+    Fills split clusters information according to the Stage2 FPGA fixed binning.
+    """
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
     for fe in kwargs['FesAlgos']:
         simAlgoFiles[fe] = [ kwargs['FillingIn'] ]

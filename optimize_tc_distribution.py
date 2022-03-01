@@ -1,22 +1,25 @@
+import h5py
 import numpy as np
 import tensorflow as tf
 print("TensorFlow version:", tf.__version__)
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-
 from tensorflow.keras.layers import Dense, Flatten, Conv1D
-
-EPOCHS = 5
-NBINSPHI = 216
-NTC = 1000
-KERNEL_SIZE = 3
 
 class DataProcessor():
     """Prepare the data to serve as input to the net in R/z slices"""
-    def __init__(self, data):
+    def __init__(self, data, nbinsPhi):
+        self.data = self._format(data)
         self.data = data.astype('float32')
-        self.data /= NBINSPHI
+        self.data /= nbinsPhi
         self.bd = 3
 
+    def _format(self, data):
+        print(data[:])
+        # for each rz bin get the phi array
+        quit()
+
+        return data
+    
     def boundary_conditions(self, boundary_depth):
         """
         Pad the original data to ensure boundary conditions over
@@ -31,43 +34,29 @@ class DataProcessor():
         self.boundary_conditions(self.bd)
         return self.data
     
-class TCDistributionModel(tensorflow.keras.Model):
+class TCDistributionModel(tf.keras.Model):
     """Neural netowrk model definition."""
-  def __init__(self, inshape, kernel_size):
-      super(TCDistributionModel, self).__init__()
-      self.conv1 = Conv1D( filters=32,
-                           kernel_size=kernel_size,
-                           strides=1,
-                           padding='same', #'valid' means no padding
-                           activation='relu',
-                           use_bias=True )
-      self.conv2 = Conv1D( filters=32,
-                           kernel_size=kernel_size,
-                           strides=1,
-                           padding='same', #'valid' means no padding
-                           activation='relu',
-                           use_bias=True )
-      self.flatten = Flatten()
+    def __init__(self, inshape, kernel_size):
+        super(TCDistributionModel, self).__init__()
+        self.conv1 = Conv1D( filters=32,
+                             kernel_size=kernel_size,
+                             strides=1,
+                             padding='same', #'valid' means no padding
+                             activation='relu',
+                             use_bias=True )
+        self.conv2 = Conv1D( filters=32,
+                             kernel_size=kernel_size,
+                             strides=1,
+                             padding='same', #'valid' means no padding
+                             activation='relu',
+                             use_bias=True )
+        self.flatten = Flatten()
 
-  def call(self, x):
-      x = self.conv1(x)
-      x = self.conv2(x)
-      x = self.flatten(x)
-    return x
-
-storeIn  = h5py.File(kwargs['NNIn'],  mode='r')
-storeOut = h5py.File(kwargs['NNOut'], mode='w')
-
-assert( len(storeIn.keys()) == 1)
-keys = [x for x in storeIn.keys() if falgo in x and '_group' in x]
-
-for key in keys:
-    trainDataRaw = DataProcessor(storeIn[key])
-    trainData = tf.data.Dataset.from_tensor_slices( trainDataRaw(KERNEL_SIZE-1) )
-
-# Create an instance of the model
-model = TCDistributionModel( inshape=trainDataRaw.shape,
-                             kernel_size=KERNEL_SIZE )
+    def __call__(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.flatten(x)
+        return x
 
 def calc_loss(indata, outdata, kernel_size):
     outroll = [ np.roll(arr, shift=i, axis=0) for i in range(kernel_size) ]
@@ -82,56 +71,73 @@ def calc_loss(indata, outdata, kernel_size):
 
     return lambda1 * variance_loss + lambda2 * wasserstein_loss
 
-loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+def optimization(algo, **kw):
+    storeIn  = h5py.File(kw['OptimizationIn'],  mode='r')
+    storeOut = h5py.File(kw['OptimizationOut'], mode='w')
 
-optimizer = tf.keras.optimizers.Adam()
+    assert( len(storeIn.keys()) == 1)
+    trainDataRaw = DataProcessor(storeIn['data'], kw['NbinsPhi'])
+    trainData = tf.data.Dataset.from_tensor_slices( trainDataRaw(kw['KernelSize']-1) )
 
-train_loss = tf.keras.metrics.Mean(name='train_loss')
-train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
+    # Create an instance of the model
+    model = TCDistributionModel( inshape=trainDataRaw.shape,
+                                 kernel_size=kw['KernelSize'] )
 
-test_loss = tf.keras.metrics.Mean(name='test_loss')
-test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='test_accuracy')
+    loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
-@tf.function
-def train_step(images, labels):
-  with tf.GradientTape() as tape:
-    # training=True is only needed if there are layers with different
-    # behavior during training versus inference (e.g. Dropout).
-    predictions = model(images, training=True)
-    loss = loss_object(labels, predictions)
-  gradients = tape.gradient(loss, model.trainable_variables)
-  optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    optimizer = tf.keras.optimizers.Adam()
 
-  train_loss(loss)
-  train_accuracy(labels, predictions)
+    train_loss = tf.keras.metrics.Mean(name='train_loss')
+    train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
 
-@tf.function
-def test_step(images, labels):
-  # training=False is only needed if there are layers with different
-  # behavior during training versus inference (e.g. Dropout).
-  predictions = model(images, training=False)
-  t_loss = loss_object(labels, predictions)
+    test_loss = tf.keras.metrics.Mean(name='test_loss')
+    test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='test_accuracy')
 
-  test_loss(t_loss)
-  test_accuracy(labels, predictions)
+    @tf.function
+    def train_step(images, labels):
+      with tf.GradientTape() as tape:
+        # training=True is only needed if there are layers with different
+        # behavior during training versus inference (e.g. Dropout).
+        predictions = model(images, training=True)
+        loss = loss_object(labels, predictions)
+      gradients = tape.gradient(loss, model.trainable_variables)
+      optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-for epoch in range(EPOCHS):
-  # Reset the metrics at the start of the next epoch
-  train_loss.reset_states()
-  train_accuracy.reset_states()
-  test_loss.reset_states()
-  test_accuracy.reset_states()
+      train_loss(loss)
+      train_accuracy(labels, predictions)
 
-  for images, labels in train_ds:
-    train_step(images, labels)
+    @tf.function
+    def test_step(images, labels):
+      # training=False is only needed if there are layers with different
+      # behavior during training versus inference (e.g. Dropout).
+      predictions = model(images, training=False)
+      t_loss = loss_object(labels, predictions)
 
-  for test_images, test_labels in test_ds:
-    test_step(test_images, test_labels)
+      test_loss(t_loss)
+      test_accuracy(labels, predictions)
 
-  print(
-    f'Epoch {epoch + 1}, '
-    f'Loss: {train_loss.result()}, '
-    f'Accuracy: {train_accuracy.result() * 100}, '
-    f'Test Loss: {test_loss.result()}, '
-    f'Test Accuracy: {test_accuracy.result() * 100}'
-  )
+    for epoch in range(kw['Epochs']):
+      # Reset the metrics at the start of the next epoch
+      train_loss.reset_states()
+      train_accuracy.reset_states()
+      test_loss.reset_states()
+      test_accuracy.reset_states()
+
+      for images, labels in train_ds:
+        train_step(images, labels)
+
+      for test_images, test_labels in test_ds:
+        test_step(test_images, test_labels)
+
+      print(
+        f'Epoch {epoch + 1}, '
+        f'Loss: {train_loss.result()}, '
+        f'Accuracy: {train_accuracy.result() * 100}, '
+        f'Test Loss: {test_loss.result()}, '
+        f'Test Accuracy: {test_accuracy.result() * 100}'
+      )
+
+if __name__ == "__main__":
+    from airflow.airflow_dag import optimization_kwargs
+    for falgo in optimization_kwargs['FesAlgos']:
+        optimization( falgo, **optimization_kwargs )

@@ -172,5 +172,5 @@ def smoothing(**kwargs):
     storeOut.close()
 
 if __name__ == "__main__":
-    from airflow.airflow_dag import smoothing_kwargs        
+    from airflow.airflow_dag import smoothing_kwargs
     smoothing( **smoothing_kwargs )

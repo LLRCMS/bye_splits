@@ -22,11 +22,7 @@ random.seed(18) # fix seed for reproducibility
 # https://predictivehacks.com/?all-tips=how-to-interact-with-airflow-via-the-command-line
 ###################################################
 
-Nevents = {{ dag_run.conf.nevents }}
-print(Nevents)
-quit()
-
-
+Nevents = 16#{{ dag_run.conf.nevents }}
 NbinsRz = 42
 NbinsPhi = 216
 MinROverZ = 0.076
@@ -66,6 +62,15 @@ filling_kwargs = setDictionary(
     { 'Nevents': Nevents,
       'FillingIn': _fillBasePath('gen_cl3d_tc.hdf5'),
       'FillingOut': _fillBasePath('filling.hdf5') }
+)
+
+# optimization task
+optimization_kwargs = setDictionary(
+    { 'Epochs': 10,
+      'KernelSize': 3,
+      'OptimizationIn': _fillBasePath('triggergeom_condensed.hdf5'),
+      'OptimizationOut': 'None.hdf5' #_fillBasePath('optimization.hdf5')
+    }
 )
 
 # smoothing task
