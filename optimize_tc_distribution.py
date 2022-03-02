@@ -9,31 +9,35 @@ class DataProcessor():
     """Prepare the data to serve as input to the net in R/z slices"""
     def __init__(self, data, nbinsPhi):
         self.data = self._format(data)
-        self.data = data.astype('float32')
-        self.data /= nbinsPhi
-        self.bd = 3
+        self.data = [ x.astype('float32') for x in self.data ]
+        self.data = [ x / nbinsPhi for x in self.data ]
+        self.bcond = 3
 
-    def _format(self, data):
-        print(data[:])
-        # for each rz bin get the phi array
-        quit()
+    @staticmethod
+    def _format(data):
+        """Create a list of R/z slices, each ordered by phi bin."""
+        #print(data.attrs['columns'])
+        rz_slices = np.unique(data[:,2])
+        assert rz_slices == np.arange(len(rz_slices))
+        return [ np.sort(data[:][ data[:,2]==slc ][:,-1]) for slc in rz_slices ]
 
-        return data
-    
+
     def boundary_conditions(self, boundary_depth):
         """
         Pad the original data to ensure boundary conditions over
         its Phi dimension
         """
-        self.data = np.concatenate((self.data[boundary_depth:],
-                                    self.data,
-                                    self.data[:boundary_depth]), axis=0)
+        self.data = [ np.concatenate((x[boundary_depth:],
+                                      x,
+                                      x[:boundary_depth]), axis=0)
+                      for x in self.data ]
 
     def __call__(self, boundary_depth):
         self.bd = boundary_depth
         self.boundary_conditions(self.bd)
         return self.data
-    
+
+
 class TCDistributionModel(tf.keras.Model):
     """Neural netowrk model definition."""
     def __init__(self, inshape, kernel_size):
@@ -75,7 +79,7 @@ def optimization(algo, **kw):
     storeIn  = h5py.File(kw['OptimizationIn'],  mode='r')
     storeOut = h5py.File(kw['OptimizationOut'], mode='w')
 
-    assert( len(storeIn.keys()) == 1)
+    assert len(storeIn.keys()) == 1
     trainDataRaw = DataProcessor(storeIn['data'], kw['NbinsPhi'])
     trainData = tf.data.Dataset.from_tensor_slices( trainDataRaw(kw['KernelSize']-1) )
 
@@ -83,7 +87,7 @@ def optimization(algo, **kw):
     model = TCDistributionModel( inshape=trainDataRaw.shape,
                                  kernel_size=kw['KernelSize'] )
 
-    loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    loss_object = calc_loss(...) #tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
     optimizer = tf.keras.optimizers.Adam()
 
