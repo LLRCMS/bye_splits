@@ -27,6 +27,8 @@ NbinsRz = 42
 NbinsPhi = 216
 MinROverZ = 0.076
 MaxROverZ = 0.58
+MinPhi = -np.pi
+MaxPhi = +np.pi
 DataFolder = 'data'
 
 base_kwargs = {
@@ -34,6 +36,9 @@ base_kwargs = {
     'NbinsPhi': NbinsPhi,
     'MinROverZ': MinROverZ,
     'MaxROverZ': MaxROverZ,
+    'MinPhi': MinPhi,
+    'MaxPhi': MaxPhi,
+
     'LayerEdges': [0,28],
     'IsHCAL': False,
 
@@ -43,7 +48,7 @@ base_kwargs = {
     'BasePath': os.path.join(os.environ['PWD'], DataFolder),
 
     'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
-    'PhiBinEdges': np.linspace( -np.pi, np.pi, num=NbinsPhi+1 ),
+    'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
 }
 if len(base_kwargs['FesAlgos'])!=1:
     raise ValueError('The event number in the clustering task'
@@ -68,7 +73,7 @@ filling_kwargs = setDictionary(
 optimization_kwargs = setDictionary(
     { 'Epochs': 10,
       'KernelSize': 10,
-      'BoundaryWidth': 2,
+      'WindowSize': 3,
       'OptimizationIn': _fillBasePath('triggergeom_condensed.hdf5'),
       'OptimizationOut': 'None.hdf5' #_fillBasePath('optimization.hdf5')
     }

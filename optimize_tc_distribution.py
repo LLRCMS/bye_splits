@@ -7,80 +7,77 @@ from tensorflow.keras.layers import Dense, Flatten, Conv1D
 
 class DataProcessor():
     """Prepare the data to serve as input to the net in R/z slices"""
-    def __init__(self, data, nbinsPhi, nbinsRz):
-        self.data, self.data_bins = self._format(data)
-        self.data = [ x.astype('float32') for x in self.data ]
-        self.data = [ x / nbinsPhi for x in self.data ]
-        self.nbinsPhi = nbinsPhi
-        self.nbinsRz = nbinsRz
-        self.bound_cond_width = 3 
+    def __init__(self, data, nbinsPhi, nbinsRz, window_size):
+        # data variables' indexes
+        assert data.attrs['columns'] == ['Rz', 'phi', 'Rz_bin', 'phi_bin']
+        self.rz_idx = 0
+        self.phi_idx = 1
+        self.rzbin_idx = 2
+        self.phibin_idx = 3
 
-    def _format(self, data):
+        self.data = data
+        self.nbins = (nbinsPhi, nbinsRz)
+        self.bound_cond_width = 3
+
+        # data preprocessing
+        self._normalize(index=self.phi_idx)
+        self._split(sort_index=self.rzbin_idx)
+
+        # add cyclic boundaries
+        self.data_with_boundaries = self.set_boundary_conditions(window_size)
+
+        # drop unneeded columns
+        self._drop_columns(idxs=[self.rz_idx, self.rzbin_idx])
+
+    def _drop_columns(self, idxs):
+        """Drops the columns specified by indexes `idxs`, overriding data arrays."""
+        drop = lambda d,obj: np.delete(d, obj=obj, axis=1)
+        self.data = drop(self.data, idxs)
+        self.data_with_boundaries = drop(self.data_with_boundaries, idxs)
+
+    def _split(self, sort_index):
         """
-        Create a list of R/z slices, each ordered by phi.
-        The two sorts are done separately for convenience. Note that the relative phi 
-        ordering of trigger cells in the arrays is nevertheless kept!
+        Creates a list of R/z slices, each ordered by phi.
         """
-        #['Rz', 'phi', 'Rz_bin', 'phi_bin'] (data.attrs['columns'])
-        rz_slices = np.unique(data[:,2])
-        assert len(rz_slices) == self.nbinsRz
+        self.data = self.data.astype('float32')
+
+        rz_slices = np.unique(self.data[:,sort_index])
+        assert len(rz_slices) == self.nbins[1]
         assert rz_slices == np.arange(len(rz_slices))
 
-        # The relative ordering is kept, despite the change in index ordering
-        # Why? The first trigger cells will all have bin=0, the following bin=1, ...
-        phis     = [ np.sort(data[:][ data[:,2]==slc ][:,1]) for slc in rz_slices ]
-        phi_bins = [ np.sort(data[:][ data[:,2]==slc ][:,3]) for slc in rz_slices ]
-        
-        return phis, phi_bins
+        # https://stackoverflow.com/questions/2828059/sorting-arrays-in-numpy-by-column
+        self.data = self.data[ self.data[:,sort_index].argsort() ] # sort rows by Rz_bin "column"
+        # https://stackoverflow.com/questions/31863083/python-split-numpy-array-based-on-values-in-the-array
+        # `np.diff` catches all `data` indexes where the sorted bin changes
+        self.data = np.split( self.data, np.where(np.diff(self.data[:,sort_index]))[0]+1 )
 
-    def boundary_conditions(self):
+    def _normalize(self, index):
+        """
+        Standard max-min normalization of column `index`.
+        """
+        ref = self.data[:,index]
+        ref = (ref-ref.min()) / (ref.max()-ref.min())
+
+    def set_boundary_conditions(self, window_size):
         """
         Pad the original data to ensure boundary conditions over its Phi dimension.
         The boundary is done in terms of bins, not single trigger cells.
         `self.bound_cond_width` stands for the number of bins seen to the right and left.
+        The right boundary is concatenated on the left side of `data`.
         """
-        boundary_right_indexes = [ (x >= self.nbinsPhi-self.bound_cond_width)
-                                   for x in self.data_bins ]
+        bound_cond_width = window_size - 1
+        boundary_right_indexes = [ (x[:,self.phibin_idx] >= self.nbins[0]-bound_cond_width)
+                                   for x in self.data ]
         boundary_right = [ x[y] for x,y in zip(self.data,boundary_right_indexes) ]
-        
-        boundary_left_indexes  = [ (x < self.bound_cond_width)
-                                   for x in self.data_bins ]
-        boundary_right = [ x[y] for x,y in zip(self.data,boundary_left_indexes) ]
-        
-        self.data = [ np.concatenate((br,x,bl), axis=0)
-                      for br,x,bl in zip(boundary_right,self.data,boundary_left) ]
 
-    def __call__(self, boundary_depth):
-        self.bound_cond_width = boundary_depth
-        self.boundary_conditions()
-        return self.data
-
-
-class TCDistributionModel():
-    def __init__(self, inshape, kernel_size, lambdas=(1, 0.5)):
-        self.architecture = Architecture(inshape, kernel_size)
-
-    #GETTER
-
-    def calc_loss(self, indata, outdata, kernel_size):
-        outroll = [ np.roll(arr, shift=i, axis=0) for i in range(kernel_size) ]
-        outroll = np.concatenate( outroll )
-        variance_loss = tf.reduce_variance( outroll, axis=1 )
-        # np.concatenate([ np.roll(arr, shift=i, axis=0) for i in range(3) ])
-        # add some expand_dims
-
-        wasserstein_loss = tf.cumsum(indata) - tf.cumsum(outdata)
-        wasserstein_loss = tf.abs( wasserstein_loss )
-        wasserstein_loss = tf.reduce_sum( wasserstein_loss )
-
-        lambda1 = tf.Variable(lambdas[0], trainable=False)
-        lambda2 = tf.Variable(lambdas[1], trainable=False)
-        return lambda1 * variance_loss + lambda2 * wasserstein_loss
+        self.data_with_boundaries = [ np.concatenate((br,x), axis=0)
+                                      for br,x in zip(boundary_right,self.data) ]
+        return self.data_with_boundaries
 
 class Architecture(tf.keras.Model):
     """Neural network model definition."""
     def __init__(self, inshape, kernel_size):
-        super(TCDistributionModel, self).__init__()
+        super(TCDistribution, self).__init__()
         self.conv1 = Conv1D( filters=32,
                              kernel_size=kernel_size,
                              strides=1,
@@ -97,7 +94,6 @@ class Architecture(tf.keras.Model):
         self.dense = Dense( units=inshape[1],
                             activation='relu',
                             use_bias=True )
-                    
 
     def __call__(self, x):
         x = self.conv1(x)
@@ -106,20 +102,90 @@ class Architecture(tf.keras.Model):
         x = self.dense(x)
         return x
 
-def optimization(algo, **kw):
-    storeIn  = h5py.File(kw['OptimizationIn'],  mode='r')
-    storeOut = h5py.File(kw['OptimizationOut'], mode='w')
+class TCDistribution():
+    """Neural net workings"""
+    def __init__(self, inshape, kernel_size, window_size,
+                 phibounds, nbinsphi,
+                 rzbounds, nbinsrz,
+                 pars=(1, 0.5, 1)):
+        """
+        Manages quantities related with the neural model being used.
+        Args: - inshape: Shape of the input data
+              - kernel_size: Length of convolutional kernels
+              - window_size: Number of bins considered for each variance calculation.
+              Note this is not the same as number of trigger cells (each bin has
+              multiple trigger cells).
+        """
+        self.architecture = Architecture(inshape, kernel_size)
+        self.kernel_size = kernel_size
+        self.boundary_width = window_size-1
+        self.phibounds, self.nbinsphi = phibounds, nbinsphi
+        self.rzbounds, self.nbinsrz = rzbounds, nbinsrz
 
-    assert len(storeIn.keys()) == 1
-    trainDataRaw = DataProcessor(storeIn['data'], kw['NbinsPhi'], kw['NbinsRz'])
-    trainData = tf.data.Dataset.from_tensor_slices( trainDataRaw(kw['BoundaryWidth']) )
+        assert len(pars)==2
+        self.pars = pars
+
+    def calc_loss(self, indata, inbins, outdata):
+        """
+        Calculates the model's loss function. Receives slices in R/z as input.
+        Each array value corresponds to a trigger cell.
+        """
+        assert inbins.min()==0
+        assert inbins.max()==self.nbinsphi-1
+
+        # bin the output of the neural network
+        outbins = tf.histogram_fixed_width_bins(outdata,
+                                                value_range=self.phibounds,
+                                                nbins=self.nbinsphi)
+        assert outbins.min()==0
+        assert outbins.max()==self.nbinsphi-1
+
+        # convert the bin ids coming before 0 (shifted boundaries) to negative ones
+        inbins[:np.argmin(inbins)] -= inbins.max()+1
+        outbins[:np.argmin(outbins)] -= outbins.max()+1
+
+        # calculate the variance between adjacent bins
+        variance_loss = 0
+        for ibin in np.unique(outbins)[:-self.boundary_width]:
+            idxs = (outbins >= ibin) & (outbins <= ibin+self.boundary_width)
+            variance_loss += tf.math.reduce_variance(indata[idxs])
+
+        # calculate the earth-mover's distance between the net output and the original data
+        wasserstein_loss = tf.cumsum(indata) - tf.cumsum(outdata)
+        wasserstein_loss = tf.abs( wasserstein_loss )
+        wasserstein_loss = tf.reduce_sum( wasserstein_loss )
+
+        # replicated boundaries should be the same
+        assert indata[inbins<0] == indata[inbins>inbins.max()-self.boundary_width]
+        boundary_sanity_loss = tf.abs( outdata[outbins<0] -
+                                       outdata[outbins>outbins.max()-self.boundary_width] )
+
+        loss_pars = [ tf.Variable(x, trainable=False) for x in self.pars ]
+        return ( loss_pars[0] * variance_loss +
+                 loss_pars[1] * wasserstein_loss +
+                 loss_pars[2] * boundary_sanity_loss )
+
+def optimization(algo, **kw):
+    store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
+    store_out = h5py.File(kw['OptimizationOut'], mode='w')
+
+    assert len(store_in.keys()) == 1
+    train_data_raw = DataProcessor(store_out['data'], kw['NbinsPhi'], kw['NbinsRz'],
+                                   kw['WindowSize'])
+
+
+    I actually want to try everything at once!!!!!
+    #train_data = tf.data.Dataset.from_tensor_slices( train_data_raw )
 
     # Create an instance of the model
-    tcdist = TCDistributionModel( ... )
+    tcdist = TCDistribution( phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
+                             nbinsphi=kw['NbinsPhi'],
+                             rz_bounds=(kw['MinROverZ'],kw['MaxROverZ']),
+                             nbinsrz=kw['NbinsRz'] )
     model = tcdist.architecture( inshape=trainDataRaw.shape,
-                                 kernel_size=kw['KernelSize'] )
+                                 window_size=kw['KernelSize'] )
 
-    loss_object = calc_loss(...) #tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    loss_object = tcdist.calc_loss( train_data.data[:,0], train_data.data[:,1], model)
 
     optimizer = tf.keras.optimizers.Adam()
 
