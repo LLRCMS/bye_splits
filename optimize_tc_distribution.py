@@ -77,7 +77,11 @@ class DataProcessor():
 class Architecture(tf.keras.Model):
     """Neural network model definition."""
     def __init__(self, inshape, kernel_size):
-        super(TCDistribution, self).__init__()
+        super(Architecture, self).__init__()
+        assert len(inshape)==1
+
+        self.inshape = inshape
+        
         self.conv1 = Conv1D( filters=32,
                              kernel_size=kernel_size,
                              strides=1,
@@ -91,7 +95,7 @@ class Architecture(tf.keras.Model):
                              activation='relu',
                              use_bias=True )
         self.flatten = Flatten()
-        self.dense = Dense( units=inshape[1],
+        self.dense = Dense( units=self.inshape[0],
                             activation='relu',
                             use_bias=True )
 
@@ -100,16 +104,17 @@ class Architecture(tf.keras.Model):
         x = self.conv2(x)
         x = self.flatten(x)
         x = self.dense(x)
+
+        assert self.inshape==x.shape
         return x
 
-class TCDistribution():
+class TriggerCellDistributor(tf.Module):
     """Neural net workings"""
     def __init__(self, inshape, kernel_size, window_size,
-                 phibounds, nbinsphi,
-                 rzbounds, nbinsrz,
+                 phibounds, nbinsphi, rzbounds, nbinsrz,
                  pars=(1, 0.5, 1)):
         """
-        Manages quantities related with the neural model being used.
+        Manages quantities related to the neural model being used.
         Args: - inshape: Shape of the input data
               - kernel_size: Length of convolutional kernels
               - window_size: Number of bins considered for each variance calculation.
@@ -124,6 +129,9 @@ class TCDistribution():
 
         assert len(pars)==2
         self.pars = pars
+
+        self.optimizer = tf.keras.optimizers.Adam()
+        self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
     def calc_loss(self, indata, inbins, outdata):
         """
@@ -165,80 +173,60 @@ class TCDistribution():
                  loss_pars[1] * wasserstein_loss +
                  loss_pars[2] * boundary_sanity_loss )
 
+    @tf.function(
+        input_signature=(
+            tf.TensorSpec(shape=[None], dtype=tf.float32),
+            tf.TensorSpec(shape=[None], dtype=tf.int32))
+    )
+    def train(self, indata, inbins):
+        # Reset the metrics at the start of the next epoch
+        self.train_loss.reset_states()
+
+        # for n in tf.range(steps): # any future loop within one epoch is done here
+        with tf.GradientTape() as tape:
+            tape.watch(indata)
+            tape.watch(inbins)
+            # training=True is only needed if there are layers with different
+            # behavior during training versus inference (e.g. Dropout).
+            prediction = self.architecture(indata, training=True)
+            loss = self.calc_loss(indata, inbins, prediction)
+        gradients = tape.gradient(loss, model.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+        self.train_loss(loss)
+        return loss, prediction
+
+
 def optimization(algo, **kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
     store_out = h5py.File(kw['OptimizationOut'], mode='w')
 
     assert len(store_in.keys()) == 1
-    train_data_raw = DataProcessor(store_out['data'], kw['NbinsPhi'], kw['NbinsRz'],
-                                   kw['WindowSize'])
+    train_data_raw = DataProcessor( store_out['data'],
+                                    kw['NbinsPhi'], kw['NbinsRz'],
+                                    kw['WindowSize'] )
 
 
-    I actually want to try everything at once!!!!!
+    train_data = train_data.data_with_boundaries
     #train_data = tf.data.Dataset.from_tensor_slices( train_data_raw )
 
-    # Create an instance of the model
-    tcdist = TCDistribution( phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
-                             nbinsphi=kw['NbinsPhi'],
-                             rz_bounds=(kw['MinROverZ'],kw['MaxROverZ']),
-                             nbinsrz=kw['NbinsRz'] )
-    model = tcdist.architecture( inshape=trainDataRaw.shape,
-                                 window_size=kw['KernelSize'] )
+    for rzslice in train_data:
+        #look at the first R/z slice only
+        indata = rzslice[:,0]
+        inbins = rzslice[:,1]
 
-    loss_object = tcdist.calc_loss( train_data.data[:,0], train_data.data[:,1], model)
+        tcd = TriggerCellDistributor( inshape=indata.shape,
+                                      kernel_size=kw['KernelSize'],
+                                      window_size=kw['WindowSize'],
+                                      phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
+                                      nbinsphi=kw['NbinsPhi'],
+                                      rz_bounds=(kw['MinROverZ'],kw['MaxROverZ']),
+                                      nbinsrz=kw['NbinsRz'] )
 
-    optimizer = tf.keras.optimizers.Adam()
+        for epoch in range(kw['Epochs']):
+            loss, out_dist = tcd.train(indata, inbins)
+            print('Epoch {}, Loss: {}'.format(epoch+1, tcd.train_loss.result()))
 
-    train_loss = tf.keras.metrics.Mean(name='train_loss')
-    train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
-
-    test_loss = tf.keras.metrics.Mean(name='test_loss')
-    test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='test_accuracy')
-
-    @tf.function
-    def train_step(images, labels):
-      with tf.GradientTape() as tape:
-        # training=True is only needed if there are layers with different
-        # behavior during training versus inference (e.g. Dropout).
-        predictions = model(images, training=True)
-        loss = loss_object(labels, predictions)
-      gradients = tape.gradient(loss, model.trainable_variables)
-      optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-
-      train_loss(loss)
-      train_accuracy(labels, predictions)
-
-    @tf.function
-    def test_step(images, labels):
-      # training=False is only needed if there are layers with different
-      # behavior during training versus inference (e.g. Dropout).
-      predictions = model(images, training=False)
-      t_loss = loss_object(labels, predictions)
-
-      test_loss(t_loss)
-      test_accuracy(labels, predictions)
-
-    for epoch in range(kw['Epochs']):
-      # Reset the metrics at the start of the next epoch
-      train_loss.reset_states()
-      train_accuracy.reset_states()
-      test_loss.reset_states()
-      test_accuracy.reset_states()
-
-      for images, labels in train_ds:
-        train_step(images, labels)
-
-      for test_images, test_labels in test_ds:
-        test_step(test_images, test_labels)
-
-      print(
-        f'Epoch {epoch + 1}, '
-        f'Loss: {train_loss.result()}, '
-        f'Accuracy: {train_accuracy.result() * 100}, '
-        f'Test Loss: {test_loss.result()}, '
-        f'Test Accuracy: {test_accuracy.result() * 100}'
-      )
-
+            
 if __name__ == "__main__":
     from airflow.airflow_dag import optimization_kwargs
     for falgo in optimization_kwargs['FesAlgos']:
