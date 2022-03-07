@@ -7,8 +7,6 @@ import uproot as up
 import h5py
 from bokeh.io import export_png
 
-
-
 from bokeh.io import output_file, show
 from bokeh.layouts import layout
 from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
@@ -20,6 +18,10 @@ from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
 from bokeh.plotting import figure
 from bokeh.transform import transform
 from bokeh.palettes import viridis as _palette
+
+import sys
+sys.path.append( os.environ['PWD'] )
+from airflow.airflow_dag import filling_kwargs as kw
 
 def calculateRoverZfromEta(eta):
     """R/z = arctan(theta) [theta is obtained from pseudo-rapidity, eta]"""
@@ -48,12 +50,6 @@ def set_figure_props(p, xbincenters, ybincenters):
     ]
 
 parser = argparse.ArgumentParser(description='Plot trigger cells occupancy.')
-parser.add_argument('--nphibins', help='number of uniform phi bins',
-                    default=216, type=int)
-parser.add_argument('--nrzbins', help='number of uniform R/z bins',
-                    default=42, type=int)
-parser.add_argument('--nevents', help='number of events to display',
-                    default=8, type=int)
 parser.add_argument('--ledges', help='layer edges (if -1 is added the full range is also included)', default=[0,28], nargs='+', type=int)
 parser.add_argument('--pos_endcap', help='Use only the positive endcap.',
                     default=True, type=bool)
@@ -70,13 +66,13 @@ FLAGS = parser.parse_args()
 #########################################################################
 ################### CONFIGURATION PARAMETERS ############################
 #########################################################################
-NEVENTS = FLAGS.nevents
-NBINSRZ = FLAGS.nrzbins
-NBINSPHI = FLAGS.nphibins
+NEVENTS = kw['Nevents']
+NBINSRZ = kw['NbinsRz']
+NBINSPHI = kw['NbinsPhi']
 
-rzBinEdges = np.linspace( FLAGS.minROverZ, FLAGS.maxROverZ, num=NBINSRZ )
+rzBinEdges = kw['RzBinEdges']
 rzBinCenters = ['{:.2f}'.format(x) for x in ( rzBinEdges[1:] + rzBinEdges[:-1] ) / 2 ]
-phiBinEdges = np.linspace( -np.pi, np.pi, num=NBINSPHI )
+phiBinEdges = kw['PhiBinEdges']
 phiBinCenters = ['{:.2f}'.format(x) for x in ( phiBinEdges[1:] + phiBinEdges[:-1] ) / 2 ]
 binDistRz = rzBinEdges[1] - rzBinEdges[0] #assumes the binning is regular
 binDistPhi = phiBinEdges[1] - phiBinEdges[0] #assumes the binning is regular
@@ -86,6 +82,7 @@ SHIFTH, SHIFTV = binDistPhi, binDistRz
 
 tcDataPath = os.path.join(os.environ['PWD'], 'data', 'test_triggergeom.root')
 tcFile = up.open(tcDataPath)
+
 tcFolder = 'hgcaltriggergeomtester'
 tcTreeName = 'TreeTriggerCells'
 tcTree = tcFile[ os.path.join(tcFolder, tcTreeName) ]
@@ -95,7 +92,7 @@ if FLAGS.debug:
         
 simDataPath = os.path.join(os.environ['PWD'], 'data', 'gen_cl3d_tc.hdf5')
 simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
-fes = ['Threshold']
+fes = ['ThresholdDummyHistomaxnoareath20']
 for fe in fes:
     simAlgoFiles[fe] = [ os.path.join(simDataPath) ]
 
@@ -147,11 +144,11 @@ simNames = dotDict( dict( RoverZ = 'Rz',
 for fe,files in simAlgoFiles.items():
     name = fe
     dfs = []
-    for file in files:
-        with pd.HDFStore(file, mode='r') as store:
+    for afile in files:
+        with pd.HDFStore(afile, mode='r') as store:
             dfs.append(store[name])
     simAlgoDFs[fe] = pd.concat(dfs)
-
+    
 simAlgoNames = sorted(simAlgoDFs.keys())
 if FLAGS.debug:
     print('Input HDF5 keys:')
@@ -182,7 +179,7 @@ tcData[tcNames.phi + '_bin'] = pd.cut( tcData[tcNames.phi], bins=phiBinEdges, la
 # save data for optimization task
 save_path = 'data/triggergeom_condensed.hdf5'
 with h5py.File(save_path, mode='w') as storeOut:
-    cols = ['Rz', 'phi', 'Rz_bin', 'phi_bin']
+    save_cols = ['Rz', 'phi', 'Rz_bin', 'phi_bin']
     saveData = ( tcData[save_cols]
                  .sort_values(by=['Rz', 'phi'])
                  .to_numpy() )
@@ -226,6 +223,7 @@ enresgrid = []
 enrescuts = [-0.35]
 assert(len(enrescuts)==len(fes))
 for i,(fe,cut) in enumerate(zip(fes,enrescuts)):
+    print(simAlgoDFs.keys())
     df = simAlgoDFs[fe]
     #print(df.groupby("event").filter(lambda x: len(x) > 1))
 
