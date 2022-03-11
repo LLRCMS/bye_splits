@@ -181,8 +181,9 @@ save_path = 'data/triggergeom_condensed.hdf5'
 with h5py.File(save_path, mode='w') as storeOut:
     save_cols = ['Rz', 'phi', 'Rz_bin', 'phi_bin']
     saveData = ( tcData[save_cols]
-                 .sort_values(by=['Rz', 'phi'])
-                 .to_numpy() )
+                 .sort_values(by=['Rz_bin', 'phi'])
+                 .to_numpy()
+                )
     storeOut['data'] = saveData
     storeOut['data'].attrs['columns'] = save_cols
     storeOut['data'].attrs['doc'] = 'Trigger cell phi vs. R/z positions for optimization.'
@@ -223,7 +224,6 @@ enresgrid = []
 enrescuts = [-0.35]
 assert(len(enrescuts)==len(fes))
 for i,(fe,cut) in enumerate(zip(fes,enrescuts)):
-    print(simAlgoDFs.keys())
     df = simAlgoDFs[fe]
     #print(df.groupby("event").filter(lambda x: len(x) > 1))
 

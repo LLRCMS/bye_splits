@@ -8,14 +8,24 @@ from tensorflow.keras.layers import Dense, Flatten, Conv1D
 import sys
 np.set_printoptions(threshold=sys.maxsize)
 
-def tensorflow_assignment(tensor, mask, op):
+def are_tensors_equal(t1, t2):
+    assert t1.shape == t2.shape
+    return tf.math.count_nonzero(tf.math.equal(t1,t2))==t1.shape
+        
+def tensorflow_assignment(tensor, mask, lambda_op):
     """
     Emulate assignment by creating a new tensor.
     The mask must be 1 where the assignment is intended, 0 everywhere else.
     """
     assert tensor.shape == mask.shape
-    other = op(tensor)
-    return tensor * mask + other * (1 - mask)
+    other = lambda_op(tensor)
+    return tensor * (1 - mask) + other * mask
+
+def tensorflow_wasserstein_1d_loss(indata, outdata):
+    """Calculates the 1D earth-mover's distance."""
+    loss = tf.cumsum(indata) - tf.cumsum(outdata)
+    loss = tf.abs( loss )
+    return tf.reduce_sum( loss )
 
 class DataProcessor():
     """Prepare the data to serve as input to the net in R/z slices"""
@@ -34,10 +44,10 @@ class DataProcessor():
 
         # data preprocessing
         self._normalize(index=self.phi_idx)
-        self._split(sort_index=self.rzbin_idx)
+        self._split(split_index=self.rzbin_idx, sort_index=self.phibin_idx)
 
         # add cyclic boundaries
-        self.data_with_boundaries = self.set_boundary_conditions(window_size)
+        self.data_with_boundaries, self.boundary_sizes = self.set_boundary_conditions(window_size)
 
         # drop unneeded columns
         self._drop_columns(idxs=[self.rz_idx, self.rzbin_idx])
@@ -48,22 +58,31 @@ class DataProcessor():
         self.data = [drop(x, idxs) for x in self.data]
         self.data_with_boundaries = [drop(x, idxs) for x in self.data_with_boundaries]
 
-    def _split(self, sort_index):
+    def _split(self, split_index, sort_index):
         """
         Creates a list of R/z slices, each ordered by phi.
         """
         self.data = self.data.astype('float32')
 
-        rz_slices = np.unique(self.data[:,sort_index])
+        # data sanity check
+        rz_slices = np.unique(self.data[:,split_index])
         assert len(rz_slices) <= self.nbins[1]
         assert rz_slices.tolist() == [x for x in range(len(rz_slices))]
 
         # https://stackoverflow.com/questions/2828059/sorting-arrays-in-numpy-by-column
-        self.data = self.data[ self.data[:,sort_index].argsort() ] # sort rows by Rz_bin "column"
+        # ordering is already done when the data is produced, the following line is not needed anymore
+        # self.data = self.data[ self.data[:,split_index].argsort(kind='stable') ] # sort rows by Rz_bin "column"
+
         # https://stackoverflow.com/questions/31863083/python-split-numpy-array-based-on-values-in-the-array
 
         # `np.diff` catches all `data` indexes where the sorted bin changes
-        self.data = np.split( self.data, np.where(np.diff(self.data[:,sort_index]))[0]+1 )
+        self.data = np.split( self.data, np.where(np.diff(self.data[:,sort_index])<0)[0]+1 )
+        assert len(self.data) == len(rz_slices)
+
+        # data correct sorting check
+        for elem in self.data:
+            assert ( np.sort(elem[:,sort_index], kind='stable') == elem[:,sort_index] ).all()
+
 
     def _normalize(self, index):
         """
@@ -71,6 +90,7 @@ class DataProcessor():
         """
         ref = self.data[:,index]
         ref = (ref-ref.min()) / (ref.max()-ref.min())
+        
 
     def set_boundary_conditions(self, window_size):
         """
@@ -83,10 +103,11 @@ class DataProcessor():
         boundary_right_indexes = [ (x[:,self.phibin_idx] >= self.nbins[0]-bound_cond_width)
                                    for x in self.data ]
         boundary_right = [ x[y] for x,y in zip(self.data,boundary_right_indexes) ]
+        boundary_sizes = [ len(x) for x in boundary_right ]
+        data_with_boundaries = [ np.concatenate((br,x), axis=0)
+                                 for br,x in zip(boundary_right,self.data) ]
 
-        self.data_with_boundaries = [ np.concatenate((br,x), axis=0)
-                                      for br,x in zip(boundary_right,self.data) ]
-        return self.data_with_boundaries
+        return data_with_boundaries, boundary_sizes
 
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models#the_model_class
 class Architecture(tf.keras.Model):
@@ -116,19 +137,20 @@ class Architecture(tf.keras.Model):
                             use_bias=True )
 
     def __call__(self, x):
+        x = tf.cast(x, dtype=tf.float32)
         x = tf.reshape(x, shape=(-1, x.shape[0], 1))
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.flatten(x)
         x = self.dense(x)
-
+        x = tf.squeeze(x)
         return x
 
 class TriggerCellDistributor(tf.Module):
     """Neural net workings"""
     def __init__(self, inshape, kernel_size, window_size,
                  phibounds, nbinsphi, rzbounds, nbinsrz,
-                 pars=(1, 0.5, 1)):
+                 pars=(0.2, 1., 1.)):
         """
         Manages quantities related to the neural model being used.
         Args: - inshape: Shape of the input data
@@ -149,68 +171,59 @@ class TriggerCellDistributor(tf.Module):
         self.optimizer = tf.keras.optimizers.Adam()
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
-    def calc_loss(self, indata, inbins, outdata):
+    def calc_loss(self, indata, inbins, bound_size, outdata):
         """
         Calculates the model's loss function. Receives slices in R/z as input.
         Each array value corresponds to a trigger cell.
+        Args: -indata: ordered (ascendent) original phi values
+              -inbins: ordered (ascendent) original phi bins
+              -bound_size: number of replicated trigger cells to satisfy boundary conditions
+              -outdata: neural net phi values output
         """
         opt = {'summarize': 10} #number of entries to print if assertion fails
-        ass1 = tf.debugging.Assert(tf.math.reduce_min(inbins)==0, [inbins], **opt)
-        ass2 = tf.debugging.Assert(tf.math.reduce_max(inbins)==self.nbinsphi-1, [inbins], **opt)
+        asserts = [ tf.debugging.Assert(indata.shape == outdata.shape, [indata.shape, outdata.shape], **opt) ]
+        asserts.append( tf.debugging.Assert(tf.math.reduce_min(inbins)==0, [inbins], **opt) )
+        asserts.append( tf.debugging.Assert(tf.math.reduce_max(inbins)==self.nbinsphi-1, [inbins], **opt) )
 
         # bin the output of the neural network
         outbins = tf.histogram_fixed_width_bins(outdata,
                                                 value_range=self.phibounds,
                                                 nbins=self.nbinsphi)
-        ass3 = tf.debugging.Assert(tf.math.reduce_min(outbins)>=0, [outbins], **opt)
-        ass4 = tf.debugging.Assert(tf.math.reduce_max(outbins)<=self.nbinsphi-1, [outbins], **opt)
+        outbins = tf.cast(outbins, dtype=tf.float32)
+        asserts.append( tf.debugging.Assert(tf.math.reduce_min(outbins)>=0, [outbins], **opt) )
+        asserts.append( tf.debugging.Assert(tf.math.reduce_max(outbins)<=self.nbinsphi-1, [outbins], **opt) )
 
-        # convert the bin ids coming before 0 (shifted boundaries) to negative ones
+        # convert bin ids coming before 0 (shifted boundaries) to negative ones
         # if this looks convoluted, blame tensorflow, which still does not support tensor assignment
         # a new tensor must be created instead
-        subtract_max = lambda x: x - tf.math.reduce_max(x)+1
-        where_neg_diff = tf.where(inbins[1:]-inbins[:-1]<0)
-        print('InBins: ', inbins.numpy())
-        #print('Where: ', where_neg_diff)
-        quit()
-
-        print(   inbins[:where_neg_diff[0]] )
-
+        subtract_max = lambda x: x - (tf.math.reduce_max(x)+1)
         inbins = tensorflow_assignment( tensor=inbins,
-                                        mask=tf.concat((tf.ones(inbins[:tf.math.argmin(inbins)].shape[0]),
-                                                        tf.zeros(inbins[tf.math.argmin(inbins):].shape[0])),
-                                                       axis=0),
-                                        op=subtract_max,
+                                        mask=tf.concat((tf.ones(bound_size),
+                                                        tf.zeros(inbins.shape[0]-bound_size)), axis=0),
+                                        lambda_op=subtract_max,
                                        )
         outbins = tensorflow_assignment( tensor=outbins,
-                                         mask=tf.concat((tf.ones(outbins[:tf.math.argmin(outbins)].shape[0]),
-                                                        tf.zeros(outbins[tf.math.argmin(outbins):].shape[0])),
-                                                       axis=0),
-                                         op=subtract_max,
+                                         mask=tf.concat((tf.ones(bound_size),
+                                                         tf.zeros(outbins.shape[0]-bound_size)), axis=0),
+                                         lambda_op=subtract_max,
                                        )
 
         # replicated boundaries should be the same
-        ass5 = tf.debugging.Assert(
-            condition=(indata[inbins<0] ==
-                       indata[inbins>tf.math.reduce_max(inbins)-self.boundary_width]),
-            data=[#indata[inbins<0],
-                  indata[inbins>tf.math.reduce_max(inbins)-self.boundary_width]],
-            **opt)
+        asserts.append( tf.debugging.Assert(
+            condition=are_tensors_equal(indata[:bound_size], indata[-bound_size:]),
+            data=[indata[:bound_size],indata[-bound_size:]],
+            **opt) )
         
-        with tf.control_dependencies([ass1,ass2,ass3,ass4,ass5]):
+        with tf.control_dependencies(asserts):
             # calculate the variance between adjacent bins
             variance_loss = 0
             for ibin in tf.unique(outbins)[:-self.boundary_width]:
                 idxs = (outbins >= ibin) & (outbins <= ibin+self.boundary_width)
                 variance_loss += tf.math.reduce_variance(indata[idxs])
 
-            # calculate the earth-mover's distance between the net output and the original data
-            wasserstein_loss = tf.cumsum(indata) - tf.cumsum(outdata)
-            wasserstein_loss = tf.abs( wasserstein_loss )
-            wasserstein_loss = tf.reduce_sum( wasserstein_loss )
+            wasserstein_loss = tensorflow_wasserstein_1d_loss(indata, outdata)
 
-            boundary_sanity_loss = tf.abs( outdata[outbins<0] -
-                                           outdata[outbins>outbins.max()-self.boundary_width] )
+            boundary_sanity_loss = tf.abs( outdata[-bound_size:] - outdata[:bound_size] )
 
             loss_pars = [ tf.Variable(x, trainable=False) for x in self.pars ]
 
@@ -224,7 +237,7 @@ class TriggerCellDistributor(tf.Module):
     #         tf.TensorSpec(shape=[], dtype=tf.int32))
     # )
     #@tf.function
-    def train(self, indata, inbins):
+    def train(self, indata, inbins, bound_size):
         # Reset the metrics at the start of the next epoch
         self.train_loss.reset_states()
 
@@ -234,12 +247,25 @@ class TriggerCellDistributor(tf.Module):
             tape.watch(inbins)
 
             prediction = self.architecture(indata)
-            loss = self.calc_loss(indata, inbins, prediction)
-        gradients = tape.gradient(loss, model.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+            loss = self.calc_loss(indata, inbins, bound_size, prediction)
+        gradients = tape.gradient(loss, self.architecture.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
         self.train_loss(loss)
         return loss, prediction
 
+    def plot(self, name):
+        """Plots the structure of the used architecture."""
+        assert name.split('.')[1] == 'png'
+        tf.keras.utils.plot_model(
+            self.architecture,
+            to_file=name,
+            show_shapes=True,
+            show_dtype=True,
+            show_layer_names=True,
+            rankdir="TB",
+            expand_nested=True,
+            dpi=96,
+        )
 
 def optimization(algo, **kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
@@ -251,9 +277,13 @@ def optimization(algo, **kw):
                                     kw['WindowSize'] )
 
     train_data = train_data_raw.data_with_boundaries
+    boundary_sizes = train_data_raw.boundary_sizes
+
     #train_data = tf.data.Dataset.from_tensor_slices( train_data_raw )
 
-    for rzslice in train_data:
+    for i,rzslice in enumerate(train_data):
+        if i>0:
+            break
         #look at the first R/z slice only
         indata = tf.convert_to_tensor(rzslice[:,0], dtype=tf.float32)
         inbins = tf.convert_to_tensor(rzslice[:,1], dtype=tf.float32)
@@ -265,9 +295,10 @@ def optimization(algo, **kw):
                                       nbinsphi=kw['NbinsPhi'],
                                       rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
                                       nbinsrz=kw['NbinsRz'] )
+        tcd.plot('model{}.png'.format(i))
 
         for epoch in range(kw['Epochs']):
-            loss, out_dist = tcd.train(indata, inbins)
+            loss, out_dist = tcd.train(indata, inbins, boundary_sizes[i])
             print('Epoch {}, Loss: {}'.format(epoch+1, tcd.train_loss.result()))
 
             
