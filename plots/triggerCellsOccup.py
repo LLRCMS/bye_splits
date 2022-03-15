@@ -305,6 +305,7 @@ if not FLAGS.debug:
 #########################################################################
 tc_backgrounds = []
 for idx,grp in enumerate(groups):
+    breakpoint()
     source = ColumnDataSource(grp)
 
     if FLAGS.log:
