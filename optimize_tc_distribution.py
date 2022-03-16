@@ -248,7 +248,7 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            pars=(3., 1., 1.),
+            pars=(0., 0., 0.),
         )
         tcd.save_architecture_diagram('model{}.png'.format(i))
 
@@ -265,7 +265,7 @@ def optimization(algo, **kw):
 
             plotter.save_data(outdata.numpy())
 
-        plotter.plot()
+        plotter.plot(show_html=True)
 
 if __name__ == "__main__":
     from airflow.airflow_dag import optimization_kwargs

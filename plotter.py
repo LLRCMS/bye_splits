@@ -5,7 +5,7 @@ import os
 import numpy as np
 from bokeh.layouts import column
 from bokeh.models import CustomJS, Slider
-from bokeh.plotting import ColumnDataSource, figure, show, save
+from bokeh.plotting import ColumnDataSource, figure, show
 class Plotter:
     def __init__(self, outname='plots/plotter_out.hdf5', **kw):
         self.outname = outname
@@ -38,10 +38,6 @@ class Plotter:
             self.histos.append( np.histogram(bincounts, bins=20) )
 
     def plot(self, plot_name='plots/ntriggercells.html', show_html=True):
-
-        slider = Slider(start=0, end=self.kw['Epochs'],
-                        value=0, step=1, title="Epoch")
-
         # if the out bin number is larger than `NbinsPhi` (makes no sense but can happen)
         # the shapes will not match
         nelems_max = 0
@@ -49,35 +45,38 @@ class Plotter:
             if len(bc) > nelems_max:
                 nelems_max = len(bc)
 
+        binspad = np.pad(self.bincounts[0],
+                         pad_width=(0,nelems_max-len(self.bincounts[0])))
         s_bincounts = { 'curr_x': np.arange(nelems_max),
-                        'curr_y': np.pad(self.bincounts[0],
-                                         pad_width=(0,nelems_max-len(self.bincounts[0]))) }
+                        'curr_y': binspad/sum(binspad) } # normalize to unity
         s_histocounts = {}
         s_histoedges = {}
 
         for i,(bc,histo) in enumerate(zip(self.bincounts,self.histos)):
             bc_padded = np.pad(bc, pad_width=(0,nelems_max-len(bc)))
-            s_bincounts.update({'bc'+str(i): bc_padded})
+            s_bincounts.update({'bc'+str(i): bc_padded/sum(bc_padded)}) # normalize to unity
+            
             s_histocounts.update({'hcounts'+str(i): histo[0]})
             s_histoedges.update({'hedges'+str(i): histo[1]})
 
         s_bincounts   = ColumnDataSource(data=s_bincounts)
-        s_histocounts = ColumnDataSource(data=s_histocounts)
-        s_histoedges  = ColumnDataSource(data=s_histoedges)
-        plot = figure(width=400, height=400)
+        # s_histocounts = ColumnDataSource(data=s_histocounts)
+        # s_histoedges  = ColumnDataSource(data=s_histoedges)
+        plot = figure(width=1200, height=300, y_range=(0,1))
         plot.circle('curr_x', 'curr_y', source=s_bincounts)
         
-        # callback = CustomJS(args=dict(s_bincounts=s_bincounts,
-        #                               s_histocounts=s_histocounts,
-        #                               s_histoedges=s_histoedges,
-        #                               slider=slider),
-        #                     code="""
-        #                     const data = s_bincounts.data;
-        #                     const slval = slider.value;
-        #                     const curr_y = data['bc2'];
-        #                     source.change.emit();
-        #                     """)
-        # slider.js_on_change('value', callback)
+        callback = CustomJS(args=dict(source=s_bincounts),
+                            code="""
+                            const data = source.data;
+                            const slval = cb_obj.value;
+                            const numberstr = slval.toString();
+                            data['curr_y'] = data['bc'+numberstr];
+                            source.change.emit();
+                            """)
+
+        slider = Slider(start=0, end=self.kw['Epochs'],
+                        value=0, step=1., title='Epoch')
+        slider.js_on_change('value', callback)
         
         # for i,(bc,histo) in enumerate(zip(self.bincounts,self.histos)):
         #     b.graph(idx=i, data=[np.arange(len(bc)),bc],
@@ -86,8 +85,7 @@ class Plotter:
 
         layout = column( slider, plot )
         if show_html:
-            save(layout)
-            #show(layout)
+            show(layout)
             
 
 if __name__ == "__main__":
