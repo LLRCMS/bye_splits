@@ -6,6 +6,7 @@ print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 from tensorflow.keras.layers import Dense, Flatten, Conv1D
 
 from data_processing import preprocess
+from plotter import Plotter
 
 def are_tensors_equal(t1, t2):
     assert t1.shape == t2.shape
@@ -194,7 +195,7 @@ class TriggerCellDistributor(tf.Module):
         self.train_loss(loss_sum)
         return losses, initial_variance, prediction
 
-    def (self, name):
+    def save_architecture_diagram(self, name):
         """Plots the structure of the used architecture."""
         assert name.split('.')[1] == 'png'
         tf.keras.utils.plot_model(
@@ -249,17 +250,22 @@ def optimization(algo, **kw):
             nbinsrz=kw['NbinsRz'],
             pars=(3., 1., 1.),
         )
-        tcd.plot('model{}.png'.format(i))
+        tcd.save_architecture_diagram('model{}.png'.format(i))
 
+        plotter = Plotter(**optimization_kwargs)
         for epoch in range(kw['Epochs']):
-            dictloss, initial_variance, _ = tcd.train()
+            dictloss, initial_variance, outdata = tcd.train()
             dictloss.update({'initial_variance': initial_variance})
             save_scalar_logs(
                 writer=summary_writer,
                 scalar_map=dictloss,
                 epoch=epoch
             )
-            print('Epoch {}, Loss: {}'.format(epoch+1, tcd.train_loss.result()))
+            print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
+
+            plotter.save_data(outdata.numpy())
+
+        plotter.plot()
 
 if __name__ == "__main__":
     from airflow.airflow_dag import optimization_kwargs
