@@ -5,7 +5,7 @@ print("TensorFlow version:", tf.__version__)
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 from tensorflow.keras.layers import Dense, Flatten, Conv1D
 
-from data_processing import preprocess
+from data_processing import preprocess, postprocess
 from plotter import Plotter
 
 def are_tensors_equal(t1, t2):
@@ -97,24 +97,24 @@ class TriggerCellDistributor(tf.Module):
                                                              tf.zeros(inbins.shape[0]-self.boundary_size)), axis=0),
                                              lambda_op=self.subtract_max,
                                             )
-        
-        self.indata_variance = self._calc_local_variance(self.indata, self.inbins)
-        self.initial_wasserstein_distance = None
 
         self.optimizer = tf.keras.optimizers.Adam()
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
-    def calc_loss(self, outdata):
+        self.was_calc_loss_called = False
+
+    def calc_loss(self, originaldata, outdata):
         """
         Calculates the model's loss function. Receives slices in R/z as input.
         Each array value corresponds to a trigger cell.
-        Args: -indata: ordered (ascendent) original phi values
+        Args: -originaldata: similar to originaldata, but after postprocessing (denormalization).
+                 To avoid confusions, `originaldata` should not be used in this method.
               -inbins: ordered (ascendent) original phi bins
               -bound_size: number of replicated trigger cells to satisfy boundary conditions
-              -outdata: neural net phi values output
+              -outdata: neural net postprocessed phi values output
         """
         opt = {'summarize': 10} #number of entries to print if assertion fails
-        asserts = [ tf.debugging.Assert(self.indata.shape == outdata.shape, [self.indata.shape, outdata.shape], **opt) ]
+        asserts = [ tf.debugging.Assert(originaldata.shape == outdata.shape, [originaldata.shape, outdata.shape], **opt) ]
         asserts.append( tf.debugging.Assert(tf.math.reduce_min(self.inbins)==-self.boundary_width, [self.inbins], **opt) )
         asserts.append( tf.debugging.Assert(tf.math.reduce_max(self.inbins)==self.nbinsphi-1, [self.inbins], **opt) )
 
@@ -137,16 +137,20 @@ class TriggerCellDistributor(tf.Module):
 
         # replicated boundaries should be the same
         asserts.append( tf.debugging.Assert(
-            condition=are_tensors_equal(self.indata[:self.boundary_size], self.indata[-self.boundary_size:]),
-            data=[self.indata[:self.boundary_size],self.indata[-self.boundary_size:]],
+            condition=are_tensors_equal(originaldata[:self.boundary_size], originaldata[-self.boundary_size:]),
+            data=[originaldata[:self.boundary_size],originaldata[-self.boundary_size:]],
             **opt) )
         
         with tf.control_dependencies(asserts):
             variance_loss = self._calc_local_variance(outdata, outbins)
 
-            wasserstein_loss = tensorflow_wasserstein_1d_loss(self.indata, outdata)
-            if self.initial_wasserstein_distance is None: #the first time
-               self.initial_wasserstein_distance = wasserstein_loss
+            wasserstein_loss = tensorflow_wasserstein_1d_loss(originaldata, outdata)
+
+            if not self.was_calc_loss_called: # run only first time `calc_loss` is called
+                self.was_calc_loss_called = True
+                self.initial_wasserstein_distance = wasserstein_loss
+                self.indata_variance = self._calc_local_variance(originaldata, self.inbins)
+               
             wasserstein_loss *= (self.indata_variance/self.initial_wasserstein_distance)
 
             boundary_sanity_loss = tf.reduce_sum(
@@ -162,7 +166,10 @@ class TriggerCellDistributor(tf.Module):
                  )
 
     def _calc_local_variance(self, data, bins):
-        """Calculates the variance between adjacent bins."""
+        """
+        Calculates the variance between adjacent bins.
+        Adjacent here refers to the bin index, and not necessarily to physical location.
+        """
         variance_loss = 0
         unique_bins = tf.unique(bins[:-self.boundary_size])[0]
         for ibin in unique_bins:
@@ -186,7 +193,10 @@ class TriggerCellDistributor(tf.Module):
             tape.watch(self.inbins)
 
             prediction = self.architecture(self.indata)
-            losses, initial_variance, _ = self.calc_loss(prediction)
+            prediction = postprocess(prediction, self.phibounds)
+            original_data = postprocess(self.indata, self.phibounds)
+
+            losses, initial_variance, _ = self.calc_loss(original_data, prediction)
             loss_sum = tf.reduce_sum(list(losses.values()))
 
         gradients = tape.gradient(loss_sum, self.architecture.trainable_variables)
@@ -226,6 +236,7 @@ def optimization(algo, **kw):
     _, train_data, boundary_sizes = preprocess(
         data=store_in['data'],
         nbins_phi=kw['NbinsPhi'],
+        phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
         nbins_rz=kw['NbinsRz'],
         window_size=kw['WindowSize']
     )
@@ -248,9 +259,9 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            pars=(0., 0., 0.),
+            pars=(3., 1., 1.),
         )
-        tcd.save_architecture_diagram('model{}.png'.format(i))
+        #tcd.save_architecture_diagram('model{}.png'.format(i))
 
         plotter = Plotter(**optimization_kwargs)
         for epoch in range(kw['Epochs']):

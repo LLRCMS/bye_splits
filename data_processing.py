@@ -3,7 +3,10 @@ Functions used for data processing.
 """
 import numpy as np
 
-def preprocess(data, nbins_phi, nbins_rz, window_size):
+def preprocess( data,
+                nbins_phi, phi_bounds,
+                nbins_rz,
+                window_size ):
     """Prepare the data to serve as input to the net in R/z slices"""
     # data variables' indexes
     assert data.attrs['columns'].tolist() == ['Rz', 'phi', 'Rz_bin', 'phi_bin']
@@ -49,12 +52,12 @@ def preprocess(data, nbins_phi, nbins_rz, window_size):
 
         return data
 
-    def _normalize(data, index):
+    def _normalize(data, phi_bounds, index):
         """
         Standard max-min normalization of column `index`.
         """
-        ref = data[:,index]
-        ref = (ref-ref.min()) / (ref.max()-ref.min())
+        data[:,index] -= phi_bounds[0]
+        data[:,index] /= phi_bounds[1]-phi_bounds[0]
         return data
 
     def _set_boundary_conditions(data, window_size, phibin_idx, nbins_phi):
@@ -76,6 +79,7 @@ def preprocess(data, nbins_phi, nbins_rz, window_size):
 
     data = _normalize(
         data,
+        phi_bounds,
         index=phi_idx
     )
     data = _split(
@@ -95,5 +99,20 @@ def preprocess(data, nbins_phi, nbins_rz, window_size):
         data_with_boundaries,
         idxs=[rz_idx, rzbin_idx]
     )
-
+    
     return data, data_with_boundaries, boundary_sizes
+
+def postprocess(data, phi_bounds):
+    """Adapt the output of the neural network."""
+    def _denormalize(data, phi_bounds):
+        """Opposite of preprocess._normalize()."""
+        data *= (phi_bounds[1]-phi_bounds[0])
+        data += phi_bounds[0]
+        return data
+
+    data = _denormalize(
+        data,
+        phi_bounds,
+    )
+    
+    return data
