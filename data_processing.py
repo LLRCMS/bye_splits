@@ -2,6 +2,7 @@
 Functions used for data processing.
 """
 import numpy as np
+import copy
 
 def preprocess( data,
                 nbins_phi, phi_bounds,
@@ -104,15 +105,16 @@ def preprocess( data,
 
 def postprocess(data, phi_bounds):
     """Adapt the output of the neural network."""
+
     def _denormalize(data, phi_bounds):
         """Opposite of preprocess._normalize()."""
-        data *= (phi_bounds[1]-phi_bounds[0])
-        data += phi_bounds[0]
-        return data
+        new_data = data * (phi_bounds[1]-phi_bounds[0])
+        new_data += phi_bounds[0]
+        return new_data
 
-    data = _denormalize(
+    new_data = _denormalize(
         data,
         phi_bounds,
     )
     
-    return data
+    return new_data

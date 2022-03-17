@@ -148,7 +148,7 @@ class TriggerCellDistributor(tf.Module):
 
             if not self.was_calc_loss_called: # run only first time `calc_loss` is called
                 self.was_calc_loss_called = True
-                self.initial_wasserstein_distance = wasserstein_loss
+r                self.initial_wasserstein_distance = wasserstein_loss
                 self.indata_variance = self._calc_local_variance(originaldata, self.inbins)
                
             wasserstein_loss *= (self.indata_variance/self.initial_wasserstein_distance)
@@ -230,7 +230,7 @@ def save_scalar_logs(writer, scalar_map, epoch):
 
 def optimization(algo, **kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
-    #store_out = h5py.File(kw['OptimizationOut'], mode='w')
+    plotter = Plotter(**optimization_kwargs)
 
     assert len(store_in.keys()) == 1
     _, train_data, boundary_sizes = preprocess(
@@ -241,6 +241,9 @@ def optimization(algo, **kw):
         window_size=kw['WindowSize']
     )
 
+    orig_data = postprocess(train_data[0][:,0], phi_bounds=(kw['MinPhi'],kw['MaxPhi']))
+    plotter.save_orig_data( orig_data )
+    
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
 
@@ -259,11 +262,10 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            pars=(3., 1., 1.),
+            pars=(6., 1., 1.),
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
 
-        plotter = Plotter(**optimization_kwargs)
         for epoch in range(kw['Epochs']):
             dictloss, initial_variance, outdata = tcd.train()
             dictloss.update({'initial_variance': initial_variance})
@@ -274,7 +276,7 @@ def optimization(algo, **kw):
             )
             print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
 
-            plotter.save_data(outdata.numpy())
+            plotter.save_gen_data(outdata.numpy())
 
         plotter.plot(show_html=True)
 
