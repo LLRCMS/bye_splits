@@ -99,8 +99,13 @@ class Plotter:
         #     #b.histogram( idx=i, data=histo, color='orange' )
 
         assert sum(self.orig_data) == sum(self.bincounts[0])
-        plot_orig = figure(width=1200, height=300, y_range=(logpad,1), y_axis_type="log")
-        plot_orig.circle(np.arange(len(self.orig_data)), self.orig_data/sum(self.orig_data),
+        plot_orig = figure(width=1200,
+                           height=300,
+                           #y_range=(logpad,1),
+                           y_axis_type="linear")
+        plot_orig.circle(np.arange(len(self.orig_data)),
+                         #self.orig_data/sum(self.orig_data),
+                         self.orig_data,
                          color='black')
 
         layout = column( slider, plot_gen, plot_orig )

@@ -148,7 +148,7 @@ class TriggerCellDistributor(tf.Module):
 
             if not self.was_calc_loss_called: # run only first time `calc_loss` is called
                 self.was_calc_loss_called = True
-r                self.initial_wasserstein_distance = wasserstein_loss
+                self.initial_wasserstein_distance = wasserstein_loss
                 self.indata_variance = self._calc_local_variance(originaldata, self.inbins)
                
             wasserstein_loss *= (self.indata_variance/self.initial_wasserstein_distance)
