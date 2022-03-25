@@ -4,11 +4,12 @@ import tensorflow as tf
 print("TensorFlow version:", tf.__version__)
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 from tensorflow.keras.layers import Dense, Flatten, Conv1D
+from tensorflow.keras.layers import ReLU, LeakyReLU
 
 from data_processing import preprocess, postprocess
 #from plotter import Plotter
 
-DATAMAX = 5
+DATAMAX = 5000
 DATAMIN = 0
 
 def are_tensors_equal(t1, t2):
@@ -38,18 +39,20 @@ class Architecture(tf.keras.Model):
         assert len(inshape)==1
         self.inshape = inshape
         
-        self.dense1 = Dense( units=1000,
-                             activation='sigmoid',
-                             use_bias=True )
+        self.dense1 = Dense( units=100,
+                             activation='selu',
+                             name='first dense')
         self.dense2 = Dense( units=self.inshape[0],
-                             activation='sigmoid',
-                             use_bias=True )
+                             activation='selu',
+                             name='second dense')
 
     def __call__(self, x):
         x = tf.cast(x, dtype=tf.float32)
         x = tf.reshape(x, shape=(-1, x.shape[0]))
         x = self.dense1(x)
+        #x = ReLU()(x)
         x = self.dense2(x)
+        #x = ReLU()(x)
         x = tf.squeeze(x)
         return x
 
@@ -137,10 +140,10 @@ class TriggerCellDistributor(tf.Module):
         #print(self.architecture.trainable_variables)
 
         gradients = tape.gradient(loss_sum, self.architecture.trainable_variables)
-
+        
         self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
         self.train_loss(loss_sum)
-        return losses, prediction
+        return losses, prediction, gradients, self.architecture.trainable_variables
 
     def save_architecture_diagram(self, name):
         """Plots the structure of the used architecture."""
@@ -165,6 +168,17 @@ def save_scalar_logs(writer, scalar_map, epoch):
         for k,v in scalar_map.items():
             tf.summary.scalar(k, v, step=epoch)
 
+def save_gradient_logs(writer, gradients, train_variables, epoch):
+    """
+    Saves tensorflow info for Tensorboard visualization.
+    `scalar_map` expects a dict of (scalar_name, scalar_value) pairs.
+    """
+    with writer.as_default():
+        # In eager mode, grads does not have name, so we get names from model.trainable_weights
+        for weights, grads in zip(train_variables, gradients):
+            tf.summary.histogram(
+                weights.name.replace(':', '_')+'_grads', data=grads, step=epoch)
+            
 def optimization(algo, **kw):
     #store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
     #plotter = Plotter(**optimization_kwargs)
@@ -210,11 +224,17 @@ def optimization(algo, **kw):
         #tcd.save_architecture_diagram('model{}.png'.format(i))
 
         for epoch in range(kw['Epochs']):
-            dictloss, outdata = tcd.train()
+            dictloss, outdata, gradients, train_vars = tcd.train()
             #dictloss.update({'initial_variance': initial_variance})
             save_scalar_logs(
                 writer=summary_writer,
                 scalar_map=dictloss,
+                epoch=epoch
+            )
+            save_gradient_logs(
+                writer=summary_writer,
+                gradients=gradients,
+                train_variables=train_vars,
                 epoch=epoch
             )
             print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
