@@ -69,7 +69,7 @@ class TriggerCellDistributor(tf.Module):
     def __init__( self, indata, inbins, bound_size,
                   kernel_size, window_size,
                   phibounds, nbinsphi, rzbounds, nbinsrz,
-                  pars=(1., 1., 1.) ):
+                  pars ):
         """
         Manages quantities related to the neural model being used.
         Args: 
@@ -87,7 +87,7 @@ class TriggerCellDistributor(tf.Module):
 
         self.architecture = Architecture(self.indata.shape, kernel_size)
 
-        assert len(pars)==3
+        assert len(pars)==4
         self.pars = pars
 
         self.subtract_max = lambda x: x - (tf.math.reduce_max(x)+1)
@@ -98,7 +98,7 @@ class TriggerCellDistributor(tf.Module):
                                              lambda_op=self.subtract_max,
                                             )
 
-        self.optimizer = tf.keras.optimizers.Adam()
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1.e-3)
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
         self.was_calc_loss_called = False
@@ -142,8 +142,12 @@ class TriggerCellDistributor(tf.Module):
             **opt) )
         
         with tf.control_dependencies(asserts):
-            variance_loss = self._calc_local_variance(outdata, outbins)
+            print('Out: ', outdata.shape, outdata[:1])
+            print('In:  ', originaldata.shape, originaldata[:1])
+            print()
 
+            equality_loss = tf.reduce_sum( tf.abs(outdata[:1]-originaldata[:1]) )
+            variance_loss = self._calc_local_variance(outdata, outbins)
             wasserstein_loss = tensorflow_wasserstein_1d_loss(originaldata, outdata)
 
             if not self.was_calc_loss_called: # run only first time `calc_loss` is called
@@ -158,9 +162,10 @@ class TriggerCellDistributor(tf.Module):
 
             loss_pars = [ tf.Variable(x, trainable=False) for x in self.pars ]
 
-        return ( { 'local_variance_loss': loss_pars[0] * variance_loss,
-                   'wasserstein_loss':    loss_pars[1] * wasserstein_loss,
-                   'boundary_loss':       loss_pars[2] * boundary_sanity_loss },
+        return ( { 'equality_loss':       loss_pars[0] * equality_loss,
+                   'local_variance_loss': loss_pars[1] * variance_loss,
+                   'wasserstein_loss':    loss_pars[2] * wasserstein_loss,
+                   'boundary_loss':       loss_pars[3] * boundary_sanity_loss },
                  self.indata_variance,
                  tf.unique(outbins[:-self.boundary_size])[0]
                  )
@@ -262,7 +267,7 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            pars=(6., 1., 1.),
+            pars=(1., 0., 0., 0.),
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
 
