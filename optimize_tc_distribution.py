@@ -1,4 +1,5 @@
 import h5py
+from tqdm import tqdm
 import datetime
 import tensorflow as tf
 print("TensorFlow version:", tf.__version__)
@@ -36,32 +37,47 @@ class Architecture(tf.keras.Model):
 
         self.inshape = inshape
 
-        self.conv1 = Conv1D( input_shape=(self.inshape[0],1),
-                             filters=32,
-                             kernel_size=kernel_size,
-                             strides=1,
-                             padding='same', #'valid' means no padding
-                             activation='relu',
-                             use_bias=True )
-        self.conv2 = Conv1D( filters=8,
-                             kernel_size=kernel_size,
-                             strides=1,
-                             padding='same', #'valid' means no padding
-                             activation='relu',
-                             use_bias=True )
-        self.flatten = Flatten()
-        self.dense = Dense( units=self.inshape[0],
-                            activation='relu',
-                            use_bias=True )
+        activ = 'selu'
+        # kernel_init = tf.keras.initializers.LecunNormal() #recommended for SELUs
+        # conv_opt = dict( strides=1,
+        #                  kernel_size=kernel_size,
+        #                  padding='same', #'valid' means no padding
+        #                  activation=activ,
+        #                  kernel_initializer=kernel_init,
+        #                  use_bias=True )
+
+        # self.conv1 = Conv1D( input_shape=(self.inshape[0],1),
+        #                      filters=32,
+        #                      **conv_opt )
+        # self.conv2 = Conv1D( filters=8,
+        #                      **conv_opt )
+        # self.flatten = Flatten()
+        # self.dense = Dense( units=self.inshape[0],
+        #                     activation=activ,
+        #                     use_bias=True )
+        
+        self.dense1 = Dense( units=100,
+                             activation=activ,
+                             name='first dense')
+        self.dense2 = Dense( units=self.inshape[0],
+                             activation=activ,
+                             name='second dense')
 
     def __call__(self, x):
+        # x = tf.cast(x, dtype=tf.float32)
+        # x = tf.reshape(x, shape=(-1, x.shape[0], 1))
+        # x = self.conv1(x)
+        # x = self.conv2(x)
+        # x = self.flatten(x)
+        # x = self.dense(x)
+        # x = tf.squeeze(x)
+
         x = tf.cast(x, dtype=tf.float32)
-        x = tf.reshape(x, shape=(-1, x.shape[0], 1))
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.flatten(x)
-        x = self.dense(x)
+        x = tf.reshape(x, shape=(-1, x.shape[0]))
+        x = self.dense1(x)
+        x = self.dense2(x)
         x = tf.squeeze(x)
+
         return x
 
 class TriggerCellDistributor(tf.Module):
@@ -142,9 +158,9 @@ class TriggerCellDistributor(tf.Module):
             **opt) )
         
         with tf.control_dependencies(asserts):
-            print('Out: ', outdata.shape, outdata[:1])
-            print('In:  ', originaldata.shape, originaldata[:1])
-            print()
+            # print('Out: ', outdata.shape, outdata[:1])
+            # print('In:  ', originaldata.shape, originaldata[:1])
+            # print()
 
             equality_loss = tf.reduce_sum( tf.abs(outdata[:1]-originaldata[:1]) )
             variance_loss = self._calc_local_variance(outdata, outbins)
@@ -208,7 +224,7 @@ class TriggerCellDistributor(tf.Module):
 
         self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
         self.train_loss(loss_sum)
-        return losses, initial_variance, prediction
+        return losses, initial_variance, prediction, gradients, self.architecture.trainable_variables
 
     def save_architecture_diagram(self, name):
         """Plots the structure of the used architecture."""
@@ -232,6 +248,18 @@ def save_scalar_logs(writer, scalar_map, epoch):
     with writer.as_default():
         for k,v in scalar_map.items():
             tf.summary.scalar(k, v, step=epoch)
+
+def save_gradient_logs(writer, gradients, train_variables, epoch):
+    """
+    Saves tensorflow info for Tensorboard visualization.
+    `scalar_map` expects a dict of (scalar_name, scalar_value) pairs.
+    """
+    with writer.as_default():
+        # In eager mode, grads does not have name, so we get names from model.trainable_weights
+        for weights, grads in zip(train_variables, gradients):
+            tf.summary.histogram(
+                weights.name.replace(':', '_')+'_grads', data=grads, step=epoch)
+
 
 def optimization(algo, **kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
@@ -271,15 +299,22 @@ def optimization(algo, **kw):
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
 
-        for epoch in range(kw['Epochs']):
-            dictloss, initial_variance, outdata = tcd.train()
+        for epoch in tqdm(range(kw['Epochs'])):
+            dictloss, initial_variance, outdata, gradients, train_vars = tcd.train()
             dictloss.update({'initial_variance': initial_variance})
             save_scalar_logs(
                 writer=summary_writer,
                 scalar_map=dictloss,
                 epoch=epoch
             )
-            print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
+            save_gradient_logs(
+                writer=summary_writer,
+                gradients=gradients,
+                train_variables=train_vars,
+                epoch=epoch
+            )
+
+            #print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
 
             plotter.save_gen_data(outdata.numpy())
 

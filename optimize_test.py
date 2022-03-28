@@ -1,4 +1,6 @@
+import numpy as np
 import h5py
+from tqdm import tqdm
 import datetime
 import tensorflow as tf
 print("TensorFlow version:", tf.__version__)
@@ -7,10 +9,11 @@ from tensorflow.keras.layers import Dense, Flatten, Conv1D
 from tensorflow.keras.layers import ReLU, LeakyReLU
 
 from data_processing import preprocess, postprocess
-#from plotter import Plotter
+from plotter import Plotter
 
-DATAMAX = 5000
-DATAMIN = 0
+DATAPOINTS = 5000
+DATAMAX = 100.
+DATAMIN = 0.
 
 def are_tensors_equal(t1, t2):
     assert t1.shape == t2.shape
@@ -50,9 +53,7 @@ class Architecture(tf.keras.Model):
         x = tf.cast(x, dtype=tf.float32)
         x = tf.reshape(x, shape=(-1, x.shape[0]))
         x = self.dense1(x)
-        #x = ReLU()(x)
         x = self.dense2(x)
-        #x = ReLU()(x)
         x = tf.squeeze(x)
         return x
 
@@ -135,7 +136,7 @@ class TriggerCellDistributor(tf.Module):
 
             losses = self.calc_loss(original_data, prediction)
             loss_sum = tf.reduce_sum(list(losses.values()))
-            print('Orig: ', original_data)
+            #print('Orig: ', original_data)
 
         #print(self.architecture.trainable_variables)
 
@@ -181,13 +182,26 @@ def save_gradient_logs(writer, gradients, train_variables, epoch):
             
 def optimization(algo, **kw):
     #store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
-    #plotter = Plotter(**optimization_kwargs)
-
+    plotter = Plotter(**optimization_kwargs)
+    
     #assert len(store_in.keys()) == 1
     #train_data = [tf.constant([.6]) for _ in range(2)]#
-    train_data = [tf.range(DATAMAX, dtype=tf.float32) for _ in range(2)]
+    # train_data = [tf.random.uniform(shape=np.array([DATAPOINTS]),
+    #                                 minval=DATAMIN,
+    #                                 maxval=DATAMAX,
+    #                                 dtype=tf.float32) for _ in range(2)]
+    train_data = [tf.range(start=DATAMIN,limit=DATAMAX,
+                           delta=float((DATAMAX-DATAMIN))/DATAPOINTS,
+                           dtype=tf.float32) for _ in range(2)]
+
+    plotter.save_orig_data( train_data[0],
+                            bins=[x for x in range(int(DATAMIN), int(DATAMAX)+1)],
+                            minlength=int(DATAMAX) )
+    
     train_data[0] -= DATAMIN
     train_data[0] /= DATAMAX-DATAMIN
+
+    #orig_data = postprocess(train_data[0], phi_bounds=(DATAMIN,DATAMAX))
 
     #_, train_data, boundary_sizes = preprocess(
     #     data=store_in['data'],
@@ -223,7 +237,7 @@ def optimization(algo, **kw):
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
 
-        for epoch in range(kw['Epochs']):
+        for epoch in tqdm(range(kw['Epochs'])):
             dictloss, outdata, gradients, train_vars = tcd.train()
             #dictloss.update({'initial_variance': initial_variance})
             save_scalar_logs(
@@ -237,15 +251,16 @@ def optimization(algo, **kw):
                 train_variables=train_vars,
                 epoch=epoch
             )
-            print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
-            print('In: ', train_data)
-            print('Out: ', outdata)
-            print()
+            #print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
+            #print('In: ', train_data)
+            #print('Out: ', outdata)
+            #print()
+            outdata = postprocess(outdata, (DATAMIN,DATAMAX))
+            plotter.save_gen_data( outdata.numpy(),
+                                   bins=[x for x in range(int(DATAMIN), int(DATAMAX))],
+                                   minlength=int(DATAMAX) )
 
-
-            #plotter.save_gen_data(outdata.numpy())
-
-        #plotter.plot(show_html=True)
+        plotter.plot(minval=-1, maxval=52, density=False, show_html=False)
 
 if __name__ == "__main__":
     from airflow.airflow_dag import optimization_kwargs

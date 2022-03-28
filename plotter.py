@@ -5,7 +5,7 @@ import os
 import numpy as np
 from bokeh.layouts import column
 from bokeh.models import CustomJS, Slider
-from bokeh.plotting import ColumnDataSource, figure, show
+from bokeh.plotting import ColumnDataSource, figure, show, save
 class Plotter:
     def __init__(self, outname='plots/plotter_out.hdf5', **kw):
         self.outname = outname
@@ -22,18 +22,23 @@ class Plotter:
         self.bincounts = []
         self.histos = []
 
-    def save_orig_data(self, data):
+    def save_orig_data(self, data, bins=None, minlength=None):
         """
         Plots the original number of trigger cells per bin.
         `data` should be a list of trigger cell phi positions, one per R/z slice.
         """
         if isinstance(data, (tuple,list)):
             raise ValueError('This method cannot be applied to a data list.')
-        bins = np.digitize( data, bins=self.kw['PhiBinEdges'])
-        bincounts = np.bincount(bins, minlength=self.kw['NbinsPhi'])
+
+        bins = self.kw['PhiBinEdges'] if bins is None else bins
+        minlength = self.kw['NbinsPhi'] if minlength is None else minlength
+        
+        bins = np.digitize(data, bins=bins)
+        bincounts = np.bincount(bins, minlength=minlength)
+
         self.orig_data = bincounts
 
-    def save_gen_data(self, data):
+    def save_gen_data(self, data, bins=None, minlength=None):
         """
         Plots the number of trigger cells per bin as output by the learning framework.
         `data` should be a list of trigger cell phi positions, one per R/z slice.
@@ -41,14 +46,19 @@ class Plotter:
         if not isinstance(data, (tuple,list)):
             data = [ data ]
 
+        bins = self.kw['PhiBinEdges'] if bins is None else bins
+        minlength = self.kw['PhiBinEdges'] if minlength is None else minlength
+        
         for i,rzslice in enumerate(data):
-            bins = np.digitize( rzslice, bins=self.kw['PhiBinEdges'])
-            bincounts = np.bincount(bins, minlength=self.kw['NbinsPhi'])
+            bins = np.digitize( rzslice, bins=bins)
+            bincounts = np.bincount(bins, minlength=minlength)
 
             self.bincounts.append( bincounts )
             self.histos.append( np.histogram(bincounts, bins=20) )
 
-    def plot(self, plot_name='plots/ntriggercells.html', show_html=True):
+    def plot(self, plot_name='plots/ntriggercells.html',
+             minval=None, maxval=None,
+             density=False, show_html=False):
         """Plots the data collected by the save_* methods."""
         assert self.orig_data is not None
         assert len(self.bincounts) > 0
@@ -63,21 +73,32 @@ class Plotter:
 
         binspad = np.pad(self.bincounts[0],
                          pad_width=(0,nelems_max-len(self.bincounts[0])))
-        s_bincounts = { 'curr_x': np.arange(nelems_max),
-                        'curr_y': binspad/sum(binspad) + logpad } # normalize to unity
+        s_bincounts = { 'curr_x': np.arange(nelems_max) }
+        if density:
+            s_bincounts.update( {'curr_y': binspad/sum(binspad) + logpad} )
+        else:
+            s_bincounts.update( {'curr_y': binspad} )
         s_histocounts = {}
         s_histoedges = {}
 
         for i,(bc,histo) in enumerate(zip(self.bincounts,self.histos)):
             bc_padded = np.pad(bc, pad_width=(0,nelems_max-len(bc)))
-            s_bincounts.update({'bc'+str(i): (bc_padded)/sum(bc_padded) + logpad}) # normalize to unity
+            if density:
+                s_bincounts.update({'bc'+str(i): (bc_padded)/sum(bc_padded) + logpad})
+            else:
+                s_bincounts.update({'bc'+str(i): (bc_padded)})
             s_histocounts.update({'hcounts'+str(i): histo[0]})
             s_histoedges.update({'hedges'+str(i): histo[1]})
 
         s_bincounts   = ColumnDataSource(data=s_bincounts)
         # s_histocounts = ColumnDataSource(data=s_histocounts)
         # s_histoedges  = ColumnDataSource(data=s_histoedges)
-        plot_gen = figure(width=1200, height=300, y_range=(logpad,1), y_axis_type="log")
+        y_axis_type = 'log' if density else 'linear'
+        if minval is None or maxval is None:
+            y_range = (logpad,1) if density else (np.min(binspad),np.max(binspad))
+        else:
+            y_range = (logpad,1) if density else (minval,maxval)
+        plot_gen = figure(width=1200, height=300, y_range=y_range, y_axis_type=y_axis_type)
         plot_gen.circle('curr_x', 'curr_y', source=s_bincounts)
         
         callback = CustomJS(args=dict(source=s_bincounts),
@@ -111,6 +132,8 @@ class Plotter:
         layout = column( slider, plot_gen, plot_orig )
         if show_html:
             show(layout)
+        else:
+            save(layout)
             
 
 if __name__ == "__main__":
