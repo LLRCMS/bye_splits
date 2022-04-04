@@ -12,7 +12,8 @@ from data_processing import preprocess, postprocess
 from plotter import Plotter
 
 DATAPOINTS = 5000
-DATAMAX = 100.
+NBINS = 100
+DATAMAX = 2*DATAPOINTS/NBINS
 DATAMIN = 0.
 
 def are_tensors_equal(t1, t2):
@@ -186,18 +187,24 @@ def optimization(algo, **kw):
     
     #assert len(store_in.keys()) == 1
     #train_data = [tf.constant([.6]) for _ in range(2)]#
-    # train_data = [tf.random.uniform(shape=np.array([DATAPOINTS]),
-    #                                 minval=DATAMIN,
-    #                                 maxval=DATAMAX,
-    #                                 dtype=tf.float32) for _ in range(2)]
-    train_data = [tf.range(start=DATAMIN,limit=DATAMAX,
-                           delta=float((DATAMAX-DATAMIN))/DATAPOINTS,
-                           dtype=tf.float32) for _ in range(2)]
-
+    nbins = tf.random.uniform(shape=np.array([NBINS]),
+                              minval=0,
+                              maxval=int(DATAMAX),
+                              dtype=tf.int32)
+    for ib in range(NBINS):
+        new_tensor = tf.random.uniform(shape=np.array([nbins[ib]]),
+                                       minval=ib,
+                                       maxval=ib+1.,
+                                       dtype=tf.float32)
+        if ib==0:
+            train_data = new_tensor
+        else:
+            train_data = tf.concat([train_data, new_tensor], axis=0, name='concat')
+    train_data = [train_data]
     plotter.save_orig_data( train_data[0],
-                            bins=[x for x in range(int(DATAMIN), int(DATAMAX)+1)],
-                            minlength=int(DATAMAX) )
-    
+                            bins=[x for x in range(0, int(NBINS)+1)],
+                            minlength=int(NBINS) )
+
     train_data[0] -= DATAMIN
     train_data[0] /= DATAMAX-DATAMIN
 
