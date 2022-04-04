@@ -43,8 +43,8 @@ class Architecture(tf.keras.Model):
         assert len(inshape)==1
         self.inshape = inshape
         
-        self.dense1 = Dense( units=100,
-                             activation='selu',
+        self.dense1 = Dense( units=50,
+                             activation='relu',
                              name='first dense')
         self.dense2 = Dense( units=self.inshape[0],
                              activation='selu',
@@ -55,7 +55,7 @@ class Architecture(tf.keras.Model):
         x = tf.reshape(x, shape=(-1, x.shape[0]))
         x = self.dense1(x)
         x = self.dense2(x)
-        x = tf.squeeze(x)
+        x = tf.squeeze(x)        
         return x
 
 class TriggerCellDistributor(tf.Module):
@@ -65,6 +65,7 @@ class TriggerCellDistributor(tf.Module):
                   # kernel_size, window_size,
                   # phibounds, nbinsphi, rzbounds, nbinsrz,
                   # pars
+                  pretrained,
                  ):
         """
         Manages quantities related to the neural model being used.
@@ -80,8 +81,11 @@ class TriggerCellDistributor(tf.Module):
         # self.boundary_width = window_size-1
         # self.phibounds, self.nbinsphi = phibounds, nbinsphi
         # self.rzbounds, self.nbinsrz = rzbounds, nbinsrz
+        self.pretrained = pretrained
+        self.first_train = True
 
         self.architecture = Architecture(self.indata.shape)
+        self.model_name = 'data/test_model/'
 
         # assert len(pars)==1
         # self.pars = pars
@@ -119,7 +123,7 @@ class TriggerCellDistributor(tf.Module):
                   }
                 )
 
-    def train(self):
+    def train(self, save=False):
         # Reset the metrics at the start of the next epoch
         self.train_loss.reset_states()
 
@@ -129,6 +133,14 @@ class TriggerCellDistributor(tf.Module):
             # tape.watch(self.inbins)
 
             prediction = self.architecture(self.indata)
+
+            if self.pretrained and self.first_train:
+                prediction = self.load_model()
+                self.first_train = False
+                
+            if save:
+                self.save_model()
+
             #prediction = postprocess(prediction, self.phibounds)
             #prediction = postprocess(prediction, (DATAMIN,DATAMAX))
             #original_data = postprocess(self.indata, self.phibounds)
@@ -161,6 +173,12 @@ class TriggerCellDistributor(tf.Module):
             dpi=96,
         )
 
+    def save_model(self):
+        self.architecture.save_weights(self.model_name)
+
+    def load_model(self):
+        self.architecture.load_weights(self.model_name)
+
 def save_scalar_logs(writer, scalar_map, epoch):
     """
     Saves tensorflow info for Tensorboard visualization.
@@ -183,16 +201,16 @@ def save_gradient_logs(writer, gradients, train_variables, epoch):
             
 def optimization(algo, **kw):
     #store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
-    plotter = Plotter(**optimization_kwargs)
+    plotter = Plotter(**kw)
     
     #assert len(store_in.keys()) == 1
     #train_data = [tf.constant([.6]) for _ in range(2)]#
-    nbins = tf.random.uniform(shape=np.array([NBINS]),
-                              minval=0,
-                              maxval=int(DATAMAX),
-                              dtype=tf.int32)
+    npoints_per_bin = tf.random.uniform(shape=np.array([NBINS]),
+                                        minval=0,
+                                        maxval=int(DATAMAX),
+                                        dtype=tf.int32)
     for ib in range(NBINS):
-        new_tensor = tf.random.uniform(shape=np.array([nbins[ib]]),
+        new_tensor = tf.random.uniform(shape=np.array([npoints_per_bin[ib]]),
                                        minval=ib,
                                        maxval=ib+1.,
                                        dtype=tf.float32)
@@ -241,11 +259,13 @@ def optimization(algo, **kw):
             # rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             # nbinsrz=kw['NbinsRz'],
             # pars=(1., 0., 0., 0.),
+            pretrained=kw['Pretrain']
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
 
         for epoch in tqdm(range(kw['Epochs'])):
-            dictloss, outdata, gradients, train_vars = tcd.train()
+            should_save = True if epoch%20==0 else False
+            dictloss, outdata, gradients, train_vars = tcd.train(save=should_save)
             #dictloss.update({'initial_variance': initial_variance})
             save_scalar_logs(
                 writer=summary_writer,
@@ -267,7 +287,7 @@ def optimization(algo, **kw):
                                    bins=[x for x in range(int(DATAMIN), int(DATAMAX))],
                                    minlength=int(DATAMAX) )
 
-        plotter.plot(minval=-1, maxval=52, density=False, show_html=False)
+        plotter.plot(minval=-1, maxval=DATAMAX+2, density=False, show_html=False)
 
 if __name__ == "__main__":
     from airflow.airflow_dag import optimization_kwargs

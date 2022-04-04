@@ -56,11 +56,11 @@ class Architecture(tf.keras.Model):
         #                     activation=activ,
         #                     use_bias=True )
         
-        self.dense1 = Dense( units=100,
-                             activation=activ,
+        self.dense1 = Dense( units=50,
+                             activation='relu',
                              name='first dense')
         self.dense2 = Dense( units=self.inshape[0],
-                             activation=activ,
+                             activation='selu',
                              name='second dense')
 
     def __call__(self, x):
