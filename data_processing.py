@@ -4,117 +4,125 @@ Functions used for data processing.
 import numpy as np
 import copy
 
-def preprocess( data,
-                nbins_phi, phi_bounds,
-                nbins_rz,
-                window_size ):
-    """Prepare the data to serve as input to the net in R/z slices"""
-    # data variables' indexes
-    assert data.attrs['columns'].tolist() == ['Rz', 'phi', 'Rz_bin', 'phi_bin']
+class DataProcessing:
+    def __init__(self, phi_bounds):
+        self.max_bound = 1.
+        self.min_bound = -1.
 
-    rz_idx = 0
-    phi_idx = 1
-    rzbin_idx = 2
-    phibin_idx = 3
+        self.phi_bounds = phi_bounds
+        self.a_norm = (self.max_bound-self.min_bound)
+        self.a_norm /= (self.phi_bounds[1]-self.phi_bounds[0])
+        self.b_norm = self.max_bound - self.a_norm * self.phi_bounds[1]
+                
+    def preprocess( self, data,
+                    nbins_phi,
+                    nbins_rz,
+                    window_size ):
+        """Prepare the data to serve as input to the net in R/z slices"""
+        # data variables' indexes
+        assert data.attrs['columns'].tolist() == ['Rz', 'phi', 'Rz_bin', 'phi_bin']
 
-    data = data[()] #eager (lazy is the default)
+        rz_idx = 0
+        phi_idx = 1
+        rzbin_idx = 2
+        phibin_idx = 3
 
-    def _drop_columns(data, data_with_boundaries, idxs):
-        """Drops the columns specified by indexes `idxs`, overriding data arrays."""
-        drop = lambda d,obj: np.delete(d, obj=obj, axis=1)
-        data = [drop(x, idxs) for x in data]
-        data_with_boundaries = [drop(x, idxs) for x in data_with_boundaries]
-        return data, data_with_boundaries
+        data = data[()] #eager (lazy is the default)
 
-    def _split(data, split_index, sort_index, nbins_rz):
-        """
-        Creates a list of R/z slices, each ordered by phi.
-        """
-        data = data.astype('float32')
+        def _drop_columns(data, data_with_boundaries, idxs):
+            """Drops the columns specified by indexes `idxs`, overriding data arrays."""
+            drop = lambda d,obj: np.delete(d, obj=obj, axis=1)
+            data = [drop(x, idxs) for x in data]
+            data_with_boundaries = [drop(x, idxs) for x in data_with_boundaries]
+            return data, data_with_boundaries
 
-        # data sanity check
-        rz_slices = np.unique(data[:,split_index])
-        assert len(rz_slices) <= nbins_rz
-        assert rz_slices.tolist() == [x for x in range(len(rz_slices))]
+        def _split(data, split_index, sort_index, nbins_rz):
+            """
+            Creates a list of R/z slices, each ordered by phi.
+            """
+            data = data.astype('float32')
 
-        # https://stackoverflow.com/questions/2828059/sorting-arrays-in-numpy-by-column
-        # ordering is already done when the data is produced, the following line is not needed anymore
-        # data = data[ data[:,split_index].argsort(kind='stable') ] # sort rows by Rz_bin "column"
+            # data sanity check
+            rz_slices = np.unique(data[:,split_index])
+            assert len(rz_slices) <= nbins_rz
+            assert rz_slices.tolist() == [x for x in range(len(rz_slices))]
 
-        # https://stackoverflow.com/questions/31863083/python-split-numpy-array-based-on-values-in-the-array
+            # https://stackoverflow.com/questions/2828059/sorting-arrays-in-numpy-by-column
+            # ordering is already done when the data is produced, the following line is not needed anymore
+            # data = data[ data[:,split_index].argsort(kind='stable') ] # sort rows by Rz_bin "column"
 
-        # `np.diff` catches all `data` indexes where the sorted bin changes
-        data = np.split( data, np.where(np.diff(data[:,sort_index])<0)[0]+1 )
-        assert len(data) == len(rz_slices)
+            # https://stackoverflow.com/questions/31863083/python-split-numpy-array-based-on-values-in-the-array
 
-        # data correct sorting check
-        for elem in data:
-            assert ( np.sort(elem[:,sort_index], kind='stable') == elem[:,sort_index] ).all()
+            # `np.diff` catches all `data` indexes where the sorted bin changes
+            data = np.split( data, np.where(np.diff(data[:,sort_index])<0)[0]+1 )
+            assert len(data) == len(rz_slices)
 
-        return data
+            # data correct sorting check
+            for elem in data:
+                assert ( np.sort(elem[:,sort_index], kind='stable') == elem[:,sort_index] ).all()
 
-    def _normalize(data, phi_bounds, index):
-        """
-        Standard max-min normalization of column `index`.
-        """
-        data[:,index] -= phi_bounds[0]
-        data[:,index] /= phi_bounds[1]-phi_bounds[0]
-        return data
+            return data
 
-    def _set_boundary_conditions(data, window_size, phibin_idx, nbins_phi):
-        """
-        Pad the original data to ensure boundary conditions over its Phi dimension.
-        The boundary is done in terms of bins, not single trigger cells.
-        `bound_cond_width` stands for the number of bins seen to the right and left.
-        The right boundary is concatenated on the left side of `data`.
-        """
-        bound_cond_width = window_size - 1
-        boundary_right_indexes = [ (x[:,phibin_idx] >= nbins_phi-bound_cond_width)
-                                   for x in data ]
-        boundary_right = [ x[y] for x,y in zip(data,boundary_right_indexes) ]
-        boundary_sizes = [ len(x) for x in boundary_right ]
-        data_with_boundaries = [ np.concatenate((br,x), axis=0)
-                                 for br,x in zip(boundary_right,data) ]
+        def _normalize(data, phi_bounds, index):
+            """
+            Standard max-min normalization of column `index`.
+            """
+            data[:,index] = self.a_norm * data[:,index] + self.b_norm
+            return data
+
+        def _set_boundary_conditions(data, window_size, phibin_idx, nbins_phi):
+            """
+            Pad the original data to ensure boundary conditions over its Phi dimension.
+            The boundary is done in terms of bins, not single trigger cells.
+            `bound_cond_width` stands for the number of bins seen to the right and left.
+            The right boundary is concatenated on the left side of `data`.
+            """
+            bound_cond_width = window_size - 1
+            boundary_right_indexes = [ (x[:,phibin_idx] >= nbins_phi-bound_cond_width)
+                                       for x in data ]
+            boundary_right = [ x[y] for x,y in zip(data,boundary_right_indexes) ]
+            boundary_sizes = [ len(x) for x in boundary_right ]
+            data_with_boundaries = [ np.concatenate((br,x), axis=0)
+                                     for br,x in zip(boundary_right,data) ]
+
+            return data, data_with_boundaries, boundary_sizes
+
+        data = _normalize(
+            data,
+            self.phi_bounds,
+            index=phi_idx
+        )
+        data = _split(
+            data,
+            split_index=rzbin_idx,
+            sort_index=phibin_idx,
+            nbins_rz=nbins_rz
+        )
+        data, data_with_boundaries, boundary_sizes = _set_boundary_conditions(
+            data,
+            window_size,
+            phibin_idx,
+            nbins_phi
+        )
+        data, data_with_boundaries = _drop_columns(
+            data,
+            data_with_boundaries,
+            idxs=[rz_idx, rzbin_idx]
+        )
 
         return data, data_with_boundaries, boundary_sizes
 
-    data = _normalize(
-        data,
-        phi_bounds,
-        index=phi_idx
-    )
-    data = _split(
-        data,
-        split_index=rzbin_idx,
-        sort_index=phibin_idx,
-        nbins_rz=nbins_rz
-    )
-    data, data_with_boundaries, boundary_sizes = _set_boundary_conditions(
-        data,
-        window_size,
-        phibin_idx,
-        nbins_phi
-    )
-    data, data_with_boundaries = _drop_columns(
-        data,
-        data_with_boundaries,
-        idxs=[rz_idx, rzbin_idx]
-    )
-    
-    return data, data_with_boundaries, boundary_sizes
+    def postprocess(self, data):
+        """Adapt the output of the neural network."""
 
-def postprocess(data, phi_bounds):
-    """Adapt the output of the neural network."""
+        def _denormalize(data, phi_bounds):
+            """Opposite of preprocess._normalize()."""
+            new_data = (data - self.b_norm) / self.a_norm
+            return new_data
 
-    def _denormalize(data, phi_bounds):
-        """Opposite of preprocess._normalize()."""
-        new_data = data * (phi_bounds[1]-phi_bounds[0])
-        new_data += phi_bounds[0]
+        new_data = _denormalize(
+            data,
+            self.phi_bounds,
+        )
+
         return new_data
-
-    new_data = _denormalize(
-        data,
-        phi_bounds,
-    )
-    
-    return new_data

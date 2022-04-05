@@ -6,7 +6,7 @@ print("TensorFlow version:", tf.__version__)
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 from tensorflow.keras.layers import Dense, Flatten, Conv1D
 
-from data_processing import preprocess, postprocess
+from data_processing import DataProcessing
 from plotter import Plotter
 
 def are_tensors_equal(t1, t2):
@@ -37,47 +37,33 @@ class Architecture(tf.keras.Model):
 
         self.inshape = inshape
 
-        activ = 'selu'
-        # kernel_init = tf.keras.initializers.LecunNormal() #recommended for SELUs
+        kernel_init = tf.keras.initializers.LecunNormal() #recommended for SELUs
         # conv_opt = dict( strides=1,
         #                  kernel_size=kernel_size,
         #                  padding='same', #'valid' means no padding
-        #                  activation=activ,
+        #                  activation='selu',
         #                  kernel_initializer=kernel_init,
         #                  use_bias=True )
-
         # self.conv1 = Conv1D( input_shape=(self.inshape[0],1),
-        #                      filters=32,
+        #                      filters=16,
         #                      **conv_opt )
-        # self.conv2 = Conv1D( filters=8,
-        #                      **conv_opt )
-        # self.flatten = Flatten()
-        # self.dense = Dense( units=self.inshape[0],
-        #                     activation=activ,
-        #                     use_bias=True )
-        
+    
         self.dense1 = Dense( units=50,
-                             activation='relu',
+                             activation='selu',
                              name='first dense')
+
         self.dense2 = Dense( units=self.inshape[0],
                              activation='selu',
                              name='second dense')
-
     def __call__(self, x):
-        # x = tf.cast(x, dtype=tf.float32)
-        # x = tf.reshape(x, shape=(-1, x.shape[0], 1))
-        # x = self.conv1(x)
-        # x = self.conv2(x)
-        # x = self.flatten(x)
-        # x = self.dense(x)
-        # x = tf.squeeze(x)
-
         x = tf.cast(x, dtype=tf.float32)
+        #x = tf.reshape(x, shape=(-1, x.shape[0], 1))
+        #x = self.conv1(x)
+        #x = tf.reshape(x, shape=(1, x.shape[1]*x.shape[2]))
         x = tf.reshape(x, shape=(-1, x.shape[0]))
         x = self.dense1(x)
         x = self.dense2(x)
         x = tf.squeeze(x)
-
         return x
 
 class TriggerCellDistributor(tf.Module):
@@ -85,7 +71,8 @@ class TriggerCellDistributor(tf.Module):
     def __init__( self, indata, inbins, bound_size,
                   kernel_size, window_size,
                   phibounds, nbinsphi, rzbounds, nbinsrz,
-                  pars ):
+                  pars,
+                  pretrained):
         """
         Manages quantities related to the neural model being used.
         Args: 
@@ -101,8 +88,13 @@ class TriggerCellDistributor(tf.Module):
         self.phibounds, self.nbinsphi = phibounds, nbinsphi
         self.rzbounds, self.nbinsrz = rzbounds, nbinsrz
 
+        self.pretrained = pretrained
+        self.first_train = True
+
         self.architecture = Architecture(self.indata.shape, kernel_size)
 
+        self.model_name = 'data/my_model/'
+        
         assert len(pars)==4
         self.pars = pars
 
@@ -162,7 +154,7 @@ class TriggerCellDistributor(tf.Module):
             # print('In:  ', originaldata.shape, originaldata[:1])
             # print()
 
-            equality_loss = tf.reduce_sum( tf.abs(outdata[:1]-originaldata[:1]) )
+            equality_loss = tf.reduce_sum( tf.math.square(outdata[:1]-originaldata[:1]) )
             variance_loss = self._calc_local_variance(outdata, outbins)
             wasserstein_loss = tensorflow_wasserstein_1d_loss(originaldata, outdata)
 
@@ -174,7 +166,7 @@ class TriggerCellDistributor(tf.Module):
             wasserstein_loss *= (self.indata_variance/self.initial_wasserstein_distance)
 
             boundary_sanity_loss = tf.reduce_sum(
-                tf.abs( outdata[-self.boundary_size:] - outdata[:self.boundary_size] ) )
+                tf.math.square( outdata[-self.boundary_size:] - outdata[:self.boundary_size] ) )
 
             loss_pars = [ tf.Variable(x, trainable=False) for x in self.pars ]
 
@@ -204,8 +196,8 @@ class TriggerCellDistributor(tf.Module):
     #         tf.TensorSpec(shape=[], dtype=tf.int32))
     # )
     #@tf.function
-    def train(self):
-        # Reset the metrics at the start of the next epoch
+    def train(self, dp, save=False):
+        # Rseset the metrics at the start of the next epoch
         self.train_loss.reset_states()
 
         # for n in tf.range(steps): # any future loop within one epoch is done here
@@ -214,8 +206,16 @@ class TriggerCellDistributor(tf.Module):
             tape.watch(self.inbins)
 
             prediction = self.architecture(self.indata)
-            prediction = postprocess(prediction, self.phibounds)
-            original_data = postprocess(self.indata, self.phibounds)
+            prediction = dp.postprocess(prediction)
+
+            if self.pretrained and self.first_train:
+                prediction = self.load_model()
+                self.first_train = False
+                
+            if save:
+                self.save_model()
+
+            original_data = dp.postprocess(self.indata)
 
             losses, initial_variance, _ = self.calc_loss(original_data, prediction)
             loss_sum = tf.reduce_sum(list(losses.values()))
@@ -240,14 +240,24 @@ class TriggerCellDistributor(tf.Module):
             dpi=96,
         )
 
+    def save_model(self):
+        self.architecture.save_weights(self.model_name)
+
+    def load_model(self):
+        self.architecture.load_weights(self.model_name)
+
+
 def save_scalar_logs(writer, scalar_map, epoch):
     """
     Saves tensorflow info for Tensorboard visualization.
     `scalar_map` expects a dict of (scalar_name, scalar_value) pairs.
     """
     with writer.as_default():
+        tot = 0
         for k,v in scalar_map.items():
             tf.summary.scalar(k, v, step=epoch)
+            tot += v
+        tf.summary.scalar('total', tot, step=epoch)
 
 def save_gradient_logs(writer, gradients, train_variables, epoch):
     """
@@ -255,7 +265,6 @@ def save_gradient_logs(writer, gradients, train_variables, epoch):
     `scalar_map` expects a dict of (scalar_name, scalar_value) pairs.
     """
     with writer.as_default():
-        # In eager mode, grads does not have name, so we get names from model.trainable_weights
         for weights, grads in zip(train_variables, gradients):
             tf.summary.histogram(
                 weights.name.replace(':', '_')+'_grads', data=grads, step=epoch)
@@ -266,16 +275,15 @@ def optimization(algo, **kw):
     plotter = Plotter(**optimization_kwargs)
 
     assert len(store_in.keys()) == 1
-    _, train_data, boundary_sizes = preprocess(
-        data=store_in['data'],
-        nbins_phi=kw['NbinsPhi'],
-        phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
-        nbins_rz=kw['NbinsRz'],
-        window_size=kw['WindowSize']
-    )
+    dp = DataProcessing(phi_bounds=(kw['MinPhi'],kw['MaxPhi']))
+    _, train_data, boundary_sizes = dp.preprocess( data=store_in['data'],
+                                                   nbins_phi=kw['NbinsPhi'],
+                                                   nbins_rz=kw['NbinsRz'],
+                                                   window_size=kw['WindowSize'] )
 
-    orig_data = postprocess(train_data[0][:,0], phi_bounds=(kw['MinPhi'],kw['MaxPhi']))
-    plotter.save_orig_data( orig_data )
+    orig_data = dp.postprocess(train_data[0][:,0])
+
+    plotter.save_orig_data(orig_data)
     
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -295,12 +303,13 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            pars=(1., 0., 0., 0.),
+            pars=(1., 0., 0., 1.),
+            pretrained=kw['Pretrain'],
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
 
         for epoch in tqdm(range(kw['Epochs'])):
-            dictloss, initial_variance, outdata, gradients, train_vars = tcd.train()
+            dictloss, initial_variance, outdata, gradients, train_vars = tcd.train(dp)
             dictloss.update({'initial_variance': initial_variance})
             save_scalar_logs(
                 writer=summary_writer,
@@ -315,10 +324,10 @@ def optimization(algo, **kw):
             )
 
             #print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
-
             plotter.save_gen_data(outdata.numpy())
 
-        plotter.plot(show_html=True)
+        #plotter.plot(minval=-1, maxval=62, density=False, show_html=False)
+        plotter.plot(density=False, show_html=False)
 
 if __name__ == "__main__":
     from airflow.airflow_dag import optimization_kwargs

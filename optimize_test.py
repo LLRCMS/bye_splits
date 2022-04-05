@@ -38,31 +38,46 @@ def tensorflow_wasserstein_1d_loss(indata, outdata):
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models#the_model_class
 class Architecture(tf.keras.Model):
     """Neural network model definition."""
-    def __init__(self, inshape):
+    def __init__(self, inshape, kernel_size):
         super().__init__()
         assert len(inshape)==1
         self.inshape = inshape
-        
+
+        kernel_init = tf.keras.initializers.LecunNormal() #recommended for SELUs
+        conv_opt = dict( strides=1,
+                         kernel_size=kernel_size,
+                         padding='same', #'valid' means no padding
+                         activation='relu',
+                         kernel_initializer=kernel_init,
+                         use_bias=True )
+        self.conv1 = Conv1D( input_shape=(self.inshape[0],1),
+                             filters=16,
+                             **conv_opt )
+    
         self.dense1 = Dense( units=50,
                              activation='relu',
                              name='first dense')
+
         self.dense2 = Dense( units=self.inshape[0],
                              activation='selu',
                              name='second dense')
 
     def __call__(self, x):
         x = tf.cast(x, dtype=tf.float32)
-        x = tf.reshape(x, shape=(-1, x.shape[0]))
+        x = tf.reshape(x, shape=(-1, x.shape[0], 1))
+        x = self.conv1(x)
+        x = tf.reshape(x, shape=(1, x.shape[1]*x.shape[2]))
         x = self.dense1(x)
         x = self.dense2(x)
-        x = tf.squeeze(x)        
+        x = tf.squeeze(x)
         return x
 
 class TriggerCellDistributor(tf.Module):
     """Neural net workings"""
     def __init__( self, indata,
                   # inbins, bound_size,
-                  # kernel_size, window_size,
+                  kernel_size,
+                  #window_size,
                   # phibounds, nbinsphi, rzbounds, nbinsrz,
                   # pars
                   pretrained,
@@ -77,14 +92,14 @@ class TriggerCellDistributor(tf.Module):
         """        
         self.indata = indata
         # self.boundary_size = bound_size
-        # self.kernel_size = kernel_size
+        self.kernel_size = kernel_size
         # self.boundary_width = window_size-1
         # self.phibounds, self.nbinsphi = phibounds, nbinsphi
         # self.rzbounds, self.nbinsrz = rzbounds, nbinsrz
         self.pretrained = pretrained
         self.first_train = True
 
-        self.architecture = Architecture(self.indata.shape)
+        self.architecture = Architecture(self.indata.shape, self.kernel_size)
         self.model_name = 'data/test_model/'
 
         # assert len(pars)==1
@@ -157,6 +172,7 @@ class TriggerCellDistributor(tf.Module):
         
         self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
         self.train_loss(loss_sum)
+
         return losses, prediction, gradients, self.architecture.trainable_variables
 
     def save_architecture_diagram(self, name):
@@ -252,7 +268,7 @@ def optimization(algo, **kw):
             indata=rzslice,
             # inbins=tf.convert_to_tensor(rzslice[:,1], dtype=tf.float32),
             # bound_size=boundary_sizes[i],
-            # kernel_size=kw['KernelSize'],
+            kernel_size=kw['KernelSize'],
             # window_size=kw['WindowSize'],
             # phibounds=(kw['MinPhi'],kw['MaxPhi']),
             # nbinsphi=kw['NbinsPhi'],
@@ -283,11 +299,13 @@ def optimization(algo, **kw):
             #print('Out: ', outdata)
             #print()
             outdata = postprocess(outdata, (DATAMIN,DATAMAX))
+
             plotter.save_gen_data( outdata.numpy(),
                                    bins=[x for x in range(int(DATAMIN), int(DATAMAX))],
                                    minlength=int(DATAMAX) )
 
         plotter.plot(minval=-1, maxval=DATAMAX+2, density=False, show_html=False)
+        #plotter.plot(minval=None, maxval=None, density=False, show_html=False)
 
 if __name__ == "__main__":
     from airflow.airflow_dag import optimization_kwargs
