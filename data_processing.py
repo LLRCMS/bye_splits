@@ -2,14 +2,15 @@
 Functions used for data processing.
 """
 import numpy as np
-import copy
 
 class DataProcessing:
     def __init__(self, phi_bounds):
         self.max_bound = 1.
-        self.min_bound = -1.
+        self.min_bound = 0.
+        self.shift = np.pi #shift the phi range to [0; 2*Pi[
+        self.phi_bounds = tuple( x + self.shift for x in phi_bounds )
 
-        self.phi_bounds = phi_bounds
+        #get parameters for the linear transformation (set between 0 and 1)
         self.a_norm = (self.max_bound-self.min_bound)
         self.a_norm /= (self.phi_bounds[1]-self.phi_bounds[0])
         self.b_norm = self.max_bound - self.a_norm * self.phi_bounds[1]
@@ -35,6 +36,14 @@ class DataProcessing:
             data = [drop(x, idxs) for x in data]
             data_with_boundaries = [drop(x, idxs) for x in data_with_boundaries]
             return data, data_with_boundaries
+
+        def _shift(data, index):
+            """
+            Shift data. Originally meant to avoid negative values.
+            """
+            data[:,index] += self.shift
+            assert len(data[:,index][ data[:,index] < 0 ]) == 0
+            return data
 
         def _split(data, split_index, sort_index, nbins_rz):
             """
@@ -87,6 +96,10 @@ class DataProcessing:
 
             return data, data_with_boundaries, boundary_sizes
 
+        data = _shift(
+            data,
+            index=phi_idx
+        )
         data = _normalize(
             data,
             self.phi_bounds,
@@ -119,10 +132,17 @@ class DataProcessing:
             """Opposite of preprocess._normalize()."""
             new_data = (data - self.b_norm) / self.a_norm
             return new_data
+        def _deshift(data):
+            """Opposite of preprocess._normalize()."""
+            new_data = data - self.shift
+            return new_data
 
         new_data = _denormalize(
             data,
             self.phi_bounds,
+        )
+        new_data = _deshift(
+            new_data,
         )
 
         return new_data

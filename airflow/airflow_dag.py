@@ -42,7 +42,7 @@ base_kwargs = {
     'LayerEdges': [0,28],
     'IsHCAL': False,
 
-    'Debug': False,
+    'Debug': True,
     'DataFolder': DataFolder,
     'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
     'BasePath': os.path.join(os.environ['PWD'], DataFolder),
@@ -71,12 +71,12 @@ filling_kwargs = setDictionary(
 
 # optimization task
 optimization_kwargs = setDictionary(
-    { 'Epochs': 200,
+    { 'Epochs': 100,
       'KernelSize': 10,
       'WindowSize': 3,
       'OptimizationIn': _fillBasePath('triggergeom_condensed.hdf5'),
       'OptimizationOut': 'None.hdf5', #_fillBasePath('optimization.hdf5')
-      'Pretrain': False,
+      'Pretrained': True,
     }
 )
 

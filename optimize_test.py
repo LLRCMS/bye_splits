@@ -8,32 +8,12 @@ print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 from tensorflow.keras.layers import Dense, Flatten, Conv1D
 from tensorflow.keras.layers import ReLU, LeakyReLU
 
-from data_processing import preprocess, postprocess
 from plotter import Plotter
 
 DATAPOINTS = 5000
 NBINS = 100
 DATAMAX = 2*DATAPOINTS/NBINS
 DATAMIN = 0.
-
-def are_tensors_equal(t1, t2):
-    assert t1.shape == t2.shape
-    return tf.math.count_nonzero(tf.math.equal(t1,t2))==t1.shape
-        
-def tensorflow_assignment(tensor, mask, lambda_op):
-    """
-    Emulate assignment by creating a new tensor.
-    The mask must be 1 where the assignment is intended, 0 everywhere else.
-    """
-    assert tensor.shape == mask.shape
-    other = lambda_op(tensor)
-    return tensor * (1 - mask) + other * mask
-
-def tensorflow_wasserstein_1d_loss(indata, outdata):
-    """Calculates the 1D earth-mover's distance."""
-    loss = tf.cumsum(indata) - tf.cumsum(outdata)
-    loss = tf.abs( loss )
-    return tf.reduce_sum( loss )
 
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models#the_model_class
 class Architecture(tf.keras.Model):
@@ -43,17 +23,6 @@ class Architecture(tf.keras.Model):
         assert len(inshape)==1
         self.inshape = inshape
 
-        kernel_init = tf.keras.initializers.LecunNormal() #recommended for SELUs
-        conv_opt = dict( strides=1,
-                         kernel_size=kernel_size,
-                         padding='same', #'valid' means no padding
-                         activation='relu',
-                         kernel_initializer=kernel_init,
-                         use_bias=True )
-        self.conv1 = Conv1D( input_shape=(self.inshape[0],1),
-                             filters=16,
-                             **conv_opt )
-    
         self.dense1 = Dense( units=50,
                              activation='relu',
                              name='first dense')
@@ -64,9 +33,7 @@ class Architecture(tf.keras.Model):
 
     def __call__(self, x):
         x = tf.cast(x, dtype=tf.float32)
-        x = tf.reshape(x, shape=(-1, x.shape[0], 1))
-        x = self.conv1(x)
-        x = tf.reshape(x, shape=(1, x.shape[1]*x.shape[2]))
+        x = tf.reshape(x, shape=(-1, x.shape[0]))
         x = self.dense1(x)
         x = self.dense2(x)
         x = tf.squeeze(x)
@@ -74,14 +41,7 @@ class Architecture(tf.keras.Model):
 
 class TriggerCellDistributor(tf.Module):
     """Neural net workings"""
-    def __init__( self, indata,
-                  # inbins, bound_size,
-                  kernel_size,
-                  #window_size,
-                  # phibounds, nbinsphi, rzbounds, nbinsrz,
-                  # pars
-                  pretrained,
-                 ):
+    def __init__( self, indata ):
         """
         Manages quantities related to the neural model being used.
         Args: 
@@ -91,27 +51,9 @@ class TriggerCellDistributor(tf.Module):
               multiple trigger cells).
         """        
         self.indata = indata
-        # self.boundary_size = bound_size
-        self.kernel_size = kernel_size
-        # self.boundary_width = window_size-1
-        # self.phibounds, self.nbinsphi = phibounds, nbinsphi
-        # self.rzbounds, self.nbinsrz = rzbounds, nbinsrz
-        self.pretrained = pretrained
-        self.first_train = True
 
         self.architecture = Architecture(self.indata.shape, self.kernel_size)
         self.model_name = 'data/test_model/'
-
-        # assert len(pars)==1
-        # self.pars = pars
-
-        # self.subtract_max = lambda x: x - (tf.math.reduce_max(x)+1)
-        # # convert bin ids coming before 0 (shifted boundaries) to negative ones
-        # self.inbins = tensorflow_assignment( tensor=inbins,
-        #                                      mask=tf.concat((tf.ones(self.boundary_size),
-        #                                                      tf.zeros(inbins.shape[0]-self.boundary_size)), axis=0),
-        #                                      lambda_op=self.subtract_max,
-        #                                     )
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
@@ -126,9 +68,6 @@ class TriggerCellDistributor(tf.Module):
               -bound_size: number of replicated trigger cells to satisfy boundary conditions
               -outdata: neural net postprocessed phi values output
         """
-        # opt = {'summarize': 10} #number of entries to print if assertion fails
-        # asserts = [ tf.debugging.Assert(originaldata.shape == outdata.shape,
-        #                                 [originaldata.shape, outdata.shape], **opt) ]
         asserts = []
         with tf.control_dependencies(asserts):
             equality_loss = tf.reduce_sum( tf.math.square(outdata-originaldata) )
@@ -148,25 +87,10 @@ class TriggerCellDistributor(tf.Module):
             # tape.watch(self.inbins)
 
             prediction = self.architecture(self.indata)
-
-            if self.pretrained and self.first_train:
-                prediction = self.load_model()
-                self.first_train = False
-                
-            if save:
-                self.save_model()
-
-            #prediction = postprocess(prediction, self.phibounds)
-            #prediction = postprocess(prediction, (DATAMIN,DATAMAX))
-            #original_data = postprocess(self.indata, self.phibounds)
-            #original_data = postprocess(self.indata, (DATAMIN,DATAMAX))
             original_data = self.indata
 
             losses = self.calc_loss(original_data, prediction)
             loss_sum = tf.reduce_sum(list(losses.values()))
-            #print('Orig: ', original_data)
-
-        #print(self.architecture.trainable_variables)
 
         gradients = tape.gradient(loss_sum, self.architecture.trainable_variables)
         
@@ -298,7 +222,8 @@ def optimization(algo, **kw):
             #print('In: ', train_data)
             #print('Out: ', outdata)
             #print()
-            outdata = postprocess(outdata, (DATAMIN,DATAMAX))
+            outdata *= DATAMAX-DATAMIN
+            outdata += DATAMIN
 
             plotter.save_gen_data( outdata.numpy(),
                                    bins=[x for x in range(int(DATAMIN), int(DATAMAX))],

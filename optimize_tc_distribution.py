@@ -8,6 +8,7 @@ from tensorflow.keras.layers import Dense, Flatten, Conv1D
 
 from data_processing import DataProcessing
 from plotter import Plotter
+from debug import debug_tensor_shape
 
 def are_tensors_equal(t1, t2):
     assert t1.shape == t2.shape
@@ -26,6 +27,7 @@ def tensorflow_wasserstein_1d_loss(indata, outdata):
     """Calculates the 1D earth-mover's distance."""
     loss = tf.cumsum(indata) - tf.cumsum(outdata)
     loss = tf.abs( loss )
+    loss = tf.reduce_sum( loss )
     return tf.reduce_sum( loss )
 
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models#the_model_class
@@ -36,32 +38,34 @@ class Architecture(tf.keras.Model):
         assert len(inshape)==1
 
         self.inshape = inshape
-
+        
         kernel_init = tf.keras.initializers.LecunNormal() #recommended for SELUs
-        # conv_opt = dict( strides=1,
-        #                  kernel_size=kernel_size,
-        #                  padding='same', #'valid' means no padding
-        #                  activation='selu',
-        #                  kernel_initializer=kernel_init,
-        #                  use_bias=True )
-        # self.conv1 = Conv1D( input_shape=(self.inshape[0],1),
-        #                      filters=16,
-        #                      **conv_opt )
+        conv_opt = dict( strides=1,
+                         kernel_size=kernel_size,
+                         padding='same', #'valid' means no padding
+                         activation='selu',
+                         kernel_initializer=kernel_init,
+                         use_bias=True )
+        self.conv1 = Conv1D( input_shape=(self.inshape[0],1),
+                             filters=16,
+                             **conv_opt )
     
-        self.dense1 = Dense( units=50,
-                             activation='selu',
+        self.dense1 = Dense( units=500,
+                             activation='relu',
                              name='first dense')
 
         self.dense2 = Dense( units=self.inshape[0],
                              activation='selu',
                              name='second dense')
+
+    #@debug_tensor_shape(name='x', run=False)
     def __call__(self, x):
         x = tf.cast(x, dtype=tf.float32)
-        #x = tf.reshape(x, shape=(-1, x.shape[0], 1))
-        #x = self.conv1(x)
-        #x = tf.reshape(x, shape=(1, x.shape[1]*x.shape[2]))
         x = tf.reshape(x, shape=(-1, x.shape[0]))
         x = self.dense1(x)
+        x = tf.reshape(x, shape=(-1, x.shape[1], 1))
+        x = self.conv1(x)
+        x = tf.reshape(x, shape=(-1, x.shape[1]*x.shape[2]))
         x = self.dense2(x)
         x = tf.squeeze(x)
         return x
@@ -71,8 +75,8 @@ class TriggerCellDistributor(tf.Module):
     def __init__( self, indata, inbins, bound_size,
                   kernel_size, window_size,
                   phibounds, nbinsphi, rzbounds, nbinsrz,
-                  pars,
-                  pretrained):
+                  init_pars,
+                  pretrained ):
         """
         Manages quantities related to the neural model being used.
         Args: 
@@ -92,11 +96,10 @@ class TriggerCellDistributor(tf.Module):
         self.first_train = True
 
         self.architecture = Architecture(self.indata.shape, kernel_size)
-
-        self.model_name = 'data/my_model/'
         
-        assert len(pars)==4
-        self.pars = pars
+        assert len(init_pars)==4
+        self.init_pars = init_pars
+        self.pars = init_pars
 
         self.subtract_max = lambda x: x - (tf.math.reduce_max(x)+1)
         # convert bin ids coming before 0 (shifted boundaries) to negative ones
@@ -111,6 +114,16 @@ class TriggerCellDistributor(tf.Module):
 
         self.was_calc_loss_called = False
 
+        # set checkpoint
+        self.model_name = 'data/my_model/tf_checkpoints'
+        self.checkpoint = tf.train.Checkpoint(model=self.architecture, optimizer=self.optimizer)
+        self.manager = tf.train.CheckpointManager(self.checkpoint, self.model_name, max_to_keep=5)
+
+    def adapt_loss_parameters(self, epoch):
+        """Changes the proportionality between the loss terms as a function of the epoch."""
+        #print(self.pars)
+        return self.pars
+        
     def calc_loss(self, originaldata, outdata):
         """
         Calculates the model's loss function. Receives slices in R/z as input.
@@ -154,7 +167,7 @@ class TriggerCellDistributor(tf.Module):
             # print('In:  ', originaldata.shape, originaldata[:1])
             # print()
 
-            equality_loss = tf.reduce_sum( tf.math.square(outdata[:1]-originaldata[:1]) )
+            equality_loss = tf.reduce_sum( tf.math.square(outdata-originaldata) )
             variance_loss = self._calc_local_variance(outdata, outbins)
             wasserstein_loss = tensorflow_wasserstein_1d_loss(originaldata, outdata)
 
@@ -196,7 +209,7 @@ class TriggerCellDistributor(tf.Module):
     #         tf.TensorSpec(shape=[], dtype=tf.int32))
     # )
     #@tf.function
-    def train(self, dp, save=False):
+    def train_step(self, dp, save=False):
         # Rseset the metrics at the start of the next epoch
         self.train_loss.reset_states()
 
@@ -205,15 +218,16 @@ class TriggerCellDistributor(tf.Module):
             tape.watch(self.indata)
             tape.watch(self.inbins)
 
-            prediction = self.architecture(self.indata)
-            prediction = dp.postprocess(prediction)
-
             if self.pretrained and self.first_train:
-                prediction = self.load_model()
+                #self.load_model()
+                self.restore_checkpoint()
                 self.first_train = False
                 
-            if save:
-                self.save_model()
+            if save and not self.pretrained:
+                self.save_checkpoint()
+
+            prediction = self.architecture(self.indata)
+            prediction = dp.postprocess(prediction)
 
             original_data = dp.postprocess(self.indata)
 
@@ -240,12 +254,23 @@ class TriggerCellDistributor(tf.Module):
             dpi=96,
         )
 
-    def save_model(self):
-        self.architecture.save_weights(self.model_name)
+    # def save_model(self):
+        #self.architecture.save_weights(self.model_name)
+        #self.architecture.save(self.model_name)
+
+    def save_checkpoint(self):
+        self.manager.save()
+
+    def restore_checkpoint(self):
+        self.checkpoint.restore(self.manager.latest_checkpoint)
+        if not self.manager.latest_checkpoint:
+            raise ValueError('Issue with checkpoint manager.')
+
 
     def load_model(self):
-        self.architecture.load_weights(self.model_name)
-
+        #self.architecture.load_weights(self.model_name)
+        self.architecture = tf.keras.models.load_model(self.model_name)
+        
 
 def save_scalar_logs(writer, scalar_map, epoch):
     """
@@ -303,13 +328,17 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            pars=(1., 0., 0., 1.),
-            pretrained=kw['Pretrain'],
+            init_pars=(1., 0., 1e-10, 1.),
+            pretrained=kw['Pretrained'],
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
 
         for epoch in tqdm(range(kw['Epochs'])):
-            dictloss, initial_variance, outdata, gradients, train_vars = tcd.train(dp)
+            should_save = True if epoch%20==0 else False
+
+            tcd.adapt_loss_parameters(epoch)
+            dictloss, initial_variance, outdata, gradients, train_vars = tcd.train_step(dp, save=should_save)
+
             dictloss.update({'initial_variance': initial_variance})
             save_scalar_logs(
                 writer=summary_writer,
@@ -326,8 +355,8 @@ def optimization(algo, **kw):
             #print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
             plotter.save_gen_data(outdata.numpy())
 
-        #plotter.plot(minval=-1, maxval=62, density=False, show_html=False)
-        plotter.plot(density=False, show_html=False)
+        plotter.plot(minval=-1, maxval=52, density=False, show_html=False)
+        #plotter.plot(density=False, show_html=False)
 
 if __name__ == "__main__":
     from airflow.airflow_dag import optimization_kwargs
