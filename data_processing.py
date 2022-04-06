@@ -53,6 +53,7 @@ class DataProcessing:
 
             # data sanity check
             rz_slices = np.unique(data[:,split_index])
+
             assert len(rz_slices) <= nbins_rz
             assert rz_slices.tolist() == [x for x in range(len(rz_slices))]
 

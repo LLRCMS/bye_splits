@@ -27,8 +27,14 @@ def tensorflow_wasserstein_1d_loss(indata, outdata):
     """Calculates the 1D earth-mover's distance."""
     loss = tf.cumsum(indata) - tf.cumsum(outdata)
     loss = tf.abs( loss )
+
+    # throw away all differences smaller than `constant`
+    # constant = 1e-1
+    # mask = tf.greater(loss, constant * tf.ones_like(loss))
+    # loss = tf.multiply(loss, tf.cast(mask, dtype=tf.float32))
+    
     loss = tf.reduce_sum( loss )
-    return tf.reduce_sum( loss )
+    return loss
 
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models#the_model_class
 class Architecture(tf.keras.Model):
@@ -115,7 +121,7 @@ class TriggerCellDistributor(tf.Module):
         self.was_calc_loss_called = False
 
         # set checkpoint
-        self.model_name = 'data/my_model/tf_checkpoints'
+        self.model_name = 'data/test_model/tf_checkpoints'
         self.checkpoint = tf.train.Checkpoint(model=self.architecture, optimizer=self.optimizer)
         self.manager = tf.train.CheckpointManager(self.checkpoint, self.model_name, max_to_keep=5)
 
@@ -144,6 +150,7 @@ class TriggerCellDistributor(tf.Module):
                                                 value_range=self.phibounds,
                                                 nbins=self.nbinsphi)
         outbins = tf.cast(outbins, dtype=tf.float32)
+
         asserts.append( tf.debugging.Assert(tf.math.reduce_min(outbins)>=0, [outbins], **opt) )
         asserts.append( tf.debugging.Assert(tf.math.reduce_max(outbins)<=self.nbinsphi-1, [outbins], **opt) )
 
@@ -174,10 +181,10 @@ class TriggerCellDistributor(tf.Module):
             if not self.was_calc_loss_called: # run only first time `calc_loss` is called
                 self.was_calc_loss_called = True
                 self.initial_wasserstein_distance = wasserstein_loss
+                assert self.initial_wasserstein_distance != 0.
                 self.indata_variance = self._calc_local_variance(originaldata, self.inbins)
                
             wasserstein_loss *= (self.indata_variance/self.initial_wasserstein_distance)
-
             boundary_sanity_loss = tf.reduce_sum(
                 tf.math.square( outdata[-self.boundary_size:] - outdata[:self.boundary_size] ) )
 
@@ -306,7 +313,9 @@ def optimization(algo, **kw):
                                                    nbins_rz=kw['NbinsRz'],
                                                    window_size=kw['WindowSize'] )
 
-    orig_data = dp.postprocess(train_data[0][:,0])
+
+    chosen_layer = 20
+    orig_data = dp.postprocess(train_data[chosen_layer][:,0])
 
     plotter.save_orig_data(orig_data)
     
@@ -314,8 +323,8 @@ def optimization(algo, **kw):
     train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
 
     for i,rzslice in enumerate(train_data):
-        if i>0:        #look at the first R/z slice only
-            break
+        if i!=chosen_layer:  #look at the first R/z slice only
+            continue
         summary_writer = tf.summary.create_file_writer(train_log_dir)
 
         tcd = TriggerCellDistributor(
@@ -328,7 +337,7 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            init_pars=(1., 0., 1e-10, 1.),
+            init_pars=(1., 0., 1.e-15, 1.),
             pretrained=kw['Pretrained'],
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
@@ -355,8 +364,8 @@ def optimization(algo, **kw):
             #print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
             plotter.save_gen_data(outdata.numpy())
 
-        plotter.plot(minval=-1, maxval=52, density=False, show_html=False)
-        #plotter.plot(density=False, show_html=False)
+        #plotter.plot(minval=-1, maxval=120, density=False, show_html=False)
+        plotter.plot(density=False, show_html=False)
 
 if __name__ == "__main__":
     from airflow.airflow_dag import optimization_kwargs

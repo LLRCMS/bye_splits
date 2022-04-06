@@ -40,8 +40,25 @@ class Plotter:
         bins = self.kw['PhiBinEdges'] if bins is None else bins
         minlength = self.kw['NbinsPhi'] if minlength is None else minlength
         
-        bins = np.digitize(data, bins=bins)
-        bincounts = np.bincount(bins, minlength=minlength)
+        digi_bins = np.digitize(data, bins=bins)
+        bincounts = np.bincount(digi_bins, minlength=minlength)
+        assert bincounts[0] == 0 #no out-of-bound values are possible
+        bincounts = bincounts[1:]
+        
+        # print(data)
+        # print(min(data), max(data))
+        # print(bins[0], bins[-1], len(bins))
+        # print(self.kw['NbinsPhi'])
+        # print()
+        # print(min(digi_bins), max(digi_bins), np.unique(digi_bins), len(np.unique(digi_bins)))
+        # print(bincounts, len(bincounts))
+        print(sum(bincounts))
+        print(len(data))
+        quit()
+
+
+
+        assert len(bincounts) == self.kw['NbinsPhi']
 
         self.orig_data_counts = bincounts
 
@@ -56,6 +73,7 @@ class Plotter:
         minlength = self.kw['NbinsPhi'] if minlength is None else minlength
         digi_bins = np.digitize(data, bins=bins)
         bincounts = np.bincount(digi_bins, minlength=minlength)
+        bincounts = bincounts[1:] #do not plot out-of-bound values
         if self.plot_max < np.max(bincounts):
             self.plot_max = np.max(bincounts)
         if self.plot_min > np.min(bincounts):
@@ -129,7 +147,7 @@ class Plotter:
             else:
                 s_bincounts.update({'bc'+str(i): (bc_padded)})
 
-        s_bincounts   = ColumnDataSource(data=s_bincounts)
+        s_bincounts = ColumnDataSource(data=s_bincounts)
         y_axis_type = 'log' if density else 'linear'
         plot_opt = dict(width=1200, height=300)
         if minval is None or maxval is None:
@@ -144,7 +162,8 @@ class Plotter:
             plot_distr = figure( y_range=y_range, y_axis_type=y_axis_type,
                                **plot_opt)
 
-        plot_distr.circle('curr_x', 'curr_y', source=s_bincounts)
+        plot_distr.circle('curr_x', 'curr_y', source=s_bincounts,
+                          legend_label='Output')
 
         callback = CustomJS(args=dict(s1=s_bincounts, s2=s_diff),
                             code="""
@@ -165,7 +184,8 @@ class Plotter:
         plot_distr.circle(np.arange(len(self.orig_data_counts)),
                           #self.orig_data_counts/sum(self.orig_data_counts),
                           self.orig_data_counts,
-                          color='black')
+                          color='black',
+                          legend_label='Input')
 
         plot_diff = figure(**plot_opt)
         plot_diff.quad( top='diff_default', bottom=0,
