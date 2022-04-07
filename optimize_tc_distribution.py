@@ -104,7 +104,7 @@ class TriggerCellDistributor(tf.Module):
 
         self.architecture = Architecture(self.indata.shape, kernel_size)
         
-        assert len(init_pars)==4
+        assert len(init_pars)==3
         self.init_pars = init_pars
         self.pars = init_pars
 
@@ -116,7 +116,7 @@ class TriggerCellDistributor(tf.Module):
                                              lambda_op=self.subtract_max,
                                             )
 
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1.e-4)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1.e-6)
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
         self.was_calc_loss_called = False
@@ -126,7 +126,7 @@ class TriggerCellDistributor(tf.Module):
         self.checkpoint = tf.train.Checkpoint(model=self.architecture, optimizer=self.optimizer)
         self.manager = tf.train.CheckpointManager(self.checkpoint, self.model_name, max_to_keep=5)
 
-    def adapt_loss_parameters(self, epoch):
+    def adapt_loss_parameters(self, dictloss, epoch):
         """Changes the proportionality between the loss terms as a function of the epoch."""
         return self.pars
         
@@ -175,17 +175,14 @@ class TriggerCellDistributor(tf.Module):
             # print()
 
             equality_loss = tf.reduce_sum( tf.math.square(outdata-originaldata) )
-            variance_loss = self._calc_local_variance(outdata, outbins)
             wasserstein_loss = tensorflow_wasserstein_1d_loss(originaldata, outdata)
-            boundary_sanity_loss = tf.reduce_sum(
-                tf.math.square( outdata[-self.boundary_size:] - outdata[:self.boundary_size] ) )
+            variance_loss = self._calc_local_variance(outdata, outbins)
 
             loss_pars = [ tf.Variable(x, trainable=False) for x in self.pars ]
 
         return ( { 'equality_loss':       loss_pars[0] * equality_loss,
-                   'local_variance_loss': loss_pars[1] * variance_loss,
-                   'wasserstein_loss':    loss_pars[2] * wasserstein_loss,
-                   'boundary_loss':       loss_pars[3] * boundary_sanity_loss },
+                   'wasserstein_loss':    loss_pars[1] * wasserstein_loss,
+                   'local_variance_loss': loss_pars[2] * variance_loss },
                  tf.unique(outbins[:-self.boundary_size])[0]
                  )
 
@@ -269,7 +266,6 @@ class TriggerCellDistributor(tf.Module):
         #self.architecture.load_weights(self.model_name)
         self.architecture = tf.keras.models.load_model(self.model_name)
         
-
 def save_scalar_logs(writer, scalar_map, epoch):
     """
     Saves tensorflow info for Tensorboard visualization.
@@ -326,7 +322,7 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            init_pars=(1., 0., 1., 1.),
+            init_pars=(1., 1e-6, 0.),
             pretrained=kw['Pretrained'],
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
@@ -334,8 +330,8 @@ def optimization(algo, **kw):
         for epoch in tqdm(range(kw['Epochs'])):
             should_save = True if epoch%20==0 else False
 
-            tcd.adapt_loss_parameters(epoch)
             dictloss, outdata, gradients, train_vars = tcd.train_step(dp, save=should_save)
+            tcd.adapt_loss_parameters(dictloss, epoch)
 
             save_scalar_logs(
                 writer=summary_writer,
