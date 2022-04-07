@@ -177,15 +177,6 @@ class TriggerCellDistributor(tf.Module):
             equality_loss = tf.reduce_sum( tf.math.square(outdata-originaldata) )
             variance_loss = self._calc_local_variance(outdata, outbins)
             wasserstein_loss = tensorflow_wasserstein_1d_loss(originaldata, outdata)
-
-            # if not self.was_calc_loss_called and not self.pretrained: # run only first time `calc_loss` is called
-            #     self.was_calc_loss_called = True
-            #     self.initial_wasserstein_distance = wasserstein_loss
-            #     assert self.initial_wasserstein_distance != 0.
-            #     self.indata_variance = self._calc_local_variance(originaldata, self.inbins)
-               
-            # wasserstein_loss *= (self.indata_variance/self.initial_wasserstein_distance)
-                
             boundary_sanity_loss = tf.reduce_sum(
                 tf.math.square( outdata[-self.boundary_size:] - outdata[:self.boundary_size] ) )
 
@@ -195,7 +186,6 @@ class TriggerCellDistributor(tf.Module):
                    'local_variance_loss': loss_pars[1] * variance_loss,
                    'wasserstein_loss':    loss_pars[2] * wasserstein_loss,
                    'boundary_loss':       loss_pars[3] * boundary_sanity_loss },
-                 self.indata_variance,
                  tf.unique(outbins[:-self.boundary_size])[0]
                  )
 
@@ -240,14 +230,14 @@ class TriggerCellDistributor(tf.Module):
 
             original_data = dp.postprocess(self.indata)
 
-            losses, initial_variance, _ = self.calc_loss(original_data, prediction)
+            losses, _ = self.calc_loss(original_data, prediction)
             loss_sum = tf.reduce_sum(list(losses.values()))
 
         gradients = tape.gradient(loss_sum, self.architecture.trainable_variables)
 
         self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
         self.train_loss(loss_sum)
-        return losses, initial_variance, prediction, gradients, self.architecture.trainable_variables
+        return losses, prediction, gradients, self.architecture.trainable_variables
 
     def save_architecture_diagram(self, name):
         """Plots the structure of the used architecture."""
@@ -289,8 +279,7 @@ def save_scalar_logs(writer, scalar_map, epoch):
         tot = 0
         for k,v in scalar_map.items():
             tf.summary.scalar(k, v, step=epoch)
-            if k != 'initial_variance':
-                tot += v
+            tot += v
         tf.summary.scalar('total', tot, step=epoch)
 
 def save_gradient_logs(writer, gradients, train_variables, epoch):
@@ -346,9 +335,8 @@ def optimization(algo, **kw):
             should_save = True if epoch%20==0 else False
 
             tcd.adapt_loss_parameters(epoch)
-            dictloss, initial_variance, outdata, gradients, train_vars = tcd.train_step(dp, save=should_save)
+            dictloss, outdata, gradients, train_vars = tcd.train_step(dp, save=should_save)
 
-            dictloss.update({'initial_variance': initial_variance})
             save_scalar_logs(
                 writer=summary_writer,
                 scalar_map=dictloss,
