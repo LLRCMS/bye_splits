@@ -26,7 +26,8 @@ def tensorflow_assignment(tensor, mask, lambda_op):
 def tensorflow_wasserstein_1d_loss(indata, outdata):
     """Calculates the 1D earth-mover's distance."""
     loss = tf.cumsum(indata) - tf.cumsum(outdata)
-    loss = tf.abs( loss )
+    #loss = tf.abs( loss )
+    loss = tf.math.square( loss )
 
     # throw away all differences smaller than `constant`
     # constant = 1e-1
@@ -56,7 +57,7 @@ class Architecture(tf.keras.Model):
                              filters=16,
                              **conv_opt )
     
-        self.dense1 = Dense( units=500,
+        self.dense1 = Dense( units=200,
                              activation='relu',
                              name='first dense')
 
@@ -115,7 +116,7 @@ class TriggerCellDistributor(tf.Module):
                                              lambda_op=self.subtract_max,
                                             )
 
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1.e-3)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1.e-4)
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
         self.was_calc_loss_called = False
@@ -127,7 +128,6 @@ class TriggerCellDistributor(tf.Module):
 
     def adapt_loss_parameters(self, epoch):
         """Changes the proportionality between the loss terms as a function of the epoch."""
-        #print(self.pars)
         return self.pars
         
     def calc_loss(self, originaldata, outdata):
@@ -178,13 +178,14 @@ class TriggerCellDistributor(tf.Module):
             variance_loss = self._calc_local_variance(outdata, outbins)
             wasserstein_loss = tensorflow_wasserstein_1d_loss(originaldata, outdata)
 
-            if not self.was_calc_loss_called: # run only first time `calc_loss` is called
-                self.was_calc_loss_called = True
-                self.initial_wasserstein_distance = wasserstein_loss
-                assert self.initial_wasserstein_distance != 0.
-                self.indata_variance = self._calc_local_variance(originaldata, self.inbins)
+            # if not self.was_calc_loss_called and not self.pretrained: # run only first time `calc_loss` is called
+            #     self.was_calc_loss_called = True
+            #     self.initial_wasserstein_distance = wasserstein_loss
+            #     assert self.initial_wasserstein_distance != 0.
+            #     self.indata_variance = self._calc_local_variance(originaldata, self.inbins)
                
-            wasserstein_loss *= (self.indata_variance/self.initial_wasserstein_distance)
+            # wasserstein_loss *= (self.indata_variance/self.initial_wasserstein_distance)
+                
             boundary_sanity_loss = tf.reduce_sum(
                 tf.math.square( outdata[-self.boundary_size:] - outdata[:self.boundary_size] ) )
 
@@ -201,7 +202,8 @@ class TriggerCellDistributor(tf.Module):
     def _calc_local_variance(self, data, bins):
         """
         Calculates the variance between adjacent bins.
-        Adjacent here refers to the bin index, and not necessarily to physical location.
+        Adjacent here refers to the bin index, and not necessarily to physical location
+        (I had to take into account circular boundary conditions).
         """
         variance_loss = 0
         unique_bins = tf.unique(bins[:-self.boundary_size])[0]
@@ -273,7 +275,6 @@ class TriggerCellDistributor(tf.Module):
         if not self.manager.latest_checkpoint:
             raise ValueError('Issue with checkpoint manager.')
 
-
     def load_model(self):
         #self.architecture.load_weights(self.model_name)
         self.architecture = tf.keras.models.load_model(self.model_name)
@@ -288,7 +289,8 @@ def save_scalar_logs(writer, scalar_map, epoch):
         tot = 0
         for k,v in scalar_map.items():
             tf.summary.scalar(k, v, step=epoch)
-            tot += v
+            if k != 'initial_variance':
+                tot += v
         tf.summary.scalar('total', tot, step=epoch)
 
 def save_gradient_logs(writer, gradients, train_variables, epoch):
@@ -301,7 +303,6 @@ def save_gradient_logs(writer, gradients, train_variables, epoch):
             tf.summary.histogram(
                 weights.name.replace(':', '_')+'_grads', data=grads, step=epoch)
 
-
 def optimization(algo, **kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
     plotter = Plotter(**optimization_kwargs)
@@ -313,11 +314,10 @@ def optimization(algo, **kw):
                                                    nbins_rz=kw['NbinsRz'],
                                                    window_size=kw['WindowSize'] )
 
-
-    chosen_layer = 20
+    chosen_layer = 0
     orig_data = dp.postprocess(train_data[chosen_layer][:,0])
 
-    plotter.save_orig_data(orig_data)
+    plotter.save_orig_data(orig_data, boundary_sizes[chosen_layer])
     
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -337,7 +337,7 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            init_pars=(1., 0., 1.e-15, 1.),
+            init_pars=(1., 0., 1., 1.),
             pretrained=kw['Pretrained'],
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
@@ -361,11 +361,11 @@ def optimization(algo, **kw):
                 epoch=epoch
             )
 
-            #print('Epoch {}: {}'.format(epoch+1, tcd.train_loss.result()))
-            plotter.save_gen_data(outdata.numpy())
+            plotter.save_gen_data(outdata.numpy(), boundary_sizes[i])
 
-        #plotter.plot(minval=-1, maxval=120, density=False, show_html=False)
-        plotter.plot(density=False, show_html=False)
+            if should_save:
+                plotter.plot(minval=-1, maxval=52, density=False, show_html=False)
+        #plotter.plot(density=False, show_html=True)
 
 if __name__ == "__main__":
     from airflow.airflow_dag import optimization_kwargs

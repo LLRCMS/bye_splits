@@ -71,7 +71,7 @@ filling_kwargs = setDictionary(
 
 # optimization task
 optimization_kwargs = setDictionary(
-    { 'Epochs': 3,
+    { 'Epochs': 99999,
       'KernelSize': 10,
       'WindowSize': 3,
       'OptimizationIn': _fillBasePath('triggergeom_condensed.hdf5'),

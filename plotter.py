@@ -28,7 +28,7 @@ class Plotter:
         self.bincounts = []
         self.histos = []
 
-    def save_orig_data(self, data, bins=None, minlength=None):
+    def save_orig_data(self, data, boundary_sizes, bins=None, minlength=None):
         """
         Plots the original number of trigger cells per bin.
         `data` should be a list of trigger cell phi positions, one per R/z slice.
@@ -36,6 +36,7 @@ class Plotter:
         if isinstance(data, (tuple,list)):
             raise ValueError('This method cannot be applied to a data list.')
 
+        data = self._remove_duplicated_boundaries(data, boundary_sizes)
         self.orig_data = data
         bins = self.kw['PhiBinEdges'] if bins is None else bins
         minlength = self.kw['NbinsPhi'] if minlength is None else minlength
@@ -52,52 +53,52 @@ class Plotter:
         # print()
         # print(min(digi_bins), max(digi_bins), np.unique(digi_bins), len(np.unique(digi_bins)))
         # print(bincounts, len(bincounts))
-        print(sum(bincounts))
-        print(len(data))
-        quit()
-
-
 
         assert len(bincounts) == self.kw['NbinsPhi']
 
         self.orig_data_counts = bincounts
 
-    def save_gen_data(self, data, bins=None, minlength=None):
+    def _remove_duplicated_boundaries(self, data, bound_size):
+        return data[bound_size:]
+        
+    def save_gen_data(self, data, boundary_sizes, bins=None, minlength=None):
         """
         Plots the number of trigger cells per bin as output by the learning framework.
         `data` should be a list of trigger cell phi positions, one per R/z slice.
         """
+        if isinstance(data, (tuple,list)):
+            raise ValueError('Ups.')
+
+        data = self._remove_duplicated_boundaries(data, boundary_sizes)
+
         self.gen_data.append(data)
         #find the overall min and max of the histogram to be plotted
         bins = self.kw['PhiBinEdges'] if bins is None else bins
-        minlength = self.kw['NbinsPhi'] if minlength is None else minlength
-        digi_bins = np.digitize(data, bins=bins)
-        bincounts = np.bincount(digi_bins, minlength=minlength)
-        bincounts = bincounts[1:] #do not plot out-of-bound values
-        if self.plot_max < np.max(bincounts):
-            self.plot_max = np.max(bincounts)
-        if self.plot_min > np.min(bincounts):
-            self.plot_min = np.min(bincounts)
 
-        if not isinstance(data, (tuple,list)):
-            # m = ( '[plotter.py] The bins should cover the {s} data value!' +
-            #       ' However: {q1} {q2} {q3}.' )
-            # if max(data) >= bins[-1]:
-            #     raise ValueError(m.format(s='maximum', q1=max(data), q2='>=', q3=bins[-1]))
-            # if min(data) < bins[0]:
-            #     raise ValueError(m.format(s='minimum', q1=min(data), q2='<', q3=bins[0]))
-            data = [ data ]
+        #consider the two out-of-bound bins
+        minlength = self.kw['NbinsPhi']+2 if minlength is None else minlength
 
-        minlength = self.kw['PhiBinEdges'] if minlength is None else minlength
-        
+        _digi_bins = np.digitize(data, bins=bins)        
+        _bincounts = np.bincount(_digi_bins, minlength=minlength)
+        _bincounts = _bincounts[1:-1] #do not plot out-of-bound values
+        if self.plot_max < np.max(_bincounts):
+            self.plot_max = np.max(_bincounts)
+        if self.plot_min > np.min(_bincounts):
+            self.plot_min = np.min(_bincounts)
+
+        data = [data]
         for i,rzslice in enumerate(data):
             #print(min(rzslice), max(rzslice), bins[-1])
             digi_bins = np.digitize(rzslice, bins=bins)
+
             #print(max(digi_bins), min(digi_bins), len(bins), len(rzslice))
             #print(digi_bins, len(digi_bins))
             bincounts = np.bincount(digi_bins, minlength=minlength)
-            #print(bincounts)
+            assert len(bincounts)==minlength
+            assert sum(self.orig_data_counts) >= sum(bincounts)
 
+            #remove the out-of-bounds from the plot
+            bincounts = bincounts[1:-1]
             self.bincounts.append( bincounts )
             self.histos.append( np.histogram(bincounts, bins=20) )
 
@@ -118,6 +119,7 @@ class Plotter:
 
         binspad = np.pad(self.bincounts[0],
                          pad_width=(0,nelems_max-len(self.bincounts[0])))
+
         s_bincounts = { 'curr_x': np.arange(nelems_max) }
         if density:
             s_bincounts.update( {'curr_y': binspad/sum(binspad) + logpad} )
@@ -153,7 +155,7 @@ class Plotter:
         if minval is None or maxval is None:
             if density: 
                 plot_distr = figure( y_range=(logpad,1), y_axis_type=y_axis_type,
-                                   **plot_opt)
+                                     **plot_opt)
             else:
                 plot_distr = figure( y_axis_type=y_axis_type, **plot_opt)
                 #(self.plot_min,self.plot_max)
@@ -179,7 +181,8 @@ class Plotter:
                             s2.change.emit();
                             """)
 
-        assert sum(self.orig_data_counts) == sum(self.bincounts[0])
+        # some generated data can lie outside the bin leftmost and rightmost edges
+        assert sum(self.orig_data_counts) >= sum(self.bincounts[0]) 
 
         plot_distr.circle(np.arange(len(self.orig_data_counts)),
                           #self.orig_data_counts/sum(self.orig_data_counts),
@@ -193,7 +196,7 @@ class Plotter:
                         fill_color='navy', line_color='white', alpha=0.5,
                         source=s_diff )
 
-        slider = Slider(start=0, end=self.kw['Epochs'],
+        slider = Slider(start=0, end=len(self.gen_data),
                         value=0, step=1., title='Epoch')
         slider.js_on_change('value', callback)
 
