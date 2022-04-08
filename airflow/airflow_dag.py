@@ -1,18 +1,18 @@
 import os
 import numpy as np
-import datetime
+# import datetime
 
-from airflow import DAG
-from airflow.operators.python import PythonOperator
+# from airflow import DAG
+# from airflow.operators.python import PythonOperator
 
-from filling import filling
-from smoothing import smoothing
-from seeding import seeding
-from clustering import clustering
-from validation import validation
+# from filling import filling
+# from smoothing import smoothing
+# from seeding import seeding
+# from clustering import clustering
+# from validation import validation
 
-import random
-random.seed(18) # fix seed for reproducibility
+# import random
+# random.seed(18) # fix seed for reproducibility
 
 #### Useful Airflow Commands ######################
 # initialize database: `airflow db init`
@@ -122,62 +122,62 @@ validation_kwargs = setDictionary(
       'FillingOut': filling_kwargs['FillingOut'] }
 )
 
-with DAG(
-    dag_id='stage2_reconstruction_default',
-    default_args={
-        'depends_on_past': False,
-        'email': ['bruno.alves@cern.ch'],
-        'email_on_failure': False,
-        'email_on_retry': False,
-        'start_date': datetime.datetime(2022, 2, 25, 00, 00),
-        'retries': 1,
-        'retry_delay': datetime.timedelta(minutes=5),
-        # 'queue': 'bash_queue',
-        # 'pool': 'backfill',
-        # 'priority_weight': 10,
-        # 'end_date': datetime(2016, 1, 1),
-        # 'wait_for_downstream': False,
-        # 'sla': timedelta(hours=2),
-        # 'execution_timeout': timedelta(seconds=300),
-        # 'on_failure_callback': some_function,
-        # 'on_success_callback': some_other_function,
-        # 'on_retry_callback': another_function,
-        # 'sla_miss_callback': yet_another_function,
-        # 'trigger_rule': 'all_success'
-    },
-    description='Seeding + Clustering',
-    catchup=False,
-    tags=['v1'],
-) as dag:
+# with DAG(
+#     dag_id='stage2_reconstruction_default',
+#     default_args={
+#         'depends_on_past': False,
+#         'email': ['bruno.alves@cern.ch'],
+#         'email_on_failure': False,
+#         'email_on_retry': False,
+#         'start_date': datetime.datetime(2022, 2, 25, 00, 00),
+#         'retries': 1,
+#         'retry_delay': datetime.timedelta(minutes=5),
+#         # 'queue': 'bash_queue',
+#         # 'pool': 'backfill',
+#         # 'priority_weight': 10,
+#         # 'end_date': datetime(2016, 1, 1),
+#         # 'wait_for_downstream': False,
+#         # 'sla': timedelta(hours=2),
+#         # 'execution_timeout': timedelta(seconds=300),
+#         # 'on_failure_callback': some_function,
+#         # 'on_success_callback': some_other_function,
+#         # 'on_retry_callback': another_function,
+#         # 'sla_miss_callback': yet_another_function,
+#         # 'trigger_rule': 'all_success'
+#     },
+#     description='Seeding + Clustering',
+#     catchup=False,
+#     tags=['v1'],
+# ) as dag:
 
-    fill = PythonOperator(
-        task_id='filling',
-        python_callable=filling,
-        op_kwargs=filling_kwargs,
-    )
+#     fill = PythonOperator(
+#         task_id='filling',
+#         python_callable=filling,
+#         op_kwargs=filling_kwargs,
+#     )
 
-    smooth = PythonOperator(
-        task_id='smoothing',
-        python_callable=smoothing,
-        op_kwargs=smoothing_kwargs,
-    )
+#     smooth = PythonOperator(
+#         task_id='smoothing',
+#         python_callable=smoothing,
+#         op_kwargs=smoothing_kwargs,
+#     )
 
-    seed = PythonOperator(
-        task_id='seeding',
-        python_callable=seeding,
-        op_kwargs=seeding_kwargs,
-    )
+#     seed = PythonOperator(
+#         task_id='seeding',
+#         python_callable=seeding,
+#         op_kwargs=seeding_kwargs,
+#     )
 
-    cluster = PythonOperator(
-        task_id='clustering',
-        python_callable=clustering,
-        op_kwargs=clustering_kwargs,
-    )
+#     cluster = PythonOperator(
+#         task_id='clustering',
+#         python_callable=clustering,
+#         op_kwargs=clustering_kwargs,
+#     )
 
-    valid = PythonOperator(
-        task_id='validation',
-        python_callable=validation,
-        op_kwargs=validation_kwargs,
-    )
+#     valid = PythonOperator(
+#         task_id='validation',
+#         python_callable=validation,
+#         op_kwargs=validation_kwargs,
+#     )
 
-    fill >> smooth >> seed >> cluster >> valid
+#     fill >> smooth >> seed >> cluster >> valid

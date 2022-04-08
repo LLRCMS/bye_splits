@@ -8,7 +8,7 @@ from tensorflow.keras.layers import Dense, Flatten, Conv1D
 
 from data_processing import DataProcessing
 from plotter import Plotter
-from debug import debug_tensor_shape
+from debug_architecture import debug_tensor_shape
 
 def are_tensors_equal(t1, t2):
     assert t1.shape == t2.shape
@@ -57,7 +57,7 @@ class Architecture(tf.keras.Model):
                              filters=16,
                              **conv_opt )
     
-        self.dense1 = Dense( units=200,
+        self.dense1 = Dense( units=100,
                              activation='relu',
                              name='first dense')
 
@@ -116,7 +116,8 @@ class TriggerCellDistributor(tf.Module):
                                              lambda_op=self.subtract_max,
                                             )
 
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1.e-6)
+        self.init_lr = 1.e-3
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.init_lr)
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
         self.was_calc_loss_called = False
@@ -129,6 +130,30 @@ class TriggerCellDistributor(tf.Module):
     def adapt_loss_parameters(self, dictloss, epoch):
         """Changes the proportionality between the loss terms as a function of the epoch."""
         return self.pars
+
+    def adapt_learning_rate(self, epoch):
+        thresholds = (50, 100, 150,200,250,)
+        learning_rates = (1e-4, 1e-5, 1e-6, 1e-7, 1e-8,)
+        assert len(thresholds)==len(learning_rates)
+
+        # make sure the initial learning rate is the largest
+        for elem in learning_rates:
+            assert self.init_lr > elem
+
+        # custom learning rate schedule
+        for i in range(len(thresholds)):
+            #change the learning rate only at the threshold
+            #let Adam schedule it during the rest of the time
+            if epoch != thresholds[i]:
+                break
+            
+            if i==len(thresholds)-1: #last iteration
+                self.optimizer.learning_rate.assign(learning_rates[-1])
+                break
+            
+            if epoch > thresholds[i] and epoch < thresholds[i+1]:
+                self.optimizer.learning_rate.assign(learning_rates[i])
+                break
         
     def calc_loss(self, originaldata, outdata):
         """
@@ -332,6 +357,7 @@ def optimization(algo, **kw):
 
             dictloss, outdata, gradients, train_vars = tcd.train_step(dp, save=should_save)
             tcd.adapt_loss_parameters(dictloss, epoch)
+            tcd.adapt_learning_rate(epoch)
 
             save_scalar_logs(
                 writer=summary_writer,
@@ -352,6 +378,47 @@ def optimization(algo, **kw):
         #plotter.plot(density=False, show_html=True)
 
 if __name__ == "__main__":
-    from airflow.airflow_dag import optimization_kwargs
+    #from airflow.airflow_dag import optimization_kwargs
+    import os
+    import numpy as np
+    from tensorflow.compat.v1 import ConfigProto
+    from tensorflow.compat.v1 import InteractiveSession
+    
+    config = ConfigProto()
+    config.gpu_options.allow_growth = True
+    session = InteractiveSession(config=config)
+    
+    Nevents = 16#{{ dag_run.conf.nevents }}
+    NbinsRz = 42
+    NbinsPhi = 216
+    MinROverZ = 0.076
+    MaxROverZ = 0.58
+    MinPhi = -np.pi
+    MaxPhi = +np.pi
+    DataFolder = 'data'
+    optimization_kwargs = { 'NbinsRz': NbinsRz,
+                            'NbinsPhi': NbinsPhi,
+                            'MinROverZ': MinROverZ,
+                            'MaxROverZ': MaxROverZ,
+                            'MinPhi': MinPhi,
+                            'MaxPhi': MaxPhi,
+
+                            'LayerEdges': [0,28],
+                            'IsHCAL': False,
+
+                            'Debug': True,
+                            'DataFolder': DataFolder,
+                            'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
+                            'BasePath': os.path.join(os.environ['PWD'], DataFolder),
+
+                            'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
+                            'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
+                            'Epochs': 99999,
+                            'KernelSize': 10,
+                            'WindowSize': 3,
+                            'OptimizationIn': os.path.join(os.environ['PWD'], DataFolder, 'triggergeom_condensed.hdf5'),
+                            'OptimizationOut': 'None.hdf5',
+                            'Pretrained': False,
+                           }
     for falgo in optimization_kwargs['FesAlgos']:
         optimization( falgo, **optimization_kwargs )

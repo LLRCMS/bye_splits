@@ -133,13 +133,20 @@ class Plotter:
         df_diff = pd.DataFrame( {'diff_default': hist,
                                  'leftedge_default': edges[1:],
                                  'rightedge_default': edges[:-1]} )
+
+        hists, lefts, rights = ([] for _ in range(3))
         for i,elem in enumerate(self.gen_data):
             hist, edges = np.histogram(self.orig_data-elem,
                                        density=False, bins=nbins_plot)
+            hists.append( pd.DataFrame(hist, columns=['diff'+str(i)]) )
+            lefts.append( pd.DataFrame(edges[1:], columns=['leftedge'+str(i)]) )
+            rights.append( pd.DataFrame(edges[:-1], columns=['rightedge'+str(i)]) )
 
-            df_diff['diff'+str(i)] = hist
-            df_diff['leftedge'+str(i)] = edges[1:]
-            df_diff['rightedge'+str(i)] = edges[:-1]
+        hists_to_concat = [df_diff]
+        hists_to_concat.extend(hists)
+        hists_to_concat.extend(lefts)
+        hists_to_concat.extend(rights)
+        df_diff = pd.concat(hists_to_concat, axis=1)
         s_diff = ColumnDataSource(df_diff)
         
         for i,bc in enumerate(self.bincounts):
