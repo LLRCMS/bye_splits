@@ -173,6 +173,7 @@ class Plotter:
 
         plot_distr.circle('curr_x', 'curr_y', source=s_bincounts,
                           legend_label='Output')
+        plot_distr.legend.click_policy='hide'
 
         callback = CustomJS(args=dict(s1=s_bincounts, s2=s_diff),
                             code="""

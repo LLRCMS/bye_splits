@@ -106,7 +106,7 @@ class TriggerCellDistributor(tf.Module):
         
         assert len(init_pars)==3
         self.init_pars = init_pars
-        self.pars = init_pars
+        self.pars = list(init_pars)
 
         self.subtract_max = lambda x: x - (tf.math.reduce_max(x)+1)
         # convert bin ids coming before 0 (shifted boundaries) to negative ones
@@ -116,7 +116,7 @@ class TriggerCellDistributor(tf.Module):
                                              lambda_op=self.subtract_max,
                                             )
 
-        self.init_lr = 1.e-3
+        self.init_lr = 1e-7 if self.pretrained else 1e-3
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.init_lr)
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
@@ -129,6 +129,35 @@ class TriggerCellDistributor(tf.Module):
 
     def adapt_loss_parameters(self, scalar_map, epoch):
         """Changes the proportionality between the loss terms as a function of the epoch."""
+        #variance_loss_constant = (1e-2, 1e-1, 1e-0, 1e1)
+        variance_loss_constant = (1e1,)
+        wasserstein_loss_constant = tuple(self.init_pars[1] for _ in range(len(variance_loss_constant)))
+        equality_loss_constant = tuple(self.init_pars[0] for _ in range(len(variance_loss_constant)))
+        
+        if self.pretrained:
+            #thresholds = (100, 200, 300, 400,)
+            thresholds = (0,)
+            assert len(thresholds)==len(variance_loss_constant)
+
+            # custom learning rate schedule
+            for i in range(len(thresholds)):
+
+                #change the learning rate only at the threshold
+                #let Adam schedule it during the rest of the time
+                if epoch != thresholds[i]:
+                    continue
+
+                self.pars[0] = equality_loss_constant[i]
+                self.pars[1] = wasserstein_loss_constant[i]
+                self.pars[2] = variance_loss_constant[i]
+
+        else:
+            self.pars = self.init_pars
+
+        loss_pars = {'equality_loss_constant': self.pars[0],
+                     'wasserstein_loss_constant': self.pars[1],
+                     'variance_loss_constant': self.pars[2] }
+        scalar_map.update(loss_pars)
         return scalar_map, self.pars
 
     def adapt_learning_rate(self, scalar_map, epoch):
@@ -136,26 +165,32 @@ class TriggerCellDistributor(tf.Module):
         Using the Adam optimizer the following will control the base learning rate, 
         not the effective one, which is adaptive.
         """
-        thresholds = (400, 600, 800, 1200, 1600,)
         learning_rates = (1e-4, 5e-5, 1e-5, 1e-6, 1e-7,)
-        assert len(thresholds)==len(learning_rates)
+        
+        if not self.pretrained:
+            thresholds = (400, 600, 800, 1200, 1600,)
+            assert len(thresholds)==len(learning_rates)
 
-        # make sure the initial learning rate is the largest
-        for elem in learning_rates:
-            assert self.init_lr > elem
+            # make sure the initial learning rate is the largest
+            for elem in learning_rates:
+                assert self.init_lr > elem
 
-        # custom learning rate schedule
-        for i in range(len(thresholds)):
+            # custom learning rate schedule
+            for i in range(len(thresholds)):
 
-            #change the learning rate only at the threshold
-            #let Adam schedule it during the rest of the time
-            if epoch != thresholds[i]:
-                continue
+                #change the learning rate only at the threshold
+                #let Adam schedule it during the rest of the time
+                if epoch != thresholds[i]:
+                    continue
 
-            self.optimizer.learning_rate.assign(learning_rates[i])
+                self.optimizer.learning_rate.assign(learning_rates[i])
 
+        else:
+            assert self.init_lr == learning_rates[-1]
+            
         scalar_map.update({'learning_rate': self.optimizer.lr})
         return scalar_map
+        
         
     def calc_loss(self, originaldata, outdata):
         """
@@ -218,10 +253,10 @@ class TriggerCellDistributor(tf.Module):
         Calculates the variance between adjacent bins.
         Adjacent here refers to the bin index, and not necessarily to physical location
         (I had to take into account circular boundary conditions).
+        Bins without entries do not affect the calulation.
         """
         variance_loss = 0
-        unique_bins = tf.unique(bins[:-self.boundary_size])[0]
-        for ibin in unique_bins:
+        for ibin in range(-self.boundary_width, self.nbinsphi-self.boundary_width):
             idxs = (bins >= ibin) & (bins <= ibin+self.boundary_width)
             variance_loss += tf.math.reduce_variance(data[idxs])
         return variance_loss
@@ -256,7 +291,7 @@ class TriggerCellDistributor(tf.Module):
 
             losses, _ = self.calc_loss(original_data, prediction)
             loss_sum = tf.reduce_sum(list(losses.values()))
-
+            
         gradients = tape.gradient(loss_sum, self.architecture.trainable_variables)
 
         self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
@@ -298,7 +333,9 @@ def save_scalar_logs(writer, scalar_map, epoch):
     Saves tensorflow info for Tensorboard visualization.
     `scalar_map` expects a dict of (scalar_name, scalar_value) pairs.
     """
-    not_losses = ('learning_rate',)
+    not_losses = ('learning_rate',
+                  'equality_loss_constant', 'wasserstein_loss_constant',
+                  'variance_loss_constant')
     with writer.as_default():
         tot = 0
         for k,v in scalar_map.items():
@@ -351,7 +388,8 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            init_pars=(1., 1e-6, 0.),
+            #init_pars=(0., 1e-6, 0.),
+            init_pars=(0., 0., 0.),
             pretrained=kw['Pretrained'],
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
@@ -422,7 +460,7 @@ if __name__ == "__main__":
                             'WindowSize': 3,
                             'OptimizationIn': os.path.join(os.environ['PWD'], DataFolder, 'triggergeom_condensed.hdf5'),
                             'OptimizationOut': 'None.hdf5',
-                            'Pretrained': False,
+                            'Pretrained': True,
                            }
     for falgo in optimization_kwargs['FesAlgos']:
         optimization( falgo, **optimization_kwargs )
