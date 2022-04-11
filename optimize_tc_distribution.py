@@ -127,13 +127,17 @@ class TriggerCellDistributor(tf.Module):
         self.checkpoint = tf.train.Checkpoint(model=self.architecture, optimizer=self.optimizer)
         self.manager = tf.train.CheckpointManager(self.checkpoint, self.model_name, max_to_keep=5)
 
-    def adapt_loss_parameters(self, dictloss, epoch):
+    def adapt_loss_parameters(self, scalar_map, epoch):
         """Changes the proportionality between the loss terms as a function of the epoch."""
-        return self.pars
+        return scalar_map, self.pars
 
-    def adapt_learning_rate(self, epoch):
-        thresholds = (50, 100, 150,200,250,)
-        learning_rates = (1e-4, 1e-5, 1e-6, 1e-7, 1e-8,)
+    def adapt_learning_rate(self, scalar_map, epoch):
+        """
+        Using the Adam optimizer the following will control the base learning rate, 
+        not the effective one, which is adaptive.
+        """
+        thresholds = (400, 600, 800, 1200, 1600,)
+        learning_rates = (1e-4, 5e-5, 1e-5, 1e-6, 1e-7,)
         assert len(thresholds)==len(learning_rates)
 
         # make sure the initial learning rate is the largest
@@ -142,18 +146,16 @@ class TriggerCellDistributor(tf.Module):
 
         # custom learning rate schedule
         for i in range(len(thresholds)):
+
             #change the learning rate only at the threshold
             #let Adam schedule it during the rest of the time
             if epoch != thresholds[i]:
-                break
-            
-            if i==len(thresholds)-1: #last iteration
-                self.optimizer.learning_rate.assign(learning_rates[-1])
-                break
-            
-            if epoch > thresholds[i] and epoch < thresholds[i+1]:
-                self.optimizer.learning_rate.assign(learning_rates[i])
-                break
+                continue
+
+            self.optimizer.learning_rate.assign(learning_rates[i])
+
+        scalar_map.update({'learning_rate': self.optimizer.lr})
+        return scalar_map
         
     def calc_loss(self, originaldata, outdata):
         """
@@ -296,11 +298,13 @@ def save_scalar_logs(writer, scalar_map, epoch):
     Saves tensorflow info for Tensorboard visualization.
     `scalar_map` expects a dict of (scalar_name, scalar_value) pairs.
     """
+    not_losses = ('learning_rate',)
     with writer.as_default():
         tot = 0
         for k,v in scalar_map.items():
             tf.summary.scalar(k, v, step=epoch)
-            tot += v
+            if k not in not_losses:
+                tot += v
         tf.summary.scalar('total', tot, step=epoch)
 
 def save_gradient_logs(writer, gradients, train_variables, epoch):
@@ -356,12 +360,12 @@ def optimization(algo, **kw):
             should_save = True if epoch%20==0 else False
 
             dictloss, outdata, gradients, train_vars = tcd.train_step(dp, save=should_save)
-            tcd.adapt_loss_parameters(dictloss, epoch)
-            tcd.adapt_learning_rate(epoch)
+            scalar_map, _ = tcd.adapt_loss_parameters(dictloss, epoch)
+            scalar_map = tcd.adapt_learning_rate(scalar_map, epoch)
 
             save_scalar_logs(
                 writer=summary_writer,
-                scalar_map=dictloss,
+                scalar_map=scalar_map,
                 epoch=epoch
             )
             save_gradient_logs(
