@@ -2,6 +2,8 @@ import h5py
 from tqdm import tqdm
 import datetime
 import tensorflow as tf
+#import os
+#os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 print("TensorFlow version:", tf.__version__)
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 from tensorflow.keras.layers import Dense, Flatten, Conv1D
@@ -116,7 +118,7 @@ class TriggerCellDistributor(tf.Module):
                                              lambda_op=self.subtract_max,
                                             )
 
-        self.init_lr = 1.e-3
+        self.init_lr = 5.e-3
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.init_lr)
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
@@ -132,29 +134,27 @@ class TriggerCellDistributor(tf.Module):
         return self.pars
 
     def adapt_learning_rate(self, epoch):
-        thresholds = (50, 100, 150,200,250,)
-        learning_rates = (1e-4, 1e-5, 1e-6, 1e-7, 1e-8,)
-        assert len(thresholds)==len(learning_rates)
+        pass
+        # thresholds = (1000, 2000, 3000, 4000,)
+        # nthresholds = len(thresholds)
+        # assert len(set(thresholds))==nthresholds
+        # learning_rates = (1e-4, 1e-5, 1e-6, 1e-7,)
+        # assert nthresholds==len(learning_rates)
 
-        # make sure the initial learning rate is the largest
-        for elem in learning_rates:
-            assert self.init_lr > elem
+        # # make sure the initial learning rate is the largest
+        # for elem in learning_rates:
+        #     assert self.init_lr > elem
 
-        # custom learning rate schedule
-        for i in range(len(thresholds)):
-            #change the learning rate only at the threshold
-            #let Adam schedule it during the rest of the time
-            if epoch != thresholds[i]:
-                break
-            
-            if i==len(thresholds)-1: #last iteration
-                self.optimizer.learning_rate.assign(learning_rates[-1])
-                break
-            
-            if epoch > thresholds[i] and epoch < thresholds[i+1]:
-                self.optimizer.learning_rate.assign(learning_rates[i])
-                break
-        
+        # # custom learning rate schedule
+        # for i in range(nthresholds):
+        #     #change the learning rate only at the threshold
+        #     #let Adam schedule it during the rest of the time
+        #     if epoch != thresholds[i]:
+        #         continue
+
+        #     self.optimizer.learning_rate.assign(learning_rates[i])
+        #     break
+
     def calc_loss(self, originaldata, outdata):
         """
         Calculates the model's loss function. Receives slices in R/z as input.
@@ -348,6 +348,7 @@ def optimization(algo, **kw):
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
             init_pars=(1., 1e-6, 0.),
+            #init_pars=(1., 0., 0.),
             pretrained=kw['Pretrained'],
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
@@ -375,6 +376,7 @@ def optimization(algo, **kw):
 
             if should_save:
                 plotter.plot(minval=-1, maxval=52, density=False, show_html=False)
+
         #plotter.plot(density=False, show_html=True)
 
 if __name__ == "__main__":
