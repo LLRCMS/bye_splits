@@ -4,16 +4,21 @@ Functions used for data processing.
 import numpy as np
 
 class DataProcessing:
-    def __init__(self, phi_bounds):
+    def __init__(self, phi_bounds, bin_bounds):
         self.max_bound = 1.
         self.min_bound = 0.
-        self.shift = np.pi #shift the phi range to [0; 2*Pi[
-        self.phi_bounds = tuple( x + self.shift for x in phi_bounds )
+        self.shift_phi = np.pi #shift the phi range to [0; 2*Pi[
+        self.shift_bin = 0.
+        self.phi_bounds = tuple( x + self.shift_phi for x in phi_bounds )
+        self.bin_bounds = tuple( x + self.shift_bin for x in phi_bounds )
 
         #get parameters for the linear transformation (set between 0 and 1)
-        self.a_norm = (self.max_bound-self.min_bound)
-        self.a_norm /= (self.phi_bounds[1]-self.phi_bounds[0])
-        self.b_norm = self.max_bound - self.a_norm * self.phi_bounds[1]
+        self.a_norm_phi = (self.max_bound-self.min_bound)
+        self.a_norm_phi /= (self.phi_bounds[1]-self.phi_bounds[0])
+        self.b_norm_phi = self.max_bound - self.a_norm_phi * self.phi_bounds[1]
+        self.a_norm_bin = (self.max_bound-self.min_bound)
+        self.a_norm_bin /= (self.bin_bounds[1]-self.bin_bounds[0])
+        self.b_norm_bin = self.max_bound - self.a_norm_bin * self.bin_bounds[1]
                 
     def preprocess( self, data,
                     nbins_phi,
@@ -41,7 +46,7 @@ class DataProcessing:
             """
             Shift data. Originally meant to avoid negative values.
             """
-            data[:,index] += self.shift
+            data[:,index] += self.shift_phi
             assert len(data[:,index][ data[:,index] < 0 ]) == 0
             return data
 
@@ -73,11 +78,16 @@ class DataProcessing:
 
             return data
 
-        def _normalize(data, phi_bounds, index):
+        def _normalize(data, index):
             """
             Standard max-min normalization of column `index`.
             """
-            data[:,index] = self.a_norm * data[:,index] + self.b_norm
+            if index == phi_idx:
+                data[:,index] = self.a_norm_phi * data[:,index] + self.b_norm_phi
+            elif index == phibin_idx:
+                data[:,index] = self.a_norm_bin * data[:,index] + self.b_norm_bin
+            else:
+                raise ValueError()
             return data
 
         def _set_boundary_conditions(data, window_size, phibin_idx, nbins_phi):
@@ -101,10 +111,17 @@ class DataProcessing:
             data,
             index=phi_idx
         )
+        data = _shift(
+            data,
+            index=phibin_idx
+        )
         data = _normalize(
             data,
-            self.phi_bounds,
             index=phi_idx
+        )
+        data = _normalize(
+            data,
+            index=phibin_idx
         )
         data = _split(
             data,
@@ -126,24 +143,27 @@ class DataProcessing:
 
         return data, data_with_boundaries, boundary_sizes
 
-    def postprocess(self, data):
+    def postprocess(self, data, bins):
         """Adapt the output of the neural network."""
 
-        def _denormalize(data, phi_bounds):
+        def _denormalize(data, bins):
             """Opposite of preprocess._normalize()."""
-            new_data = (data - self.b_norm) / self.a_norm
-            return new_data
-        def _deshift(data):
+            new_data = (data - self.b_norm_phi) / self.a_norm_phi
+            new_bins = (bins - self.b_norm_bin) / self.a_norm_bin
+            return new_data, new_bins
+        def _deshift(data, bins):
             """Opposite of preprocess._normalize()."""
-            new_data = data - self.shift
-            return new_data
+            new_data = data - self.shift_phi
+            new_bins = bins - self.shift_bin
+            return new_data, new_bins
 
-        new_data = _denormalize(
+        new_data, new_bins = _denormalize(
             data,
-            self.phi_bounds,
+            bins,
         )
-        new_data = _deshift(
+        new_data, new_bins = _deshift(
             new_data,
+            new_bins,
         )
 
-        return new_data
+        return new_data, new_bins

@@ -2,8 +2,10 @@ import h5py
 from tqdm import tqdm
 import datetime
 import tensorflow as tf
-#import os
-#os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 print("TensorFlow version:", tf.__version__)
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 from tensorflow.keras.layers import Dense, Flatten, Conv1D
@@ -16,14 +18,14 @@ def are_tensors_equal(t1, t2):
     assert t1.shape == t2.shape
     return tf.math.count_nonzero(tf.math.equal(t1,t2))==t1.shape
         
-def tensorflow_assignment(tensor, mask, lambda_op):
-    """
-    Emulate assignment by creating a new tensor.
-    The mask must be 1 where the assignment is intended, 0 everywhere else.
-    """
-    assert tensor.shape == mask.shape
-    other = lambda_op(tensor)
-    return tensor * (1 - mask) + other * mask
+# def tensorflow_assignment(tensor, mask, lambda_op):
+#     """
+#     Emulate assignment by creating a new tensor.
+#     The mask must be 1 where the assignment is intended, 0 everywhere else.
+#     """
+#     assert tensor.shape == mask.shape
+#     other = lambda_op(tensor)
+#     return tensor * (1 - mask) + other * mask
 
 def tensorflow_wasserstein_1d_loss(indata, outdata):
     """Calculates the 1D earth-mover's distance."""
@@ -42,11 +44,12 @@ def tensorflow_wasserstein_1d_loss(indata, outdata):
 # https://www.tensorflow.org/guide/keras/custom_layers_and_models#the_model_class
 class Architecture(tf.keras.Model):
     """Neural network model definition."""
-    def __init__(self, inshape, kernel_size):
+    def __init__(self, inshape, nbins, kernel_size):
         super().__init__()
         assert len(inshape)==1
 
         self.inshape = inshape
+        self.nbins = nbins
         
         kernel_init = tf.keras.initializers.LecunNormal() #recommended for SELUs
         conv_opt = dict( strides=1,
@@ -59,16 +62,21 @@ class Architecture(tf.keras.Model):
                              filters=16,
                              **conv_opt )
     
-        self.dense1 = Dense( units=100,
-                             activation='relu',
+        self.dense1 = Dense( units=500,
+                             activation='selu',
                              name='first dense')
 
         self.dense2 = Dense( units=self.inshape[0],
                              activation='selu',
-                             name='second dense')
+                             name='output data')
+
+        self.dense3 = Dense( units=self.nbins,
+                             activation='selu',
+                             name='output bins')
 
     #@debug_tensor_shape(name='x', run=False)
     def __call__(self, x):
+        tf.summary.trace_on()
         x = tf.cast(x, dtype=tf.float32)
         x = tf.reshape(x, shape=(-1, x.shape[0]))
         x = self.dense1(x)
@@ -76,15 +84,24 @@ class Architecture(tf.keras.Model):
         x = self.conv1(x)
         x = tf.reshape(x, shape=(-1, x.shape[1]*x.shape[2]))
         x = self.dense2(x)
-        x = tf.squeeze(x)
-        return x
+        outdata = tf.squeeze(x)
+
+        x = self.dense3(x)
+        outbins = tf.squeeze(x)
+        
+        return outdata, outbins
 
 class TriggerCellDistributor(tf.Module):
     """Neural net workings"""
-    def __init__( self, indata, inbins, bound_size,
-                  kernel_size, window_size,
-                  phibounds, nbinsphi, rzbounds, nbinsrz,
-                  init_pars,
+    def __init__( self,
+                  indata,
+                  inbins,
+                  bound_size,
+                  kernel_size,
+                  window_size,
+                  mode,
+                  phibounds,
+                  nbinsphi,
                   pretrained ):
         """
         Manages quantities related to the neural model being used.
@@ -93,163 +110,140 @@ class TriggerCellDistributor(tf.Module):
               - window_size: Number of bins considered for each variance calculation.
               Note this is not the same as number of trigger cells (each bin has
               multiple trigger cells).
-        """        
+        """
         self.indata = indata
+        self.inbins = inbins
         self.boundary_size = bound_size
         self.kernel_size = kernel_size
-        self.boundary_width = window_size-1
-        self.phibounds, self.nbinsphi = phibounds, nbinsphi
-        self.rzbounds, self.nbinsrz = rzbounds, nbinsrz
+        self.phibounds = phibounds
+        self.nbinsphi = nbinsphi
 
         self.pretrained = pretrained
         self.first_train = True
 
-        self.architecture = Architecture(self.indata.shape, kernel_size)
+        self.local_loss_mode = mode
+        self.boundary_width = window_size - 1
+
+        self.architecture = Architecture(self.indata.shape, self.nbinsphi, kernel_size)
         
-        assert len(init_pars)==3
-        self.init_pars = init_pars
-        self.pars = list(init_pars)
+        self.pars = [None, None, None]
+        assert len(self.pars) == 3
 
         self.subtract_max = lambda x: x - (tf.math.reduce_max(x)+1)
         # convert bin ids coming before 0 (shifted boundaries) to negative ones
-        self.inbins = tensorflow_assignment( tensor=inbins,
-                                             mask=tf.concat((tf.ones(self.boundary_size),
-                                                             tf.zeros(inbins.shape[0]-self.boundary_size)), axis=0),
-                                             lambda_op=self.subtract_max,
-                                            )
+        # self.inbins = tensorflow_assignment( tensor=inbins,
+        #                                      mask=tf.concat((tf.ones(self.boundary_size),
+        #                                                      tf.zeros(inbins.shape[0]-self.boundary_size)), axis=0),
+        #                                      lambda_op=self.subtract_max,
+        #                                     )
 
-        self.init_lr = 1e-7 if self.pretrained else 1e-3
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.init_lr)
+        if not self.pretrained:
+            #self.learning_rates = (1e-4, 5e-5, 1e-5, 1e-6, 1e-7,)
+            self.learning_rates = (1e-3,)
+            self.lr_thresholds = (0,)
+        else:
+            self.learning_rates = (1e-4, 1e-3)
+            self.lr_thresholds = (0, 50,)
+        assert len(self.lr_thresholds)==len(self.learning_rates)
+
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rates[0])
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
         self.was_calc_loss_called = False
 
         # set checkpoint
-        self.model_name = 'data/test_model/tf_checkpoints'
+        self.model_name = os.path.join('data',
+                                       'model_bound' + str(self.boundary_width),
+                                       'tf_checkpoints')
         self.checkpoint = tf.train.Checkpoint(model=self.architecture, optimizer=self.optimizer)
         self.manager = tf.train.CheckpointManager(self.checkpoint, self.model_name, max_to_keep=5)
 
-    def adapt_loss_parameters(self, scalar_map, epoch):
+    def adapt_loss_parameters(self, epoch):
         """Changes the proportionality between the loss terms as a function of the epoch."""
+        if self.pretrained:
+            initial_variance_loss_constant = 0.1
+            initial_equality_loss_constant = 1.
+            initial_wasserstein_loss_constant = 0.
+        else:
+            initial_variance_loss_constant = 1.
+            initial_equality_loss_constant = 0.
+            initial_wasserstein_loss_constant = 0.
+            
         #variance_loss_constant = (1e-2, 1e-1, 1e-0, 1e1)
-        variance_loss_constant = (1e1,)
-        wasserstein_loss_constant = tuple(self.init_pars[1] for _ in range(len(variance_loss_constant)))
-        equality_loss_constant = tuple(self.init_pars[0] for _ in range(len(variance_loss_constant)))
+        variance_loss_constant = (initial_variance_loss_constant,)
+        wasserstein_loss_constant = tuple(initial_wasserstein_loss_constant for _ in range(len(variance_loss_constant)))
+        equality_loss_constant = tuple(initial_equality_loss_constant for _ in range(len(variance_loss_constant)))
         
         if self.pretrained:
             #thresholds = (100, 200, 300, 400,)
-            thresholds = (0,)
-            assert len(thresholds)==len(variance_loss_constant)
-
-            # custom learning rate schedule
-            for i in range(len(thresholds)):
-
-                #change the learning rate only at the threshold
-                #let Adam schedule it during the rest of the time
-                if epoch != thresholds[i]:
-                    continue
-
-                self.pars[0] = equality_loss_constant[i]
-                self.pars[1] = wasserstein_loss_constant[i]
-                self.pars[2] = variance_loss_constant[i]
-
+            loss_thresholds = (0,)
         else:
-            self.pars = self.init_pars
+            loss_thresholds = (0,)
+
+        assert len(loss_thresholds)==len(variance_loss_constant)
+        
+        # custom learning rate schedule
+        for i in range(len(loss_thresholds)):
+
+            #change the learning rate only at the threshold
+            #let Adam schedule it during the rest of the time
+            if epoch != loss_thresholds[i]:
+                continue
+
+            self.pars[0] = equality_loss_constant[i]
+            self.pars[1] = wasserstein_loss_constant[i]
+            self.pars[2] = variance_loss_constant[i]
 
         loss_pars = {'equality_loss_constant': self.pars[0],
                      'wasserstein_loss_constant': self.pars[1],
                      'variance_loss_constant': self.pars[2] }
-        scalar_map.update(loss_pars)
-        return scalar_map, self.pars
+        return loss_pars, self.pars
 
-    def adapt_learning_rate(self, scalar_map, epoch):
+    def adapt_learning_rate(self, epoch):
         """
         Using the Adam optimizer the following will control the base learning rate, 
         not the effective one, which is adaptive.
-        """
-        learning_rates = (1e-4, 5e-5, 1e-5, 1e-6, 1e-7,)
-        
-        if not self.pretrained:
-            thresholds = (400, 600, 800, 1200, 1600,)
-            assert len(thresholds)==len(learning_rates)
+        """               
+        # custom learning rate schedule
+        for i in range(len(self.lr_thresholds)):
 
-            # make sure the initial learning rate is the largest
-            for elem in learning_rates:
-                assert self.init_lr > elem
+            #change the learning rate only at the threshold
+            #let Adam schedule it during the rest of the time
+            if epoch != self.lr_thresholds[i]:
+                continue
 
-            # custom learning rate schedule
-            for i in range(len(thresholds)):
+            self.optimizer.learning_rate.assign(self.learning_rates[i])
 
-                #change the learning rate only at the threshold
-                #let Adam schedule it during the rest of the time
-                if epoch != thresholds[i]:
-                    continue
+        return {'learning_rate': self.optimizer.lr}
 
-                self.optimizer.learning_rate.assign(learning_rates[i])
-
-        else:
-            assert self.init_lr == learning_rates[-1]
-            
-        scalar_map.update({'learning_rate': self.optimizer.lr})
-        return scalar_map
-
-    def calc_loss(self, originaldata, outdata):
+    def calc_loss(self, indata, inbins, outdata, outbins):
         """
         Calculates the model's loss function. Receives slices in R/z as input.
         Each array value corresponds to a trigger cell.
-        Args: -originaldata: similar to originaldata, but after postprocessing (denormalization).
-                 To avoid confusions, `originaldata` should not be used in this method.
-              -inbins: ordered (ascendent) original phi bins
-              -bound_size: number of replicated trigger cells to satisfy boundary conditions
-              -outdata: neural net postprocessed phi values output
         """
         opt = {'summarize': 10} #number of entries to print if assertion fails
-        asserts = [ tf.debugging.Assert(originaldata.shape == outdata.shape, [originaldata.shape, outdata.shape], **opt) ]
-        asserts.append( tf.debugging.Assert(tf.math.reduce_min(self.inbins)==-self.boundary_width, [self.inbins], **opt) )
-        asserts.append( tf.debugging.Assert(tf.math.reduce_max(self.inbins)==self.nbinsphi-1, [self.inbins], **opt) )
-
-        # bin the output of the neural network
-        outbins = tf.histogram_fixed_width_bins(outdata,
-                                                value_range=self.phibounds,
-                                                nbins=self.nbinsphi)
-        outbins = tf.cast(outbins, dtype=tf.float32)
-
-        asserts.append( tf.debugging.Assert(tf.math.reduce_min(outbins)>=0, [outbins], **opt) )
-        asserts.append( tf.debugging.Assert(tf.math.reduce_max(outbins)<=self.nbinsphi-1, [outbins], **opt) )
-
-        # convert bin ids coming before 0 (shifted boundaries) to negative ones
-        # if this looks convoluted, blame tensorflow, which still does not support tensor assignment
-        # a new tensor must be created instead
-        outbins = tensorflow_assignment( tensor=outbins,
-                                         mask=tf.concat((tf.ones(self.boundary_size),
-                                                         tf.zeros(outbins.shape[0]-self.boundary_size)), axis=0),
-                                         lambda_op=self.subtract_max,
-                                       )
-
-        # replicated boundaries should be the same
-        asserts.append( tf.debugging.Assert(
-            condition=are_tensors_equal(originaldata[:self.boundary_size], originaldata[-self.boundary_size:]),
-            data=[originaldata[:self.boundary_size],originaldata[-self.boundary_size:]],
-            **opt) )
-        
+        asserts = [ tf.debugging.Assert(indata.shape == outdata.shape, [indata.shape, outdata.shape], **opt) ]
+        # asserts.append( tf.debugging.Assert(tf.math.reduce_min(inbins)==-self.boundary_width, [inbins], **opt) )
+        # asserts.append( tf.debugging.Assert(tf.math.reduce_max(inbins)==self.nbinsphi-1, [inbins], **opt) )
+                
         with tf.control_dependencies(asserts):
-            # print('Out: ', outdata.shape, outdata[:1])
-            # print('In:  ', originaldata.shape, originaldata[:1])
-            # print()
+            data_equality_loss = tf.reduce_sum( tf.math.square(outdata-indata) )
+            bins_equality_loss = tf.reduce_sum( tf.math.square(outbins-inbins) )
+            bins_variance_loss = self._calc_local_loss(outbins)
+            # wasserstein_loss = tensorflow_wasserstein_1d_loss(originaldata, outdata)
 
-            equality_loss = tf.reduce_sum( tf.math.square(outdata-originaldata) )
-            wasserstein_loss = tensorflow_wasserstein_1d_loss(originaldata, outdata)
-            variance_loss = self._calc_local_variance(outdata, outbins)
+            loss_pars = []
+            for par in self.pars:
+                assert par is not None
+                assert par >= 0.
+                loss_pars.append( tf.Variable(par, trainable=False) )
 
-            loss_pars = [ tf.Variable(x, trainable=False) for x in self.pars ]
+        return { 'data_equality_loss': loss_pars[0] * data_equality_loss,
+                 'bins_equality_loss': loss_pars[1] * bins_equality_loss,
+                 #'wasserstein_loss':  loss_pars[1] * wasserstein_loss,
+                 'local_variance_loss': loss_pars[2] * variance_loss }
 
-        return ( { 'equality_loss':       loss_pars[0] * equality_loss,
-                   'wasserstein_loss':    loss_pars[1] * wasserstein_loss,
-                   'local_variance_loss': loss_pars[2] * variance_loss },
-                 tf.unique(outbins[:-self.boundary_size])[0]
-                 )
-
-    def _calc_local_variance(self, data, bins):
+    def _calc_local_loss(self, outbins):
         """
         Calculates the variance between adjacent bins.
         Adjacent here refers to the bin index, and not necessarily to physical location
@@ -257,17 +251,19 @@ class TriggerCellDistributor(tf.Module):
         Bins without entries do not affect the calulation.
         """
         variance_loss = 0
-        for ibin in range(-self.boundary_width, self.nbinsphi-self.boundary_width):
-            idxs = (bins >= ibin) & (bins <= ibin+self.boundary_width)
-            variance_loss += tf.math.reduce_variance(data[idxs])
+        if self.local_loss_mode == 'variance':
+            pass
+        elif self.local_loss_mode == 'diff':
+            #take into account boundary conditions
+            diff = tf.concat((outbins[-1]-outbins[0], outbins[1:]-outbins[:-1]))
+            diff = tf.reduce_sum(tf.math.square(diff))
+            if not tf.math.is_nan(diff):
+                variance_loss += diff
+        else:
+            m = 'Mode {} is not supported.'.format(mode)
+            raise ValueError('[_calc_local_loss]' + m)
         return variance_loss
 
-    # @tf.function(
-    #     input_signature=(
-    #         tf.TensorSpec(shape=[], dtype=tf.float32),
-    #         tf.TensorSpec(shape=[], dtype=tf.int32))
-    # )
-    #@tf.function
     def train_step(self, dp, save=False):
         # Rseset the metrics at the start of the next epoch
         self.train_loss.reset_states()
@@ -278,30 +274,30 @@ class TriggerCellDistributor(tf.Module):
             tape.watch(self.inbins)
 
             if self.pretrained and self.first_train:
-                #self.load_model()
                 self.restore_checkpoint()
                 self.first_train = False
                 
             if save and not self.pretrained:
                 self.save_checkpoint()
 
-            prediction = self.architecture(self.indata)
-            prediction = dp.postprocess(prediction)
+            prediction_data, prediction_bins = self.architecture(self.indata)
+            prediction_data, prediction_bins = dp.postprocess(prediction_data,
+                                                              prediction_bins)
 
-            original_data = dp.postprocess(self.indata)
+            original_data, original_bins = dp.postprocess(self.indata, self.inbins)
 
-            losses, _ = self.calc_loss(original_data, prediction)
+            losses = self.calc_loss(original_data, original_bins, prediction_data, prediction_bins)
             loss_sum = tf.reduce_sum(list(losses.values()))
             
         gradients = tape.gradient(loss_sum, self.architecture.trainable_variables)
 
         self.optimizer.apply_gradients(zip(gradients, self.architecture.trainable_variables))
         self.train_loss(loss_sum)
-        return losses, prediction, gradients, self.architecture.trainable_variables
+        return losses, original_data, original_bins, gradients, self.architecture.trainable_variables
 
     def save_architecture_diagram(self, name):
         """Plots the structure of the used architecture."""
-        assert name.split('.')[1] == 'png'
+        assert name.split('.')[1] == 'png'   
         tf.keras.utils.plot_model(
             self.architecture,
             to_file=name,
@@ -355,19 +351,27 @@ def save_gradient_logs(writer, gradients, train_variables, epoch):
             tf.summary.histogram(
                 weights.name.replace(':', '_')+'_grads', data=grads, step=epoch)
 
-def optimization(algo, **kw):
+def save_graph(writer):
+    with writer.as_default():
+        tf.summary.trace_export('graph', 0)
+        
+def optimization(**kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
     plotter = Plotter(**optimization_kwargs)
+    mode = 'diff'
+    window_size = 3 if 'variance' in mode else 2 if mode == 'diff' else 0
 
     assert len(store_in.keys()) == 1
-    dp = DataProcessing(phi_bounds=(kw['MinPhi'],kw['MaxPhi']))
-    _, train_data, boundary_sizes = dp.preprocess( data=store_in['data'],
+    dp = DataProcessing( phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
+                         bin_bounds=(0,kw['NbinsPhi']-1) )
+    train_data, _, boundary_sizes = dp.preprocess( data=store_in['data'],
                                                    nbins_phi=kw['NbinsPhi'],
                                                    nbins_rz=kw['NbinsRz'],
-                                                   window_size=kw['WindowSize'] )
+                                                   window_size=window_size )
 
     chosen_layer = 0
-    orig_data = dp.postprocess(train_data[chosen_layer][:,0])
+    orig_data, orig_bins = dp.postprocess(train_data[chosen_layer][:,0],
+                                          train_data[chosen_layer][:,1])
 
     plotter.save_orig_data(orig_data, boundary_sizes[chosen_layer])
     
@@ -384,13 +388,10 @@ def optimization(algo, **kw):
             inbins=tf.convert_to_tensor(rzslice[:,1], dtype=tf.float32),
             bound_size=boundary_sizes[i],
             kernel_size=kw['KernelSize'],
-            window_size=kw['WindowSize'],
-            phibounds=(kw['MinPhi'],kw['MaxPhi']),
+            window_size=window_size,
+            mode=mode,
+            phibounds = (kw['MinPhi'], kw['MaxPhi']),
             nbinsphi=kw['NbinsPhi'],
-            rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
-            nbinsrz=kw['NbinsRz'],
-            #init_pars=(0., 1e-6, 0.),
-            init_pars=(0., 0., 0.),
             pretrained=kw['Pretrained'],
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
@@ -398,9 +399,14 @@ def optimization(algo, **kw):
         for epoch in tqdm(range(kw['Epochs'])):
             should_save = True if epoch%20==0 else False
 
-            dictloss, outdata, gradients, train_vars = tcd.train_step(dp, save=should_save)
-            scalar_map, _ = tcd.adapt_loss_parameters(dictloss, epoch)
-            scalar_map = tcd.adapt_learning_rate(scalar_map, epoch)
+            loss_pars_map, _ = tcd.adapt_loss_parameters(epoch)
+            lr_map = tcd.adapt_learning_rate(epoch)
+            dictloss, outdata, outbins, gradients, train_vars = tcd.train_step(dp,
+                                                                               save=should_save)
+
+            scalar_map = dict(loss_pars_map)
+            scalar_map.update(lr_map)
+            scalar_map.update(dictloss)
 
             save_scalar_logs(
                 writer=summary_writer,
@@ -413,8 +419,12 @@ def optimization(algo, **kw):
                 train_variables=train_vars,
                 epoch=epoch
             )
+            save_graph(
+                writer=summary_writer,
+            )
 
-            plotter.save_gen_data(outdata.numpy(), boundary_sizes[i])
+            plotter.save_gen_data(outdata.numpy())
+            plotter.save_gen_bins(outbins.numpy())
 
             if should_save:
                 plotter.plot(minval=-1, maxval=52, density=False, show_html=False)
@@ -459,10 +469,9 @@ if __name__ == "__main__":
                             'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
                             'Epochs': 99999,
                             'KernelSize': 10,
-                            'WindowSize': 3,
                             'OptimizationIn': os.path.join(os.environ['PWD'], DataFolder, 'triggergeom_condensed.hdf5'),
                             'OptimizationOut': 'None.hdf5',
-                            'Pretrained': True,
+                            'Pretrained': False,
                            }
-    for falgo in optimization_kwargs['FesAlgos']:
-        optimization( falgo, **optimization_kwargs )
+
+    optimization( **optimization_kwargs )
