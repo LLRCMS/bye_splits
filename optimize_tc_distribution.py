@@ -2,6 +2,8 @@ import h5py
 from tqdm import tqdm
 import datetime
 import tensorflow as tf
+#import os
+#os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 print("TensorFlow version:", tf.__version__)
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 from tensorflow.keras.layers import Dense, Flatten, Conv1D
@@ -193,8 +195,7 @@ class TriggerCellDistributor(tf.Module):
             
         scalar_map.update({'learning_rate': self.optimizer.lr})
         return scalar_map
-        
-        
+
     def calc_loss(self, originaldata, outdata):
         """
         Calculates the model's loss function. Receives slices in R/z as input.
@@ -422,6 +423,7 @@ def optimization(algo, **kw):
 
             if should_save:
                 plotter.plot(minval=-1, maxval=52, density=False, show_html=False)
+
         #plotter.plot(density=False, show_html=True)
 
 if __name__ == "__main__":
