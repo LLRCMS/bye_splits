@@ -130,13 +130,16 @@ class TriggerCellDistributor(tf.Module):
     def adapt_loss_parameters(self, scalar_map, epoch):
         """Changes the proportionality between the loss terms as a function of the epoch."""
         #variance_loss_constant = (1e-2, 1e-1, 1e-0, 1e1)
-        variance_loss_constant = (1e1,)
-        wasserstein_loss_constant = tuple(self.init_pars[1] for _ in range(len(variance_loss_constant)))
-        equality_loss_constant = tuple(self.init_pars[0] for _ in range(len(variance_loss_constant)))
+        #thresholds = (100, 200, 300, 400,)
+        variance_loss_constant = (self.init_pars[2],)
+        thresholds = (0,)
+
+        equality_loss_constant = tuple(self.init_pars[0]
+                                       for _ in range(len(variance_loss_constant)))
+        wasserstein_loss_constant = tuple(self.init_pars[1]
+                                          for _ in range(len(variance_loss_constant)))
         
         if self.pretrained:
-            #thresholds = (100, 200, 300, 400,)
-            thresholds = (0,)
             assert len(thresholds)==len(variance_loss_constant)
 
             # custom learning rate schedule
@@ -168,7 +171,7 @@ class TriggerCellDistributor(tf.Module):
         learning_rates = (1e-4, 5e-5, 1e-5, 1e-6, 1e-7,)
         
         if not self.pretrained:
-            thresholds = (400, 600, 800, 1200, 1600,)
+            thresholds = (300, 500, 700, 1000, 1300,)
             assert len(thresholds)==len(learning_rates)
 
             # make sure the initial learning rate is the largest
@@ -255,10 +258,12 @@ class TriggerCellDistributor(tf.Module):
         (I had to take into account circular boundary conditions).
         Bins without entries do not affect the calulation.
         """
-        variance_loss = 0
+        variance_loss = 0.
         for ibin in range(-self.boundary_width, self.nbinsphi-self.boundary_width):
             idxs = (bins >= ibin) & (bins <= ibin+self.boundary_width)
-            variance_loss += tf.math.reduce_variance(data[idxs])
+            variance = tf.math.reduce_variance(data[idxs])
+            if not tf.math.is_nan(variance):
+                variance_loss += variance
         return variance_loss
 
     # @tf.function(
@@ -290,6 +295,7 @@ class TriggerCellDistributor(tf.Module):
             original_data = dp.postprocess(self.indata)
 
             losses, _ = self.calc_loss(original_data, prediction)
+
             loss_sum = tf.reduce_sum(list(losses.values()))
             
         gradients = tape.gradient(loss_sum, self.architecture.trainable_variables)
@@ -388,8 +394,7 @@ def optimization(algo, **kw):
             nbinsphi=kw['NbinsPhi'],
             rzbounds=(kw['MinROverZ'],kw['MaxROverZ']),
             nbinsrz=kw['NbinsRz'],
-            #init_pars=(0., 1e-6, 0.),
-            init_pars=(0., 0., 0.),
+            init_pars=(1., 0., 1e1),
             pretrained=kw['Pretrained'],
         )
         #tcd.save_architecture_diagram('model{}.png'.format(i))
@@ -400,7 +405,7 @@ def optimization(algo, **kw):
             dictloss, outdata, gradients, train_vars = tcd.train_step(dp, save=should_save)
             scalar_map, _ = tcd.adapt_loss_parameters(dictloss, epoch)
             scalar_map = tcd.adapt_learning_rate(scalar_map, epoch)
-
+            
             save_scalar_logs(
                 writer=summary_writer,
                 scalar_map=scalar_map,
