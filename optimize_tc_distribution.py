@@ -265,7 +265,7 @@ class TriggerCellDistributor(tf.Module):
         return variance_loss
 
     def train_step(self, dp, save=False):
-        # Rseset the metrics at the start of the next epoch
+        # Reset the metrics at the start of the next epoch
         self.train_loss.reset_states()
 
         # for n in tf.range(steps): # any future loop within one epoch is done here
@@ -281,11 +281,16 @@ class TriggerCellDistributor(tf.Module):
                 self.save_checkpoint()
 
             prediction_data, prediction_bins = self.architecture(self.indata)
-            prediction_data, prediction_bins = dp.postprocess(prediction_data,
-                                                              prediction_bins)
+            prediction_data, prediction_bins = dp.postprocess( prediction_data,
+                                                               prediction_bins )
 
             original_data, original_bins = dp.postprocess(self.indata, self.inbins)
 
+            print(original_data.shape)
+            print(prediction_data.shape)
+            print(self.inbins.shape)
+            print(prediction_bins.shape)
+            quit()
             losses = self.calc_loss(original_data, original_bins, prediction_data, prediction_bins)
             loss_sum = tf.reduce_sum(list(losses.values()))
             
@@ -368,7 +373,6 @@ def optimization(**kw):
                                                    nbins_phi=kw['NbinsPhi'],
                                                    nbins_rz=kw['NbinsRz'],
                                                    window_size=window_size )
-
     chosen_layer = 0
     orig_data, orig_bins = dp.postprocess(train_data[chosen_layer][:,0],
                                           train_data[chosen_layer][:,1])

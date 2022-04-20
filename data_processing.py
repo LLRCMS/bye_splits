@@ -7,17 +7,17 @@ class DataProcessing:
     def __init__(self, phi_bounds, bin_bounds):
         self.max_bound = 1.
         self.min_bound = 0.
+        diff_bound = self.max_bound-self.min_bound
         self.shift_phi = np.pi #shift the phi range to [0; 2*Pi[
         self.shift_bin = 0.
         self.phi_bounds = tuple( x + self.shift_phi for x in phi_bounds )
-        self.bin_bounds = tuple( x + self.shift_bin for x in phi_bounds )
+        self.bin_bounds = tuple( x + self.shift_bin for x in bin_bounds )
 
         #get parameters for the linear transformation (set between 0 and 1)
-        self.a_norm_phi = (self.max_bound-self.min_bound)
-        self.a_norm_phi /= (self.phi_bounds[1]-self.phi_bounds[0])
+        self.a_norm_phi = diff_bound / (self.phi_bounds[1]-self.phi_bounds[0])
         self.b_norm_phi = self.max_bound - self.a_norm_phi * self.phi_bounds[1]
-        self.a_norm_bin = (self.max_bound-self.min_bound)
-        self.a_norm_bin /= (self.bin_bounds[1]-self.bin_bounds[0])
+        
+        self.a_norm_bin = diff_bound / (self.bin_bounds[1]-self.bin_bounds[0])
         self.b_norm_bin = self.max_bound - self.a_norm_bin * self.bin_bounds[1]
                 
     def preprocess( self, data,
@@ -46,8 +46,11 @@ class DataProcessing:
             """
             Shift data. Originally meant to avoid negative values.
             """
-            data[:,index] += self.shift_phi
-            assert len(data[:,index][ data[:,index] < 0 ]) == 0
+            if index == phi_idx:
+                data[:,index] += self.shift_phi
+            elif index == phibin_idx:
+                data[:,index] += self.shift_bin
+            assert len(data[:,index][ data[:,index] < self.min_bound ]) == 0
             return data
 
         def _split(data, split_index, sort_index, nbins_rz):
@@ -62,7 +65,7 @@ class DataProcessing:
             assert len(rz_slices) <= nbins_rz
             assert rz_slices.tolist() == [x for x in range(len(rz_slices))]
 
-            # https://stackoverflow.com/questions/2828059/sorting-arrays-in-numpy-by-column
+            # Https://stackoverflow.com/questions/2828059/sorting-arrays-in-numpy-by-column
             # ordering is already done when the data is produced, the following line is not needed anymore
             # data = data[ data[:,split_index].argsort(kind='stable') ] # sort rows by Rz_bin "column"
 
@@ -151,6 +154,7 @@ class DataProcessing:
             new_data = (data - self.b_norm_phi) / self.a_norm_phi
             new_bins = (bins - self.b_norm_bin) / self.a_norm_bin
             return new_data, new_bins
+
         def _deshift(data, bins):
             """Opposite of preprocess._normalize()."""
             new_data = data - self.shift_phi
