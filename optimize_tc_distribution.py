@@ -202,9 +202,16 @@ class TriggerCellDistributor(tf.Module):
         """
         Using the Adam optimizer the following will control the base learning rate, 
         not the effective one, which is adaptive.
-        """               
-        # custom learning rate schedule
-        for i in range(len(self.lr_thresholds)):
+        """
+        learning_rates = (1e-4, 5e-5, 1e-5, 1e-6, 1e-7,)
+        
+        if not self.pretrained:
+            thresholds = (300, 500, 700, 1000, 1300,)
+            assert len(thresholds)==len(learning_rates)
+
+            # make sure the initial learning rate is the largest
+            for elem in learning_rates:
+                assert self.init_lr > elem
 
             #change the learning rate only at the threshold
             #let Adam schedule it during the rest of the time
