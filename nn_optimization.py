@@ -14,19 +14,6 @@ from data_processing import DataProcessing
 from plotter import Plotter
 from debug_architecture import debug_tensor_shape
 
-def are_tensors_equal(t1, t2):
-    assert t1.shape == t2.shape
-    return tf.math.count_nonzero(tf.math.equal(t1,t2))==t1.shape
-        
-# def tensorflow_assignment(tensor, mask, lambda_op):
-#     """
-#     Emulate assignment by creating a new tensor.
-#     The mask must be 1 where the assignment is intended, 0 everywhere else.
-#     """
-#     assert tensor.shape == mask.shape
-#     other = lambda_op(tensor)
-#     return tensor * (1 - mask) + other * mask
-
 def tensorflow_wasserstein_1d_loss(indata, outdata):
     """Calculates the 1D earth-mover's distance."""
     loss = tf.cumsum(indata) - tf.cumsum(outdata)
