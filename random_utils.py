@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 def binConv(vals, dist, amin):
@@ -17,3 +18,9 @@ class dotDict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+
+def get_html_name(script_name):
+    f = os.path.basename(script_name)
+    f = f.split('.')
+    f = f[0] + '.html'
+    return f

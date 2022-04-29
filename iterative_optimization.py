@@ -3,6 +3,7 @@ import random
 import numpy as np
 import h5py
 
+from random_utils import get_html_name
 from data_processing import DataProcessing
 from plotter import Plotter
                 
@@ -22,10 +23,10 @@ def optimization(**kw):
                                       normalize=False )
     chosen_layer = 0
   
-    plotter.save_orig_data( data=np.array(data[chosen_layer][:,0]),
-                            data_type='data',
-                            boundary_sizes=0 )
-    plotter.save_orig_data( data=np.array(bins),
+    # plotter.save_orig_data( data=np.array(data[chosen_layer][:,0]),
+    #                        data_type='data',
+    #                        boundary_sizes=0 )
+    plotter.save_orig_data( data=bins[chosen_layer],
                             data_type='bins',
                             boundary_sizes=0 )
 
@@ -54,7 +55,7 @@ def optimization(**kw):
         lb_orig3 = np.roll(lb_orig2, -1)
         gl_orig = lb_orig2 - lb_orig1
         gr_orig = lb_orig3 - lb_orig2
-        stop = 0.7 * (abs(gl_orig) + abs(gr_orig))
+        stop = 0.001 * (abs(gl_orig) + abs(gr_orig))
 
         idxs = [ np.arange(kw['NbinsPhi']) ]
         for _ in range(boundshift):
@@ -147,11 +148,11 @@ def optimization(**kw):
         print(lb, sum(lb))
             
         # plotter.save_gen_data(outdata.numpy(), boundary_sizes=0, data_type='data')
-        # plotter.save_gen_data(outbins.numpy(), boundary_sizes=0, data_type='bins')
+        plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
 
-        # plotter.plot(plot_name=plot_name,
-        #              minval=-1, maxval=52,
-        #              density=False, show_html=False)
+        plotter.plot_iterative(plot_name=get_html_name(__file__),
+                               minval=-1, maxval=52,
+                               density=False, show_html=True)
 
 if __name__ == "__main__":  
     Nevents = 16#{{ dag_run.conf.nevents }}

@@ -112,9 +112,9 @@ class Plotter:
             self.gen_data_counts.append( bincounts )
             self.histos.append( np.histogram(bincounts, bins=20) )
 
-    def plot(self, plot_name='plots/ntriggercells.html',
-             minval=None, maxval=None,
-             density=False, show_html=False):
+    def plot_nn(self, plot_name='plots/ntriggercells.html',
+                minval=None, maxval=None,
+                density=False, show_html=False):
         """Plots the data collected by the save_* methods."""
         assert self.orig_data is not None
         assert self.orig_bins is not None
@@ -261,7 +261,70 @@ class Plotter:
         else:
             output_file(plot_name)
             save(layout)
-            
+
+
+    def plot_iterative( self, plot_name='plots/ntriggercells.html',
+                       minval=None, maxval=None,
+                       density=False, show_html=False):
+        """Plots the data collected by the save_* methods."""
+        # bin counts start display
+        gen0 = self.gen_bins_counts[0]
+        bins_s = { 'curr_x': np.arange(len(gen0)) }
+        if density:
+            bins_s.update( {'curr_y': gen0/sum(gen0) + logpad} )
+        else:
+            bins_s.update( {'curr_y': gen0} )
+
+        for i,bc in enumerate(self.gen_bins_counts):
+            if density:
+                bins_s.update({'bc'+str(i): (bc)/sum(bc) + logpad})
+            else:
+                bins_s.update({'bc'+str(i): (bc)})
+
+        bins_s = ColumnDataSource(data=bins_s)
+        
+        y_axis_type = 'log' if density else 'linear'
+        plot_opt = dict(width=1200, height=300)
+        if minval is None or maxval is None:
+            if density: 
+                plot_distr = figure( y_range=(logpad,1), y_axis_type=y_axis_type,
+                                     **plot_opt)
+            else:
+                plot_distr = figure( y_axis_type=y_axis_type, **plot_opt)
+
+        else:
+            y_range = (logpad,1) if density else (minval,maxval)
+            plot_distr = figure( y_range=y_range, y_axis_type=y_axis_type,
+                               **plot_opt)
+
+        plot_distr.triangle(np.arange(len(self.orig_bins)),
+                            self.orig_bins,
+                            color='black',
+                            legend_label='Bins Input')
+        plot_distr.triangle('curr_x', 'curr_y', source=bins_s,
+                            legend_label='Bins Output', color='red')
+        plot_distr.legend.click_policy='hide'
+
+        callback = CustomJS(args=dict(s3=bins_s),
+                            code="""
+                            const d3 = s3.data;
+                            const slval = cb_obj.value;
+                            const numberstr = slval.toString();
+                            d3['curr_y'] = d3['bc'+numberstr];
+                            s3.change.emit();
+                            """)
+
+        slider = Slider(start=0, end=len(self.gen_bins_counts),
+                        value=0, step=1., title='Epoch')
+        slider.js_on_change('value', callback)
+
+        layout = column( slider, plot_distr )
+        if show_html:
+            show(layout)
+        else:
+            output_file(plot_name)
+            save(layout)
+
 
 if __name__ == "__main__":
     import h5py
