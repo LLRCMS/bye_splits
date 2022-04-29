@@ -28,6 +28,15 @@ def optimization(**kw):
     plotter.save_orig_data( data=np.array(bins),
                             data_type='bins',
                             boundary_sizes=0 )
+
+    def get_edge(idx, misalignment):
+        """returns the index corresponding to the first element in bin with id `id`"""
+        edge = sum(lb[:idx]) + misalignment
+        if edge > kw['NbinsPhi']:
+            edge -= kw['NbinsPhi']
+        elif edge < 0:
+            edge += kw['NbinsPhi']
+        return edge
     
     for i,(ldata,lbins) in enumerate(zip(data, bins)):
         if i!=chosen_layer:  #look at the first R/z slice only
@@ -36,15 +45,33 @@ def optimization(**kw):
         boundshift = window_size - 1
         ld = np.array(ldata)
         lb = np.array(lbins)
+        ncellstot = sum(lb)
+        lastidx = kw['NbinsPhi']-1
+
+        # initial differences for stopping criterion
+        lb_orig2 = lb[:]
+        lb_orig1 = np.roll(lb_orig2, +1)
+        lb_orig3 = np.roll(lb_orig2, -1)
+        gl_orig = lb_orig2 - lb_orig1
+        gr_orig = lb_orig3 - lb_orig2
+        stop = 0.7 * (abs(gl_orig) + abs(gr_orig))
 
         idxs = [ np.arange(kw['NbinsPhi']) ]
         for _ in range(boundshift):
             idxs.append( np.roll(idxs[-1], -1) )
 
-        # This algorithm is disgusting from a performance point of view!
-        while True:
+        # "excess" (positive or negative): how much the first bin 0 cell is misaligned
+        # with respect to its starting position
+        # required due to the cyclic boundary conditions
+        misalign = 0
+
+        print(lb_orig2, sum(lb_orig2))
+        print()
+        at_least_one = True
+        while at_least_one:
+            at_least_one = False
             for id_tuple in zip(*idxs):
-                # bin indices
+                # triplet bin indices
                 id1, id2, id3 = id_tuple
 
                 # bin counts
@@ -53,9 +80,15 @@ def optimization(**kw):
                 # left and right gradients
                 gl = c2 - c1
                 gr = c3 - c2
-
-                # weights for random draw
                 gsum = abs(gl) + abs(gr)
+
+                # stopping criterion
+                # must be satisfied for all triplets
+                if gsum < stop[id2]:
+                    continue
+                at_least_one = True
+                
+                # weights for random draw
                 wl = abs(gl) / gsum
                 assert( 0. <= wl <= 1.)
                 wr = abs(gr) / gsum
@@ -76,25 +109,42 @@ def optimization(**kw):
                 # random draw (pick a side)
                 side = 'left' if random.random() < wl else 'right'
 
-                print(ld[id1,1])
-                quit()
                 if side == 'left' and region in ('valley', 'descent'):
+                    edge = get_edge(id2, misalign) - 1
                     lb[id1] -= 1
                     lb[id2] += 1
+                    ld[edge,1] = id2
+                    if id2==lastidx:
+                        misalign -= 1
+
                 elif side == 'right' and region in ('valley', 'ascent'):
+                    edge = get_edge(id3, misalign)
                     lb[id3] -= 1
                     lb[id2] += 1
+                    ld[edge,1] = id2
+                    if id2==lastidx:
+                        misalign += 1
+
                 elif side == 'left' and region in ('mountain', 'ascent'):
+                    edge = get_edge(id2, misalign)
                     lb[id1] += 1
                     lb[id2] -= 1
+                    ld[edge,1] = id1
+                    if id2==0:
+                        misalign += 1
+
                 elif side == 'right' and region in ('mountain', 'descent'):
+                    edge = get_edge(id3, misalign) - 1
                     lb[id3] += 1
                     lb[id2] -= 1
+                    ld[edge,1] = id3
+                    if id2==lastidx:
+                        misalign -= 1
+                    
                 else:
                     raise RuntimeError('Impossible 2!')                    
-                
-            quit()
 
+        print(lb, sum(lb))
             
         # plotter.save_gen_data(outdata.numpy(), boundary_sizes=0, data_type='data')
         # plotter.save_gen_data(outbins.numpy(), boundary_sizes=0, data_type='bins')
