@@ -29,15 +29,6 @@ def optimization(**kw):
     plotter.save_orig_data( data=bins[chosen_layer],
                             data_type='bins',
                             boundary_sizes=0 )
-
-    def get_edge(idx, misalignment):
-        """returns the index corresponding to the first element in bin with id `id`"""
-        edge = sum(lb[:idx]) + misalignment
-        if edge > kw['NbinsPhi']:
-            edge -= kw['NbinsPhi']
-        elif edge < 0:
-            edge += kw['NbinsPhi']
-        return edge
     
     for i,(ldata,lbins) in enumerate(zip(data, bins)):
         if i!=chosen_layer:  #look at the first R/z slice only
@@ -49,13 +40,29 @@ def optimization(**kw):
         ncellstot = sum(lb)
         lastidx = kw['NbinsPhi']-1
 
+        def get_edge(idx, misalignment):
+            """returns the index corresponding to the first element in bin with id `id`"""
+            edge = sum(lb[:idx]) + misalignment
+
+            # if edge>3179:
+            #     print(edge, flush=True)
+                
+            if edge >= ncellstot:
+                edge -= ncellstot
+            elif edge < 0:
+                edge += ncellstot
+            return edge
+
         # initial differences for stopping criterion
         lb_orig2 = lb[:]
         lb_orig1 = np.roll(lb_orig2, +1)
         lb_orig3 = np.roll(lb_orig2, -1)
+        
         gl_orig = lb_orig2 - lb_orig1
         gr_orig = lb_orig3 - lb_orig2
-        stop = 0.001 * (abs(gl_orig) + abs(gr_orig))
+
+        factor = 0.3
+        stop = factor * (abs(gl_orig) + abs(gr_orig))
 
         idxs = [ np.arange(kw['NbinsPhi']) ]
         for _ in range(boundshift):
@@ -66,8 +73,6 @@ def optimization(**kw):
         # required due to the cyclic boundary conditions
         misalign = 0
 
-        print(lb_orig2, sum(lb_orig2))
-        print()
         at_least_one = True
         while at_least_one:
             at_least_one = False
@@ -85,7 +90,7 @@ def optimization(**kw):
 
                 # stopping criterion
                 # must be satisfied for all triplets
-                if gsum < stop[id2]:
+                if float(gsum) <= stop[id2]:
                     continue
                 at_least_one = True
                 
@@ -109,13 +114,13 @@ def optimization(**kw):
                 
                 # random draw (pick a side)
                 side = 'left' if random.random() < wl else 'right'
-
+                #print(misalign, flush=True)
                 if side == 'left' and region in ('valley', 'descent'):
                     edge = get_edge(id2, misalign) - 1
                     lb[id1] -= 1
                     lb[id2] += 1
                     ld[edge,1] = id2
-                    if id2==lastidx:
+                    if id2==0:
                         misalign -= 1
 
                 elif side == 'right' and region in ('valley', 'ascent'):
@@ -145,7 +150,7 @@ def optimization(**kw):
                 else:
                     raise RuntimeError('Impossible 2!')                    
 
-        print(lb, sum(lb))
+        # print(lb, sum(lb))
             
         # plotter.save_gen_data(outdata.numpy(), boundary_sizes=0, data_type='data')
         plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
