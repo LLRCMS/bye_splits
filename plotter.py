@@ -22,6 +22,9 @@ class Plotter:
         self.orig_data_counts = None
         self.orig_bins = None
 
+        self.phi_old = None
+        self.phi_new = []
+        
         self.remove_output()
 
         self.plot_min = 1e10
@@ -262,8 +265,13 @@ class Plotter:
             output_file(plot_name)
             save(layout)
 
+    def save_orig_phi_data(self, phi_old):
+        self.phi_old = phi_old
 
-    def plot_iterative( self, plot_name='plots/ntriggercells.html',
+    def save_gen_phi_data(self, phi_new):
+        self.phi_new.append(phi_new)
+        
+    def plot_iterative(self, plot_name='plots/ntriggercells.html',
                        minval=None, maxval=None,
                        density=False, show_html=False):
         """Plots the data collected by the save_* methods."""
@@ -282,7 +290,18 @@ class Plotter:
                 bins_s.update({'bc'+str(i): (bc)})
 
         bins_s = ColumnDataSource(data=bins_s)
-        
+
+        # phi values display
+        gen0 = self.phi_old
+        phi_s = { 'curr_x': gen0 }
+        phi_s.update( {'curr_y': self.phi_new[0]} )
+
+        for i, phis in enumerate(self.phi_new):
+            phi_s.update({'phi'+str(i): phis})
+
+        phi_s = ColumnDataSource(data=phi_s)
+
+        # plotting bins
         y_axis_type = 'log' if density else 'linear'
         plot_opt = dict(width=1200, height=300)
         if minval is None or maxval is None:
@@ -303,14 +322,27 @@ class Plotter:
                             legend_label='Bins Input')
         plot_distr.triangle('curr_x', 'curr_y', source=bins_s,
                             legend_label='Bins Output', color='red')
-        plot_distr.legend.click_policy='hide'
 
-        callback = CustomJS(args=dict(s3=bins_s),
+        # plotting phis
+        plot_opt = dict(width=1600, height=300)
+        plot_phis = figure(**plot_opt)
+        plot_phis.triangle('curr_x', 'curr_y', source=phi_s,
+                            legend_label='Phis', color='black')
+        # plot_phis.line( np.linspace(-np.pi,np.pi,1000),
+        #                np.linspace(-np.pi,np.pi,1000),
+        #                color='red')
+                
+        plot_phis.legend.click_policy='hide'
+
+        callback = CustomJS(args=dict(s1=phi_s, s3=bins_s),
                             code="""
+                            const d1 = s1.data;
                             const d3 = s3.data;
                             const slval = cb_obj.value;
                             const numberstr = slval.toString();
+                            d1['curr_y'] = d1['phi'+numberstr];
                             d3['curr_y'] = d3['bc'+numberstr];
+                            s1.change.emit();
                             s3.change.emit();
                             """)
 
@@ -318,7 +350,7 @@ class Plotter:
                         value=0, step=1., title='Epoch')
         slider.js_on_change('value', callback)
 
-        layout = column( slider, plot_distr )
+        layout = column( slider, plot_distr, plot_phis )
         if show_html:
             show(layout)
         else:
