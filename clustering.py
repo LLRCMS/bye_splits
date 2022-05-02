@@ -2,7 +2,7 @@ import re
 import numpy as np
 import pandas as pd
 import h5py
-from utils import calculateRoverZfromEta
+from random_utils import calculateRoverZfromEta
 
 def clustering(**kwargs):
     storeInSeeds  = h5py.File(kwargs['ClusteringInSeeds'], mode='r')

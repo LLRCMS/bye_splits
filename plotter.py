@@ -7,12 +7,26 @@ import pandas as pd
 from bokeh.layouts import column
 from bokeh.models import CustomJS, Slider
 from bokeh.plotting import ColumnDataSource, figure, show, save
+from bokeh.models import Panel, Tabs, Label
 from bokeh.io import output_file
 
 class Plotter:
     def __init__(self, outname='plots/plotter_out.hdf5', **kw):
         self.outname = outname
         self.kw = kw
+
+        self.plot_min = 1e10
+        self.plot_max = 0
+        self.dim_bins = (1600, 300)
+        self.dim_phis = (1200, 300)
+        self.margin = (10,50)
+
+        self.phi_tabs, self.bin_tabs = ([] for _ in range(2))
+
+        self.reset()
+    
+    def reset(self):
+        """Prepare for a new tab."""
         self.histos = []
         self.gen_data = []
         self.gen_data_counts = []
@@ -21,21 +35,9 @@ class Plotter:
         self.orig_data = None
         self.orig_data_counts = None
         self.orig_bins = None
-
         self.phi_old = None
         self.phi_new = []
         
-        self.remove_output()
-
-        self.plot_min = 1e10
-        self.plot_max = 0
-        
-    def remove_output(self):
-        if os.path.exists(self.outname):
-            os.system('rm {}'.format(self.outname))
-        self.gen_data_counts = []
-        self.histos = []
-
     def save_orig_data(self, data, data_type, boundary_sizes, bins=None, minlength=None):
         """
         Plots the original number of trigger cells per bin.
@@ -192,7 +194,7 @@ class Plotter:
         s_bins_counts = ColumnDataSource(data=s_bins_counts)
         
         y_axis_type = 'log' if density else 'linear'
-        plot_opt = dict(width=1200, height=300)
+        plot_opt = dict(width=self.dim_bins[0], height=self.dim_bins[1])
         if minval is None or maxval is None:
             if density: 
                 plot_distr = figure( y_range=(logpad,1), y_axis_type=y_axis_type,
@@ -208,7 +210,7 @@ class Plotter:
         plot_distr.circle('curr_x', 'curr_y', source=s_data_counts,
                           legend_label='Data Output', color='red')
         plot_distr.triangle('curr_x', 'curr_y', source=s_bins_counts,
-                            legend_label='Bins Output', color='orange')
+                            legend_label='Bins Output', color='red')
         plot_distr.legend.click_policy='hide'
 
         callback = CustomJS(args=dict(s1=s_data_counts, s2=s_diff, s3=s_bins_counts),
@@ -270,27 +272,8 @@ class Plotter:
 
     def save_gen_phi_data(self, phi_new):
         self.phi_new.append(phi_new)
-        
-    def plot_iterative(self, plot_name='plots/ntriggercells.html',
-                       minval=None, maxval=None,
-                       density=False, show_html=False):
-        """Plots the data collected by the save_* methods."""
-        # bin counts start display
-        gen0 = self.gen_bins_counts[0]
-        bins_s = { 'curr_x': np.arange(len(gen0)) }
-        if density:
-            bins_s.update( {'curr_y': gen0/sum(gen0) + logpad} )
-        else:
-            bins_s.update( {'curr_y': gen0} )
 
-        for i,bc in enumerate(self.gen_bins_counts):
-            if density:
-                bins_s.update({'bc'+str(i): (bc)/sum(bc) + logpad})
-            else:
-                bins_s.update({'bc'+str(i): (bc)})
-
-        bins_s = ColumnDataSource(data=bins_s)
-
+    def save_iterative_phi_tab(self, nonzero_ratio):
         # phi values display
         gen0 = self.phi_old
         phi_s = { 'curr_x': gen0 }
@@ -301,62 +284,74 @@ class Plotter:
 
         phi_s = ColumnDataSource(data=phi_s)
 
-        # plotting bins
-        y_axis_type = 'log' if density else 'linear'
-        plot_opt = dict(width=1200, height=300)
-        if minval is None or maxval is None:
-            if density: 
-                plot_distr = figure( y_range=(logpad,1), y_axis_type=y_axis_type,
-                                     **plot_opt)
-            else:
-                plot_distr = figure( y_axis_type=y_axis_type, **plot_opt)
-
-        else:
-            y_range = (logpad,1) if density else (minval,maxval)
-            plot_distr = figure( y_range=y_range, y_axis_type=y_axis_type,
-                               **plot_opt)
-
-        plot_distr.triangle(np.arange(len(self.orig_bins)),
-                            self.orig_bins,
-                            color='black',
-                            legend_label='Bins Input')
-        plot_distr.triangle('curr_x', 'curr_y', source=bins_s,
-                            legend_label='Bins Output', color='red')
-
         # plotting phis
-        plot_opt = dict(width=1600, height=300)
-        plot_phis = figure(**plot_opt)
-        plot_phis.triangle('curr_x', 'curr_y', source=phi_s,
-                            legend_label='Phis', color='black')
-        # plot_phis.line( np.linspace(-np.pi,np.pi,1000),
-        #                np.linspace(-np.pi,np.pi,1000),
-        #                color='red')
-                
-        plot_phis.legend.click_policy='hide'
+        plot_opt = dict(width=self.dim_phis[0], height=self.dim_phis[1])
+        p = figure(**plot_opt)
+        p.triangle('curr_x', 'curr_y', source=phi_s,
+                   legend_label='Phis', color='blue')
+        
+        p.legend.click_policy='hide'
 
-        callback = CustomJS(args=dict(s1=phi_s, s3=bins_s),
-                            code="""
-                            const d1 = s1.data;
-                            const d3 = s3.data;
-                            const slval = cb_obj.value;
-                            const numberstr = slval.toString();
-                            d1['curr_y'] = d1['phi'+numberstr];
-                            d3['curr_y'] = d3['bc'+numberstr];
-                            s1.change.emit();
-                            s3.change.emit();
-                            """)
+        self.phi_tabs.append( p )
 
-        slider = Slider(start=0, end=len(self.gen_bins_counts),
-                        value=0, step=1., title='Epoch')
-        slider.js_on_change('value', callback)
+        text = 'Ratio: {0:.2f}'.format(nonzero_ratio)
+        glyph = Label(x=self.margin[0], y=self.dim_phis[1]-self.margin[1],
+                      text=text, angle=0.0, text_color='black',
+                      x_units='screen', y_units='screen')
+        p.add_layout(glyph)
+        
+    def save_iterative_bin_tab(self, show_html=False):
+        """Plots the data collected by the save_* methods."""
+        # bin counts start display
+        gen0 = self.gen_bins_counts[0]
+        bins_s = { 'curr_x': np.arange(len(gen0)) }
+        bins_s.update( {'curr_y': gen0} )
 
-        layout = column( slider, plot_distr, plot_phis )
+        for i,bc in enumerate(self.gen_bins_counts):
+            bins_s.update({'bc'+str(i): (bc)})
+
+        bins_s = ColumnDataSource(data=bins_s)
+
+        # plotting bins
+        plot_opt = dict(width=1200, height=300)
+        p = figure( **plot_opt)
+
+        p.triangle(np.arange(len(self.orig_bins)), self.orig_bins,
+                   color='black', legend_label='Bins Input')
+        p.triangle('curr_x', 'curr_y', source=bins_s,
+                   legend_label='Bins Output', color='red')
+        p.legend.click_policy='hide'
+        
+        self.bin_tabs.append( p )
+        
+        # callback = CustomJS(args=dict(s3=bins_s),
+        #                     code="""
+        #                     const d3 = s3.data;
+        #                     const slval = cb_obj.value;
+        #                     const numberstr = slval.toString();
+        #                     d3['curr_y'] = d3['bc'+numberstr];
+        #                     s3.change.emit();
+        #                     """)
+
+        # slider = Slider(start=0, end=len(self.gen_bins_counts),
+        #                 value=0, step=1., title='Epoch')
+        # slider.js_on_change('value', callback)
+
+
+    def plot_iterative(self, plot_name, tab_names, show_html):
+        assert len(self.bin_tabs)==len(self.phi_tabs)
+        self.tabs = []
+        for name, pt, bt in zip(tab_names, self.phi_tabs, self.bin_tabs):
+            l = column(pt, bt)
+            tb = Panel(child=l, title=name)
+            self.tabs.append( tb )
+        
+        layout = Tabs(tabs=self.tabs)
         if show_html:
             show(layout)
         else:
             output_file(plot_name)
             save(layout)
-
 
 if __name__ == "__main__":
     import h5py

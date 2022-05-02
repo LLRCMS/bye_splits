@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import h5py
 
-from utils import calculateRoverZfromEta
+from random_utils import calculateRoverZfromEta
 
 class SupressSettingWithCopyWarning:
     """

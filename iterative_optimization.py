@@ -8,11 +8,25 @@ import sys; np.set_printoptions(threshold=sys.maxsize, linewidth=170)
 from random_utils import get_html_name
 from data_processing import DataProcessing
 from plotter import Plotter
+from copy import copy
+
+from airflow.airflow_dag import (
+    optimization_kwargs,
+    filling_kwargs,
+    smoothing_kwargs,
+    seeding_kwargs,
+    clustering_kwargs,
+    validation_kwargs
+    )
+import filling
+import smoothing
+import seeding
+import clustering
+import validation
 
 def is_sorted(arr, nbinsphi):
     diff = arr[:-1] - arr[1:]
     return np.all( (diff==0) | (diff==-1) | (diff==-2) | (diff==nbinsphi-1))
-
 
 def optimization(**kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
@@ -28,17 +42,6 @@ def optimization(**kw):
                                       nbins_rz=kw['NbinsRz'],
                                       window_size=window_size,
                                       normalize=False )
-    chosen_layer = 0
-  
-    # plotter.save_orig_data( data=np.array(data[chosen_layer][:,0]),
-    #                        data_type='data',
-    #                        boundary_sizes=0 )
-    phi_old = np.array(data[chosen_layer])[:,0]
-    #plotter.save_orig_phi_data(phi_old)
-    plotter.save_orig_phi_data(np.arange(len(phi_old)))
-    plotter.save_orig_data( data=bins[chosen_layer],
-                            data_type='bins',
-                            boundary_sizes=0 )
 
     def get_edge(idx, misalignment, ncellstot):
         """returns the index corresponding to the first element in bin with id `id`"""
@@ -49,15 +52,19 @@ def optimization(**kw):
             edge += ncellstot
         return edge
     
-    for i,(ldata,lbins) in enumerate(zip(data, bins)):
-        if i!=chosen_layer:  #look at the first R/z slice only
-            continue
+    for ilayer,(ldata,lbins) in enumerate(zip(data, bins)):
 
+        plotter.reset()
+        
         boundshift = window_size - 1
         ld = np.array(ldata)
         lb = np.array(lbins)
         ncellstot = sum(lb)
         lastidx = kw['NbinsPhi']-1
+
+        phi_old = ld[:,0]
+        plotter.save_orig_phi_data(np.arange(len(phi_old)))
+        plotter.save_orig_data( data=copy(lb), data_type='bins', boundary_sizes=0 )
 
         # initial differences for stopping criterion
         lb_orig2 = lb[:]
@@ -155,63 +162,74 @@ def optimization(**kw):
 
                 if not is_sorted(ld[:,1], kw['NbinsPhi']):
                     print('Not Sorted!!!!!')
-                    print('Edge: {}'.format(edge))
-                    print("Side: {}, Region: {}, Ids: {}, Misalign: {}".format(side, (id1,id2,id3), region, misalign))
-                    print(ld[:,1])
-                    breakpoint()
+                    quit()
+                    # print('Edge: {}'.format(edge))
+                    # print("Side: {}, Region: {}, Ids: {}, Misalign: {}".format(side, (id1,id2,id3), region, misalign))
+                    # print(ld[:,1])
+                    # breakpoint()
                 
         phi_new_low_edges = kw['PhiBinEdges'][ld[:,1].astype(int)]
-
         
         half_bin_width = (kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
         df = pd.DataFrame(dict(phi_old=phi_old,
-                               bin_old=np.array(data[chosen_layer])[:,1],
+                               bin_old=np.array(data[ilayer])[:,1],
                                bin_new=ld[:,1],
                                distance=half_bin_width + abs(phi_new_low_edges-phi_old)))
 
-        # the distance is zero even the bin did not change
-        df.distance[ df.bin_old==df.bin_new ] = 0.
+        # the distance is zero when the bin did not change
+        df.loc[ df.bin_old==df.bin_new, 'distance' ] = 0.
+        nonzero_ratio = 1. - float(len(df[df.distance == 0])) / float(len(df.distance))
         df['phi_new'] = df.distance + df.phi_old
 
         # remove migrations in boundary conditions to avoid visualization issues
-        df = df[ df.distance < np.pi ]
+        df.loc[ df.distance > np.pi, 'distance' ] -= 2*np.pi
         
-        # plotter.save_gen_data(outdata.numpy(), boundary_sizes=0, data_type='data')
         plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
-        #plotter.save_gen_phi_data(df.phi_new)
         plotter.save_gen_phi_data(df.distance)
-        plotter.plot_iterative(plot_name=get_html_name(__file__),
-                               minval=-1, maxval=52,
-                               density=False, show_html=True)
+        plotter.save_iterative_phi_tab( nonzero_ratio=nonzero_ratio )
+        plotter.save_iterative_bin_tab()
+
+        # filling()
+        # smoothing()
+        # seeding()
+        # clustering()
+        # validating()
+
+        # for ilayer,(ldata,lbins) in enumerate(zip(data, bins)):
+        # end loop over the layers
+        
+    plotter.plot_iterative( plot_name=get_html_name(__file__),
+                           tab_names = [''+str(x) for x in range(len(ldata))],
+                           show_html=True )
 
 if __name__ == "__main__":  
-    Nevents = 16#{{ dag_run.conf.nevents }}
-    NbinsRz = 42
-    NbinsPhi = 216
-    MinROverZ = 0.076
-    MaxROverZ = 0.58
-    MinPhi = -np.pi
-    MaxPhi = +np.pi
-    DataFolder = 'data'
-    optimization_kwargs = { 'NbinsRz': NbinsRz,
-                            'NbinsPhi': NbinsPhi,
-                            'MinROverZ': MinROverZ,
-                            'MaxROverZ': MaxROverZ,
-                            'MinPhi': MinPhi,
-                            'MaxPhi': MaxPhi,
+    # Nevents = 16#{{ dag_run.conf.nevents }}
+    # NbinsRz = 42
+    # NbinsPhi = 216
+    # MinROverZ = 0.076
+    # MaxROverZ = 0.58
+    # MinPhi = -np.pi
+    # MaxPhi = +np.pi
+    # DataFolder = 'data'
+    # optimization_kwargs = { 'NbinsRz': NbinsRz,
+    #                         'NbinsPhi': NbinsPhi,
+    #                         'MinROverZ': MinROverZ,
+    #                         'MaxROverZ': MaxROverZ,
+    #                         'MinPhi': MinPhi,
+    #                         'MaxPhi': MaxPhi,
 
-                            'LayerEdges': [0,28],
-                            'IsHCAL': False,
+    #                         'LayerEdges': [0,28],
+    #                         'IsHCAL': False,
 
-                            'Debug': True,
-                            'DataFolder': DataFolder,
-                            'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
-                            'BasePath': os.path.join(os.environ['PWD'], DataFolder),
+    #                         'Debug': True,
+    #                         'DataFolder': DataFolder,
+    #                         'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
+    #                         'BasePath': os.path.join(os.environ['PWD'], DataFolder),
 
-                            'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
-                            'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
-                            'OptimizationIn': os.path.join(os.environ['PWD'], DataFolder, 'triggergeom_condensed.hdf5'),
-                            'OptimizationOut': 'None.hdf5',
-                           }
+    #                         'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
+    #                         'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
+    #                         'OptimizationIn': os.path.join(os.environ['PWD'], DataFolder, 'triggergeom_condensed.hdf5'),
+    #                         'OptimizationOut': 'None.hdf5',
+    #                        }
 
     optimization( **optimization_kwargs )
