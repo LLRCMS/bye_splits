@@ -1,12 +1,19 @@
 import os
 import random
 import numpy as np
+import pandas as pd
 import h5py
+import sys; np.set_printoptions(threshold=sys.maxsize, linewidth=170)
 
 from random_utils import get_html_name
 from data_processing import DataProcessing
 from plotter import Plotter
-                
+
+def is_sorted(arr, nbinsphi):
+    diff = arr[:-1] - arr[1:]
+    return np.all( (diff==0) | (diff==-1) | (diff==-2) | (diff==nbinsphi-1))
+
+
 def optimization(**kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
     plotter = Plotter(**optimization_kwargs)
@@ -26,9 +33,21 @@ def optimization(**kw):
     # plotter.save_orig_data( data=np.array(data[chosen_layer][:,0]),
     #                        data_type='data',
     #                        boundary_sizes=0 )
+    phi_old = np.array(data[chosen_layer])[:,0]
+    #plotter.save_orig_phi_data(phi_old)
+    plotter.save_orig_phi_data(np.arange(len(phi_old)))
     plotter.save_orig_data( data=bins[chosen_layer],
                             data_type='bins',
                             boundary_sizes=0 )
+
+    def get_edge(idx, misalignment, ncellstot):
+        """returns the index corresponding to the first element in bin with id `id`"""
+        edge = sum(lb[:idx]) + misalignment
+        if edge > ncellstot:
+            edge -= ncellstot
+        elif edge < 0:
+            edge += ncellstot
+        return edge
     
     for i,(ldata,lbins) in enumerate(zip(data, bins)):
         if i!=chosen_layer:  #look at the first R/z slice only
@@ -60,9 +79,8 @@ def optimization(**kw):
         
         gl_orig = lb_orig2 - lb_orig1
         gr_orig = lb_orig3 - lb_orig2
-
-        factor = 0.3
-        stop = factor * (abs(gl_orig) + abs(gr_orig))
+        stop = 0.7 * (abs(gl_orig) + abs(gr_orig))
+        stop[stop<1] = 1 # algorithm stabilisation
 
         idxs = [ np.arange(kw['NbinsPhi']) ]
         for _ in range(boundshift):
@@ -90,7 +108,7 @@ def optimization(**kw):
 
                 # stopping criterion
                 # must be satisfied for all triplets
-                if float(gsum) <= stop[id2]:
+                if gsum <= stop[id2]:
                     continue
                 at_least_one = True
                 
@@ -114,9 +132,9 @@ def optimization(**kw):
                 
                 # random draw (pick a side)
                 side = 'left' if random.random() < wl else 'right'
-                #print(misalign, flush=True)
+                
                 if side == 'left' and region in ('valley', 'descent'):
-                    edge = get_edge(id2, misalign) - 1
+                    edge = get_edge(id2, misalign, ncellstot) - 1
                     lb[id1] -= 1
                     lb[id2] += 1
                     ld[edge,1] = id2
@@ -124,7 +142,7 @@ def optimization(**kw):
                         misalign -= 1
 
                 elif side == 'right' and region in ('valley', 'ascent'):
-                    edge = get_edge(id3, misalign)
+                    edge = get_edge(id3, misalign, ncellstot)
                     lb[id3] -= 1
                     lb[id2] += 1
                     ld[edge,1] = id2
@@ -132,7 +150,7 @@ def optimization(**kw):
                         misalign += 1
 
                 elif side == 'left' and region in ('mountain', 'ascent'):
-                    edge = get_edge(id2, misalign)
+                    edge = get_edge(id2, misalign, ncellstot)
                     lb[id1] += 1
                     lb[id2] -= 1
                     ld[edge,1] = id1
@@ -140,21 +158,42 @@ def optimization(**kw):
                         misalign += 1
 
                 elif side == 'right' and region in ('mountain', 'descent'):
-                    edge = get_edge(id3, misalign) - 1
+                    edge = get_edge(id3, misalign, ncellstot) - 1
                     lb[id3] += 1
                     lb[id2] -= 1
                     ld[edge,1] = id3
                     if id2==lastidx:
                         misalign -= 1
-                    
                 else:
                     raise RuntimeError('Impossible 2!')                    
 
-        # print(lb, sum(lb))
-            
+                if not is_sorted(ld[:,1], kw['NbinsPhi']):
+                    print('Not Sorted!!!!!')
+                    print('Edge: {}'.format(edge))
+                    print("Side: {}, Region: {}, Ids: {}, Misalign: {}".format(side, (id1,id2,id3), region, misalign))
+                    print(ld[:,1])
+                    breakpoint()
+                
+        phi_new_low_edges = kw['PhiBinEdges'][ld[:,1].astype(int)]
+
+        
+        half_bin_width = (kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
+        df = pd.DataFrame(dict(phi_old=phi_old,
+                               bin_old=np.array(data[chosen_layer])[:,1],
+                               bin_new=ld[:,1],
+                               distance=half_bin_width + abs(phi_new_low_edges-phi_old)))
+
+        # the distance is zero even the bin did not change
+        df.distance[ df.bin_old==df.bin_new ] = 0.
+        df['phi_new'] = df.distance + df.phi_old
+
+        # remove migrations in boundary conditions to avoid visualization issues
+        df = df[ df.distance < np.pi ]
+        
         # plotter.save_gen_data(outdata.numpy(), boundary_sizes=0, data_type='data')
         plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
-
+        #plotter.save_gen_phi_data(df.phi_new)
+        plotter.save_gen_phi_data(df.distance)
         plotter.plot_iterative(plot_name=get_html_name(__file__),
                                minval=-1, maxval=52,
                                density=False, show_html=True)
