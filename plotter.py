@@ -273,7 +273,7 @@ class Plotter:
     def save_gen_phi_data(self, phi_new):
         self.phi_new.append(phi_new)
 
-    def save_iterative_phi_tab(self, nonzero_ratio):
+    def save_iterative_phi_tab(self, nonzero_ratio, ncellstot):
         # phi values display
         gen0 = self.phi_old
         phi_s = { 'curr_x': gen0 }
@@ -286,19 +286,30 @@ class Plotter:
 
         # plotting phis
         plot_opt = dict(width=self.dim_phis[0], height=self.dim_phis[1])
-        p = figure(**plot_opt)
-        p.triangle('curr_x', 'curr_y', source=phi_s,
-                   legend_label='Phis', color='blue')
+        p = figure(**plot_opt,
+                   tools="hover,box_zoom,reset,save")
+        p.circle('curr_x', 'curr_y', source=phi_s,
+                 legend_label='Phis', color='blue')
         
         p.legend.click_policy='hide'
 
         self.phi_tabs.append( p )
 
-        text = 'Ratio: {0:.2f}'.format(nonzero_ratio)
-        glyph = Label(x=self.margin[0], y=self.dim_phis[1]-self.margin[1],
-                      text=text, angle=0.0, text_color='black',
-                      x_units='screen', y_units='screen')
-        p.add_layout(glyph)
+        text1 = 'Ratio: {0:.2f}'.format(nonzero_ratio)
+        text2 = 'NCells: {0}'.format(ncellstot)
+        glyph1 = Label(x=self.margin[0], y=self.dim_phis[1]-self.margin[1],
+                       text=text1, angle=0.0, text_color='black', text_font_size='9pt',
+                       x_units='screen', y_units='screen')
+        glyph2 = Label(x=self.margin[0], y=self.dim_phis[1]-self.margin[1]-15,
+                       text=text2, angle=0.0, text_color='black', text_font_size='9pt',
+                       x_units='screen', y_units='screen')
+        p.add_layout(glyph1)
+        p.add_layout(glyph2)
+        
+        p.hover.tooltips = [
+            ('id', '$x'),
+        ]
+        p.toolbar.logo = None
         
     def save_iterative_bin_tab(self, show_html=False):
         """Plots the data collected by the save_* methods."""
@@ -337,6 +348,7 @@ class Plotter:
         #                 value=0, step=1., title='Epoch')
         # slider.js_on_change('value', callback)
 
+        p.toolbar.logo = None
 
     def plot_iterative(self, plot_name, tab_names, show_html):
         assert len(self.bin_tabs)==len(self.phi_tabs)

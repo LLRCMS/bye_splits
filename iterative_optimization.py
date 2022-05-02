@@ -18,11 +18,11 @@ from airflow.airflow_dag import (
     clustering_kwargs,
     validation_kwargs
     )
-import filling
-import smoothing
-import seeding
-import clustering
-import validation
+from filling import filling
+from smoothing import smoothing
+from seeding import seeding
+from clustering import clustering
+from validation import validation
 
 def is_sorted(arr, nbinsphi):
     diff = arr[:-1] - arr[1:]
@@ -167,10 +167,17 @@ def optimization(**kw):
                     # print("Side: {}, Region: {}, Ids: {}, Misalign: {}".format(side, (id1,id2,id3), region, misalign))
                     # print(ld[:,1])
                     # breakpoint()
-                
+
+        if ilayer == 2:
+            print(data[ilayer][35:45])
+            print()
+            print(ld[35:45])
+            print(kw['PhiBinEdges'][:3])
+            quit()
+
         phi_new_low_edges = kw['PhiBinEdges'][ld[:,1].astype(int)]
-        
-        half_bin_width = (kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
+
+        half_bin_width = 0.#(kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
         df = pd.DataFrame(dict(phi_old=phi_old,
                                bin_old=np.array(data[ilayer])[:,1],
                                bin_new=ld[:,1],
@@ -182,18 +189,13 @@ def optimization(**kw):
         df['phi_new'] = df.distance + df.phi_old
 
         # remove migrations in boundary conditions to avoid visualization issues
-        df.loc[ df.distance > np.pi, 'distance' ] -= 2*np.pi
+        df.loc[ df.distance > np.pi, 'distance' ] = abs( df.loc[ df.distance > np.pi, 'distance' ] - 2*np.pi )
         
         plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
         plotter.save_gen_phi_data(df.distance)
-        plotter.save_iterative_phi_tab( nonzero_ratio=nonzero_ratio )
+        plotter.save_iterative_phi_tab(nonzero_ratio=nonzero_ratio,
+                                       ncellstot=ncellstot )
         plotter.save_iterative_bin_tab()
-
-        # filling()
-        # smoothing()
-        # seeding()
-        # clustering()
-        # validating()
 
         # for ilayer,(ldata,lbins) in enumerate(zip(data, bins)):
         # end loop over the layers
@@ -201,6 +203,13 @@ def optimization(**kw):
     plotter.plot_iterative( plot_name=get_html_name(__file__),
                            tab_names = [''+str(x) for x in range(len(ldata))],
                            show_html=True )
+
+    # filling    (**filling_kwargs)
+    # smoothing  (**smoothing_kwargs)
+    # seeding    (**seeding_kwargs)
+    # clustering (**clustering_kwargs)
+    # validating()
+
 
 if __name__ == "__main__":  
     # Nevents = 16#{{ dag_run.conf.nevents }}

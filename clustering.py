@@ -37,7 +37,7 @@ def clustering(**kwargs):
             dRs = np.array([])
             for iseed, (en, sx, sy) in enumerate(zip(seedEn, seedX, seedY)):
                 dR = np.sqrt( (projx-sx)*(projx-sx) + (projy-sy)*(projy-sy) )
-                # print('d: ', dR)
+                print('d: ', dR)
                 if dRs.shape == (0,):
                     dRs = np.expand_dims(dR, axis=-1)
                 else:
