@@ -52,6 +52,10 @@ def filling(**kwargs):
     assert(len(enrescuts)==len(kwargs['FesAlgos']))
     for i,(fe,cut) in enumerate(zip(kwargs['FesAlgos'],enrescuts)):
         df = simAlgoDFs[fe]
+        # print(df)
+        # print(df['tc_layer'])
+        # print(df.columns)
+        # quit()
 
         if kwargs['Debug']:
             print('Cluster level information:')
@@ -100,7 +104,6 @@ def filling(**kwargs):
         #trigger cells info is repeated across clusters in the same event
         _tc_vars = [x for x in splittedClusters.columns.to_list() if 'cl3d' not in x]
         splittedClusters_tc = splittedClusters.groupby("event").head(1)[_tc_vars] #first() instead of head(1) also works
-
         _tc_vars = [x for x in _tc_vars if 'tc_' in x]
         splittedClusters_tc = splittedClusters_tc.explode( _tc_vars )
 
@@ -115,7 +118,11 @@ def filling(**kwargs):
         nansel = pd.isna(splittedClusters_tc['Rz_bin']) 
         splittedClusters_tc = splittedClusters_tc[~nansel]
 
+        # print(splittedClusters_tc)
+        # quit()
+
         splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['tc_phi'], bins=kwargs['PhiBinEdges'], labels=False )
+
         nansel = pd.isna(splittedClusters_tc['tc_phi_bin']) 
         splittedClusters_tc = splittedClusters_tc[~nansel]
 
@@ -126,7 +133,7 @@ def filling(**kwargs):
 
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
             for ev in df_tc['event'].unique():
-                ev_tc = df_tc[ df_tc.event == ev ]
+                ev_tc = df_tc[ df_tc.event == ev ]                
                 ev_3d = df_3d[ df_3d.event == ev ]
 
                 _simCols_tc = ['tc_phi_bin', 'Rz_bin', 'tc_layer',
@@ -160,6 +167,8 @@ def filling(**kwargs):
 
                 group['weighted_x'] /= group['tc_mipPt']
                 group['weighted_y'] /= group['tc_mipPt'] 
+                print(group)
+                quit()
 
                 store[str(_k) + '_' + str(ev) + '_group'] = group.to_numpy()
                 store[str(_k) + '_' + str(ev) + '_group'].attrs['columns'] = cols_to_keep
@@ -170,6 +179,7 @@ def filling(**kwargs):
                                 'tc_eta', 'tc_layer',
                                 'tc_mipPt', 'tc_pt']
                 ev_tc = ev_tc[cols_to_keep]
+
                 store[str(_k) + '_' + str(ev) + '_tc'] = ev_tc.to_numpy()
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['columns'] = cols_to_keep
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['doc'] = 'Trigger Cells Info'

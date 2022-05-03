@@ -122,7 +122,7 @@ def smoothing(**kwargs):
 
     for falgo in kwargs['FesAlgos']:
         keys = [x for x in storeIn.keys() if falgo in x and '_group' in x]
-
+        
         for key in keys:
             energies   = createHistogram( storeIn[key][:,[0,1,2]],
                                           kwargs['NbinsRz'], kwargs['NbinsPhi'] )
