@@ -1,5 +1,5 @@
 import os
-import random
+import random; random.seed(10)
 import numpy as np
 import pandas as pd
 import h5py
@@ -168,29 +168,40 @@ def optimization(**kw):
                     # print(ld[:,1])
                     # breakpoint()
 
-        if ilayer == 2:
-            print(data[ilayer][35:45])
-            print()
-            print(ld[35:45])
-            print(kw['PhiBinEdges'][:3])
-            quit()
-
-        phi_new_low_edges = kw['PhiBinEdges'][ld[:,1].astype(int)]
+        phi_new_low_edges = kw['PhiBinEdges'][:-1][ld[:,1].astype(int)]
+        phi_new_high_edges = kw['PhiBinEdges'][1:][ld[:,1].astype(int)]
 
         half_bin_width = 0.#(kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
         df = pd.DataFrame(dict(phi_old=phi_old,
                                bin_old=np.array(data[ilayer])[:,1],
-                               bin_new=ld[:,1],
-                               distance=half_bin_width + abs(phi_new_low_edges-phi_old)))
+                               bin_new=ld[:,1]))
+
+        # the bin edge to use to calculate the phi distance to the nearest edge depends on whether the trigger cell is moving
+        # to the left or to the right bin. The following introduces a mask to perform the conditional decision.
+        df['move_to_the_left'] = np.sign(df.bin_old - df.bin_new).astype(int)
+        df['move_to_the_right'] = 0
+        df.loc[ df.move_to_the_left == -1, 'move_to_the_right' ] = 1
+        df.loc[ df.move_to_the_left == -1, 'move_to_the_left' ] = 0
+
+        # fix boundary conditions
+        df.loc[ df.bin_old-df.bin_new == kw['NbinsPhi']-1,    'move_to_the_left']   = 0
+        df.loc[ df.bin_old-df.bin_new == kw['NbinsPhi']-1,    'move_to_the_right']  = 1
+        df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_left']   = 1
+        df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_right']  = 0
+
+        df['distance'] = half_bin_width + df.move_to_the_left*abs(phi_new_high_edges-phi_old) + df.move_to_the_right*abs(phi_new_low_edges-phi_old)
+        df['d_rigth'] = df.move_to_the_right*abs(phi_new_low_edges-phi_old)
+        df['d_left'] = df.move_to_the_left*abs(phi_new_high_edges-phi_old)
 
         # the distance is zero when the bin did not change
         df.loc[ df.bin_old==df.bin_new, 'distance' ] = 0.
+
         nonzero_ratio = 1. - float(len(df[df.distance == 0])) / float(len(df.distance))
         df['phi_new'] = df.distance + df.phi_old
 
         # remove migrations in boundary conditions to avoid visualization issues
         df.loc[ df.distance > np.pi, 'distance' ] = abs( df.loc[ df.distance > np.pi, 'distance' ] - 2*np.pi )
-        
+
         plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
         plotter.save_gen_phi_data(df.distance)
         plotter.save_iterative_phi_tab(nonzero_ratio=nonzero_ratio,
@@ -202,7 +213,7 @@ def optimization(**kw):
         
     plotter.plot_iterative( plot_name=get_html_name(__file__),
                            tab_names = [''+str(x) for x in range(len(ldata))],
-                           show_html=True )
+                           show_html=False )
 
     # filling    (**filling_kwargs)
     # smoothing  (**smoothing_kwargs)

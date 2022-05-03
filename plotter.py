@@ -19,7 +19,7 @@ class Plotter:
         self.plot_max = 0
         self.dim_bins = (1600, 300)
         self.dim_phis = (1200, 300)
-        self.margin = (10,50)
+        self.margin = (10,70)
 
         self.phi_tabs, self.bin_tabs = ([] for _ in range(2))
 
@@ -278,6 +278,7 @@ class Plotter:
         gen0 = self.phi_old
         phi_s = { 'curr_x': gen0 }
         phi_s.update( {'curr_y': self.phi_new[0]} )
+        phi_s.update( {'color': ['gray' if x==0 else 'blue' for x in self.phi_new[0]]} )
 
         for i, phis in enumerate(self.phi_new):
             phi_s.update({'phi'+str(i): phis})
@@ -287,11 +288,10 @@ class Plotter:
         # plotting phis
         plot_opt = dict(width=self.dim_phis[0], height=self.dim_phis[1])
         p = figure(**plot_opt,
-                   tools="hover,box_zoom,reset,save")
-        p.circle('curr_x', 'curr_y', source=phi_s,
-                 legend_label='Phis', color='blue')
-        
-        p.legend.click_policy='hide'
+                   tools="hover,pan,box_zoom,reset,save")
+        p.circle('curr_x', 'curr_y', color='color', source=phi_s)
+        p.xaxis.axis_label = 'Trigger cell index'
+        p.yaxis.axis_label = 'Distance travelled in phi'
 
         self.phi_tabs.append( p )
 
@@ -307,7 +307,7 @@ class Plotter:
         p.add_layout(glyph2)
         
         p.hover.tooltips = [
-            ('id', '$x'),
+            ('id', '@curr_x'),
         ]
         p.toolbar.logo = None
         
@@ -332,7 +332,9 @@ class Plotter:
         p.triangle('curr_x', 'curr_y', source=bins_s,
                    legend_label='Bins Output', color='red')
         p.legend.click_policy='hide'
-        
+        p.xaxis.axis_label = 'Bin index [-#pi;#pi['
+        p.yaxis.axis_label = 'Counts'
+
         self.bin_tabs.append( p )
         
         # callback = CustomJS(args=dict(s3=bins_s),
