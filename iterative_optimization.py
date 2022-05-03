@@ -62,14 +62,21 @@ def optimization(**kw):
         ncellstot = sum(lb)
         lastidx = kw['NbinsPhi']-1
 
-        phi_old = ld[:,0]
-        plotter.save_orig_phi_data(np.arange(len(phi_old)))
-        plotter.save_orig_data( data=copy(lb), data_type='bins', boundary_sizes=0 )
+        def get_edge(idx, misalignment):
+            """returns the index corresponding to the first element in bin with id `id`"""
+            edge = sum(lb[:idx]) + misalignment
+
+            if edge >= ncellstot:
+                edge -= ncellstot
+            elif edge < 0:
+                edge += ncellstot
+            return edge
 
         # initial differences for stopping criterion
         lb_orig2 = lb[:]
         lb_orig1 = np.roll(lb_orig2, +1)
         lb_orig3 = np.roll(lb_orig2, -1)
+        
         gl_orig = lb_orig2 - lb_orig1
         gr_orig = lb_orig3 - lb_orig2
         stop = 0.7 * (abs(gl_orig) + abs(gr_orig))
