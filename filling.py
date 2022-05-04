@@ -52,10 +52,10 @@ def filling(**kwargs):
     assert(len(enrescuts)==len(kwargs['FesAlgos']))
     for i,(fe,cut) in enumerate(zip(kwargs['FesAlgos'],enrescuts)):
         df = simAlgoDFs[fe]
-        # print(df)
-        # print(df['tc_layer'])
-        # print(df.columns)
-        # quit()
+        print(df)
+        print(df['tc_layer'])
+        print(df.columns)
+        quit()
 
         if kwargs['Debug']:
             print('Cluster level information:')
@@ -133,9 +133,12 @@ def filling(**kwargs):
 
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
             for ev in df_tc['event'].unique():
+                branches  = ['cl3d_layer_pt', 'event', 'genpart_reachedEE', 'enres']
                 ev_tc = df_tc[ df_tc.event == ev ]                
                 ev_3d = df_3d[ df_3d.event == ev ]
-
+                # print(ev_3d.filter(items=branches))
+                # quit()
+                
                 _simCols_tc = ['tc_phi_bin', 'Rz_bin', 'tc_layer',
                                'tc_x', 'tc_y', 'tc_z', 'tc_eta',
                                'tc_mipPt', 'tc_pt', 
@@ -167,8 +170,6 @@ def filling(**kwargs):
 
                 group['weighted_x'] /= group['tc_mipPt']
                 group['weighted_y'] /= group['tc_mipPt'] 
-                print(group)
-                quit()
 
                 store[str(_k) + '_' + str(ev) + '_group'] = group.to_numpy()
                 store[str(_k) + '_' + str(ev) + '_group'].attrs['columns'] = cols_to_keep

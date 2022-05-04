@@ -148,7 +148,7 @@ for fe,files in simAlgoFiles.items():
         with pd.HDFStore(afile, mode='r') as store:
             dfs.append(store[name])
     simAlgoDFs[fe] = pd.concat(dfs)
-    
+
 simAlgoNames = sorted(simAlgoDFs.keys())
 if FLAGS.debug:
     print('Input HDF5 keys:')

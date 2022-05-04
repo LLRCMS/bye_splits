@@ -65,9 +65,9 @@ _fillBasePath = lambda x : os.path.join( base_kwargs['BasePath'], x)
 # filling task
 filling_kwargs = setDictionary(
     { 'Nevents': Nevents,
-      'FillingIn': _fillBasePath('gen_cl3d_tc.hdf5'),
-      'FillingOut': _fillBasePath('filling.hdf5') }
-)
+     'FillingIn': _fillBasePath('gen_cl3d_tc.hdf5'),
+     'FillingOut': _fillBasePath('filling.hdf5') }
+     )
 
 # optimization task
 optimization_kwargs = setDictionary(

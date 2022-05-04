@@ -255,9 +255,10 @@ if __name__ == "__main__":
     #                         'OptimizationOut': 'None.hdf5',
     #                        }
 
-    tc_mapping = optimization( **optimization_kwargs )
+    # tc_mapping = optimization( **optimization_kwargs )
 
     # filling    (**filling_kwargs, tc_mapping)
+    filling    (**filling_kwargs)
     # smoothing  (**smoothing_kwargs)
     # seeding    (**seeding_kwargs)
     # clustering (**clustering_kwargs)
