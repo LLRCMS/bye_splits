@@ -51,26 +51,19 @@ def optimization(**kw):
         elif edge < 0:
             edge += ncellstot
         return edge
-    
-    for ilayer,(ldata,lbins) in enumerate(zip(data, bins)):
 
+    for ilayer,(ldata,lbins) in enumerate(zip(data, bins)):
         plotter.reset()
-        
+
         boundshift = window_size - 1
         ld = np.array(ldata)
         lb = np.array(lbins)
         ncellstot = sum(lb)
         lastidx = kw['NbinsPhi']-1
 
-        def get_edge(idx, misalignment):
-            """returns the index corresponding to the first element in bin with id `id`"""
-            edge = sum(lb[:idx]) + misalignment
-
-            if edge >= ncellstot:
-                edge -= ncellstot
-            elif edge < 0:
-                edge += ncellstot
-            return edge
+        phi_old = ld[:,0]
+        plotter.save_orig_phi_data(np.arange(len(phi_old)))
+        plotter.save_orig_data( data=copy(lb), data_type='bins', boundary_sizes=0 )
 
         # initial differences for stopping criterion
         lb_orig2 = lb[:]
@@ -196,8 +189,9 @@ def optimization(**kw):
         df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_left']   = 1
         df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_right']  = 0
 
-        print(df.bin_new)
-        quit()
+        # print(df)
+        # print(ld[:,1])
+        # quit()
 
         df['distance'] = half_bin_width + df.move_to_the_left*abs(phi_new_high_edges-phi_old) + df.move_to_the_right*abs(phi_new_low_edges-phi_old)
         df['d_rigth'] = df.move_to_the_right*abs(phi_new_low_edges-phi_old)
@@ -223,7 +217,7 @@ def optimization(**kw):
         
     plotter.plot_iterative( plot_name=get_html_name(__file__),
                            tab_names = [''+str(x) for x in range(len(ldata))],
-                           show_html=False )
+                           show_html=True )
 
 if __name__ == "__main__":  
     # Nevents = 16#{{ dag_run.conf.nevents }}
@@ -255,10 +249,10 @@ if __name__ == "__main__":
     #                         'OptimizationOut': 'None.hdf5',
     #                        }
 
-    # tc_mapping = optimization( **optimization_kwargs )
+    tc_map = optimization( **optimization_kwargs )
+    quit()
 
-    # filling    (**filling_kwargs, tc_mapping)
-    filling    (**filling_kwargs)
+    filling    (tc_map, **filling_kwargs)
     # smoothing  (**smoothing_kwargs)
     # seeding    (**seeding_kwargs)
     # clustering (**clustering_kwargs)

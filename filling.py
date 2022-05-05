@@ -25,7 +25,7 @@ class SupressSettingWithCopyWarning:
     def __exit__(self, *args):
         pd.options.mode.chained_assignment = self.saved_swcw
 
-def filling(**kwargs):
+def filling(tc_map, **kwargs):
     """
     Fills split clusters information according to the Stage2 FPGA fixed binning.
     """
@@ -52,10 +52,9 @@ def filling(**kwargs):
     assert(len(enrescuts)==len(kwargs['FesAlgos']))
     for i,(fe,cut) in enumerate(zip(kwargs['FesAlgos'],enrescuts)):
         df = simAlgoDFs[fe]
-        print(df)
-        print(df['tc_layer'])
-        print(df.columns)
-        quit()
+        if kwargs['Debug']:
+            print(df[['genpart_exphi', 'tc_layer', 'tc_id']])
+            print(df.columns)
 
         if kwargs['Debug']:
             print('Cluster level information:')
@@ -118,9 +117,6 @@ def filling(**kwargs):
         nansel = pd.isna(splittedClusters_tc['Rz_bin']) 
         splittedClusters_tc = splittedClusters_tc[~nansel]
 
-        # print(splittedClusters_tc)
-        # quit()
-
         splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['tc_phi'], bins=kwargs['PhiBinEdges'], labels=False )
 
         nansel = pd.isna(splittedClusters_tc['tc_phi_bin']) 
@@ -136,9 +132,9 @@ def filling(**kwargs):
                 branches  = ['cl3d_layer_pt', 'event', 'genpart_reachedEE', 'enres']
                 ev_tc = df_tc[ df_tc.event == ev ]                
                 ev_3d = df_3d[ df_3d.event == ev ]
-                # print(ev_3d.filter(items=branches))
-                # quit()
-                
+                if kwargs['Debug']:
+                    print(ev_3d.filter(items=branches))
+
                 _simCols_tc = ['tc_phi_bin', 'Rz_bin', 'tc_layer',
                                'tc_x', 'tc_y', 'tc_z', 'tc_eta',
                                'tc_mipPt', 'tc_pt', 
@@ -187,4 +183,4 @@ def filling(**kwargs):
 
 if __name__ == "__main__":
     from airflow.airflow_dag import filling_kwargs        
-    filling( **filling_kwargs )
+    filling( tc_map, **filling_kwargs )
