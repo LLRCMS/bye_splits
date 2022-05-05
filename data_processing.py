@@ -55,8 +55,6 @@ class DataProcessing:
             """
             Creates a list of R/z slices, each ordered by phi.
             """
-            data = data.astype('float32')
-
             # data sanity check
             rz_slices = np.unique(data[:,split_index])
 
