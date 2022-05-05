@@ -26,12 +26,13 @@ class DataProcessing:
                     normalize=True ):
         """Prepare the data to serve as input to the net in R/z slices"""
         # data variables' indexes
-        assert data.attrs['columns'].tolist() == ['Rz', 'phi', 'Rz_bin', 'phi_bin']
+        assert data.attrs['columns'].tolist() == ['Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
 
         rz_idx = 0
         phi_idx = 1
         rzbin_idx = 2
         phibin_idx = 3
+        tc_id_idx = 4
 
         data = data[()] #eager (lazy is the default)
 

@@ -89,7 +89,8 @@ tcTree = tcFile[ os.path.join(tcFolder, tcTreeName) ]
 if FLAGS.debug:
     print('Input Tree:')
     print(tcTree.show())
-        
+    quit()
+
 simDataPath = os.path.join(os.environ['PWD'], 'data', 'gen_cl3d_tc.hdf5')
 simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
 fes = ['ThresholdDummyHistomaxnoareath20']
@@ -105,17 +106,7 @@ mypalette = _palette(50)
 #########################################################################
 ################### INPUTS: TRIGGER CELLS ###############################
 #########################################################################
-tcNames = dotDict( dict( RoverZ = 'Rz',
-                         phi_calc = 'phi_calc',
-                         phi = 'phi',
-                         eta = 'eta',
-                         nhits = 'nhits',
-                         min_eta = 'min_eta',
-                         max_eta = 'max_eta',
-                        )
-                  )
-
-tcVariables = {'zside', 'subdet', 'layer', tcNames.phi, tcNames.eta, 'x', 'y', 'z'}
+tcVariables = {'zside', 'subdet', 'layer', 'phi', 'eta', 'x', 'y', 'z', 'id'}
 assert(tcVariables.issubset(tcTree.keys()))
 tcVariables = list(tcVariables)
 
@@ -169,30 +160,31 @@ tcData = tcData[ subdetCond ]
 tcData = tcData.drop(['subdet'], axis=1)
 tcVariables.remove('subdet')
 
-tcData[tcNames.RoverZ] = np.sqrt(tcData.x*tcData.x + tcData.y*tcData.y) / abs(tcData.z)
+tcData['Rz'] = np.sqrt(tcData.x*tcData.x + tcData.y*tcData.y) / abs(tcData.z)
 #the following cut removes almost no event at all
-tcData = tcData[ (tcData[tcNames.RoverZ] < FLAGS.maxROverZ) & (tcData[tcNames.RoverZ] > FLAGS.minROverZ) ]
+tcData = tcData[ (tcData['Rz'] < FLAGS.maxROverZ) & (tcData['Rz'] > FLAGS.minROverZ) ]
 
-tcData[tcNames.RoverZ + '_bin'] = pd.cut( tcData[tcNames.RoverZ], bins=rzBinEdges, labels=False )
-tcData[tcNames.phi + '_bin'] = pd.cut( tcData[tcNames.phi], bins=phiBinEdges, labels=False )
+tcData['Rz' + '_bin'] = pd.cut( tcData['Rz'], bins=rzBinEdges, labels=False )
+tcData['phi' + '_bin'] = pd.cut( tcData['phi'], bins=phiBinEdges, labels=False )
 
 # save data for optimization task
 save_path = 'data/triggergeom_condensed.hdf5'
 with h5py.File(save_path, mode='w') as storeOut:
-    save_cols = ['Rz', 'phi', 'Rz_bin', 'phi_bin']
+    save_cols = ['Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
     saveData = ( tcData[save_cols]
                  .sort_values(by=['Rz_bin', 'phi'])
                  .to_numpy()
                 )
+    
     storeOut['data'] = saveData
     storeOut['data'].attrs['columns'] = save_cols
     storeOut['data'].attrs['doc'] = 'Trigger cell phi vs. R/z positions for optimization.'
 print('Optimization input data saved in {}.'.format(save_path))
 
 #convert bin ids back to values (central values in the bin)
-tcData[tcNames.RoverZ] = binConv(tcData[tcNames.RoverZ + '_bin'], binDistRz, FLAGS.minROverZ)
-tcData[tcNames.phi] = binConv(tcData[tcNames.phi + '_bin'], binDistPhi, -np.pi)
-tcData.drop([tcNames.RoverZ + '_bin', tcNames.phi + '_bin'], axis=1)
+tcData['Rz'] = binConv(tcData['Rz' + '_bin'], binDistRz, FLAGS.minROverZ)
+tcData['phi'] = binConv(tcData['phi' + '_bin'], binDistPhi, -np.pi)
+tcData.drop(['Rz' + '_bin', 'phi' + '_bin'], axis=1)
 
 # if `-1` is included in FLAGS.ledges, the full selection is also drawn
 try:
@@ -208,14 +200,14 @@ tcSelections = ['layer>{}, layer<={}'.format(x,y) for x,y in ledgeszip]
 groups = []
 for lmin,lmax in ledgeszip:
     groups.append( tcData[ (tcData.layer>lmin) & (tcData.layer<=lmax) ] )
-    groupby = groups[-1].groupby([tcNames.RoverZ, tcNames.phi], as_index=False)
+    groupby = groups[-1].groupby(['Rz', 'phi'], as_index=False)
     groups[-1] = groupby.count()
-    eta_mins = groupby.min()[tcNames.eta]
-    eta_maxs = groupby.max()[tcNames.eta]
-    groups[-1].insert(0, tcNames.min_eta, eta_mins)
-    groups[-1].insert(0, tcNames.max_eta, eta_maxs)
-    groups[-1] = groups[-1].rename(columns={'z': tcNames.nhits})
-    groups[-1] = groups[-1][[tcNames.phi, tcNames.nhits, tcNames.RoverZ, tcNames.min_eta, tcNames.max_eta]]
+    eta_mins = groupby.min()['eta']
+    eta_maxs = groupby.max()['eta']
+    groups[-1].insert(0, 'min_eta', eta_mins)
+    groups[-1].insert(0, 'max_eta', eta_maxs)
+    groups[-1] = groups[-1].rename(columns={'z': 'nhits'})
+    groups[-1] = groups[-1][['phi', 'nhits', 'Rz', 'min_eta', 'max_eta']]
 
 #########################################################################
 ################### DATA ANALYSIS: SIMULATION ###########################
@@ -309,24 +301,24 @@ for idx,grp in enumerate(groups):
 
     if FLAGS.log:
         mapper = LogColorMapper(palette=mypalette,
-                                low=grp[tcNames.nhits].min(), high=grp[tcNames.nhits].max())
+                                low=grp['nhits'].min(), high=grp['nhits'].max())
     else:
         mapper = LinearColorMapper(palette=mypalette,
-                                   low=grp[tcNames.nhits].min(), high=grp[tcNames.nhits].max())
+                                   low=grp['nhits'].min(), high=grp['nhits'].max())
 
     title = title_common + '; {}'.format(tcSelections[idx])
     p = figure(width=1800, height=600, title=title,
-               x_range=Range1d(tcData[tcNames.phi].min()-SHIFTH, tcData[tcNames.phi].max()+SHIFTH),
-               y_range=Range1d(tcData[tcNames.RoverZ].min()-SHIFTV, tcData[tcNames.RoverZ].max().max()+SHIFTV),
+               x_range=Range1d(tcData['phi'].min()-SHIFTH, tcData['phi'].max()+SHIFTH),
+               y_range=Range1d(tcData['Rz'].min()-SHIFTV, tcData['Rz'].max().max()+SHIFTV),
                tools="hover,box_select,box_zoom,undo,redo,reset,save", x_axis_location='below',
                x_axis_type='linear', y_axis_type='linear',
                )
 
-    p.rect( x=tcNames.phi, y=tcNames.RoverZ,
+    p.rect( x='phi', y='Rz',
             source=source,
             width=binDistPhi, height=binDistRz,
             width_units='data', height_units='data',
-            line_color='black', fill_color=transform(tcNames.nhits, mapper)
+            line_color='black', fill_color=transform('nhits', mapper)
            )
 
     color_bar = ColorBar(color_mapper=mapper,

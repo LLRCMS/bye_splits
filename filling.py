@@ -108,6 +108,7 @@ def filling(tc_map, **kwargs):
 
         for v in _tc_vars:
             splittedClusters_tc[v] = splittedClusters_tc[v].astype(np.float64)
+        splittedClusters_tc.tc_id = splittedClusters_tc.tc_id.astype('uint32')
 
         splittedClusters_tc['Rz'] = np.sqrt(splittedClusters_tc.tc_x*splittedClusters_tc.tc_x + splittedClusters_tc.tc_y*splittedClusters_tc.tc_y)  / abs(splittedClusters_tc.tc_z)
         splittedClusters_tc = splittedClusters_tc.reset_index()
@@ -117,7 +118,13 @@ def filling(tc_map, **kwargs):
         nansel = pd.isna(splittedClusters_tc['Rz_bin']) 
         splittedClusters_tc = splittedClusters_tc[~nansel]
 
-        splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['tc_phi'], bins=kwargs['PhiBinEdges'], labels=False )
+        splittedClusters_tc = splittedClusters_tc.merge(tc_map, on='tc_id', how='right').dropna()
+        assert not np.count_nonzero(splittedClusters_tc.phi_old - splittedClusters_tc.tc_phi)
+
+        # splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['tc_phi'],
+        #                                            bins=kwargs['PhiBinEdges'], labels=False )
+        splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['phi_new'],
+                                                   bins=kwargs['PhiBinEdges'], labels=False )
 
         nansel = pd.isna(splittedClusters_tc['tc_phi_bin']) 
         splittedClusters_tc = splittedClusters_tc[~nansel]
@@ -128,7 +135,7 @@ def filling(tc_map, **kwargs):
     with h5py.File(kwargs['FillingOut'], mode='w') as store:
 
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
-            for ev in df_tc['event'].unique():
+            for ev in df_tc['event'].unique().astype('int'):
                 branches  = ['cl3d_layer_pt', 'event', 'genpart_reachedEE', 'enres']
                 ev_tc = df_tc[ df_tc.event == ev ]                
                 ev_3d = df_3d[ df_3d.event == ev ]
@@ -176,7 +183,7 @@ def filling(tc_map, **kwargs):
                                 'tc_eta', 'tc_layer',
                                 'tc_mipPt', 'tc_pt']
                 ev_tc = ev_tc[cols_to_keep]
-
+                
                 store[str(_k) + '_' + str(ev) + '_tc'] = ev_tc.to_numpy()
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['columns'] = cols_to_keep
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['doc'] = 'Trigger Cells Info'

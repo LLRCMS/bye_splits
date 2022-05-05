@@ -78,8 +78,9 @@ def seeding(**kwargs):
             res = (energies[seeds_idx], weighted_x[seeds_idx], weighted_y[seeds_idx])
 
             assert(len(kwargs['FesAlgos'])==1)
-            event_number = re.search('{}_([0-9]{{1,7}})_group'.format(kwargs['FesAlgos'][0]),
-                                                                    key).group(1)
+            search_str = '{}_([0-9]{{1,7}})_group'.format(kwargs['FesAlgos'][0])
+
+            event_number = re.search(search_str, key).group(1)
 
             if kwargs['Debug']:
                 print('Ev:{}'.format(event_number))

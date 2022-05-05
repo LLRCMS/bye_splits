@@ -332,7 +332,7 @@ class Plotter:
         p.triangle('curr_x', 'curr_y', source=bins_s,
                    legend_label='Bins Output', color='red')
         p.legend.click_policy='hide'
-        p.xaxis.axis_label = 'Bin index [-#pi;#pi['
+        p.xaxis.axis_label = r'$$\text{Bin index (}[-\pi;\pi[\text{)}$$'
         p.yaxis.axis_label = 'Counts'
 
         self.bin_tabs.append( p )

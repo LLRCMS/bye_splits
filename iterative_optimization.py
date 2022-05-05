@@ -32,16 +32,19 @@ def optimization(**kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
     plotter = Plotter(**optimization_kwargs)
     mode = 'variance'
-    window_size = 3 # no boundaries added
+    window_size = 3
 
     assert len(store_in.keys()) == 1
     dp = DataProcessing( phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
                          bin_bounds=(0,50) )
-    data, bins, _, _ = dp.preprocess( data=store_in['data'],
-                                      nbins_phi=kw['NbinsPhi'],
-                                      nbins_rz=kw['NbinsRz'],
-                                      window_size=window_size,
-                                      normalize=False )
+
+    assert (np.sort(np.unique(store_in['data'][:,4])) == np.sort(store_in['data'][:,4])).all()
+
+    data, bins, bbb, _ = dp.preprocess( data=store_in['data'],
+                                       nbins_phi=kw['NbinsPhi'],
+                                       nbins_rz=kw['NbinsRz'],
+                                       window_size=window_size,
+                                       normalize=False )
 
     def get_edge(idx, misalignment, ncellstot):
         """returns the index corresponding to the first element in bin with id `id`"""
@@ -60,7 +63,7 @@ def optimization(**kw):
         lb = np.array(lbins)
         ncellstot = sum(lb)
         lastidx = kw['NbinsPhi']-1
-
+        
         phi_old = ld[:,0]
         plotter.save_orig_phi_data(np.arange(len(phi_old)))
         plotter.save_orig_data( data=copy(lb), data_type='bins', boundary_sizes=0 )
@@ -171,10 +174,11 @@ def optimization(**kw):
         phi_new_low_edges = kw['PhiBinEdges'][:-1][ld[:,1].astype(int)]
         phi_new_high_edges = kw['PhiBinEdges'][1:][ld[:,1].astype(int)]
 
-        half_bin_width = 0.#(kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
+        half_bin_width = 0. #could also be: (kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
         df = pd.DataFrame(dict(phi_old=phi_old,
                                bin_old=np.array(data[ilayer])[:,1],
-                               bin_new=ld[:,1]))
+                               bin_new=ld[:,1],
+                               id=ld[:,2]))
 
         # the bin edge to use to calculate the phi distance to the nearest edge depends on whether the trigger cell is moving
         # to the left or to the right bin. The following introduces a mask to perform the conditional decision.
@@ -189,35 +193,50 @@ def optimization(**kw):
         df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_left']   = 1
         df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_right']  = 0
 
-        # print(df)
-        # print(ld[:,1])
-        # quit()
-
-        df['distance'] = half_bin_width + df.move_to_the_left*abs(phi_new_high_edges-phi_old) + df.move_to_the_right*abs(phi_new_low_edges-phi_old)
-        df['d_rigth'] = df.move_to_the_right*abs(phi_new_low_edges-phi_old)
-        df['d_left'] = df.move_to_the_left*abs(phi_new_high_edges-phi_old)
+        d_left  = df.move_to_the_left  * abs(phi_new_high_edges-phi_old)
+        d_right = df.move_to_the_right * abs(phi_new_low_edges-phi_old)
+        df['distance'] = half_bin_width - d_left + d_right
 
         # the distance is zero when the bin did not change
         df.loc[ df.bin_old==df.bin_new, 'distance' ] = 0.
 
         nonzero_ratio = 1. - float(len(df[df.distance == 0])) / float(len(df.distance))
-        df['phi_new'] = df.distance + df.phi_old
 
         # remove migrations in boundary conditions to avoid visualization issues
-        df.loc[ df.distance > np.pi, 'distance' ] = abs( df.loc[ df.distance > np.pi, 'distance' ] - 2*np.pi )
+        df.loc[ df.distance >= np.pi, 'distance' ] = abs(df.loc[ df.distance >= np.pi, 'distance' ] - 2*np.pi)
+        df.loc[ df.distance < -np.pi, 'distance' ] = -abs(df.loc[ df.distance < -np.pi, 'distance' ] + 2*np.pi)
 
+        df['phi_new'] = df.distance + df.phi_old
+
+        cond1 = (df.bin_new-df.bin_old < 0) & (df.distance>0)
+        df.loc[cond1, 'phi_new'] = df.loc[cond1, 'phi_new'] - 2*np.pi
+
+        cond2 = (df.bin_new-df.bin_old > 0) & (df.distance<0)
+        df.loc[cond2, 'phi_new'] = df.loc[cond2, 'phi_new'] + 2*np.pi
+        
         plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
         plotter.save_gen_phi_data(df.distance)
         plotter.save_iterative_phi_tab(nonzero_ratio=nonzero_ratio,
                                        ncellstot=ncellstot )
         plotter.save_iterative_bin_tab()
 
-        # for ilayer,(ldata,lbins) in enumerate(zip(data, bins)):
+        df = df[['phi_old', 'phi_new', 'id']]
+        df.rename(columns={'id': 'tc_id'}, inplace=True)
+
+        # fix upstream inconsistency when producing ROOT files
+        # needed for TC id comparison later on
+        df.tc_id = np.uint32(df.tc_id)
+
+        df_total = df if ilayer==0 else pd.concat((df_total,df), axis=0)
+
         # end loop over the layers
         
     plotter.plot_iterative( plot_name=get_html_name(__file__),
                            tab_names = [''+str(x) for x in range(len(ldata))],
-                           show_html=True )
+                           show_html=False )
+
+    #df_total.reset_index(inplace=True)
+    return df_total
 
 if __name__ == "__main__":  
     # Nevents = 16#{{ dag_run.conf.nevents }}
@@ -250,10 +269,10 @@ if __name__ == "__main__":
     #                        }
 
     tc_map = optimization( **optimization_kwargs )
-    quit()
+    #quit()
 
-    filling    (tc_map, **filling_kwargs)
-    # smoothing  (**smoothing_kwargs)
-    # seeding    (**seeding_kwargs)
-    # clustering (**clustering_kwargs)
-    # validating()
+    filling   (tc_map, **filling_kwargs)
+    smoothing (**smoothing_kwargs)
+    seeding   (**seeding_kwargs)
+    clustering(**clustering_kwargs)
+    validation(**validation_kwargs)
