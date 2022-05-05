@@ -121,11 +121,11 @@ def filling(tc_map, **kwargs):
         splittedClusters_tc = splittedClusters_tc.merge(tc_map, on='tc_id', how='right').dropna()
         assert not np.count_nonzero(splittedClusters_tc.phi_old - splittedClusters_tc.tc_phi)
 
-        # splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['tc_phi'],
+        #splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['tc_phi'],
         #                                            bins=kwargs['PhiBinEdges'], labels=False )
         splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['phi_new'],
                                                    bins=kwargs['PhiBinEdges'], labels=False )
-
+        
         nansel = pd.isna(splittedClusters_tc['tc_phi_bin']) 
         splittedClusters_tc = splittedClusters_tc[~nansel]
 

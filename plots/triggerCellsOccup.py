@@ -164,8 +164,8 @@ tcData['Rz'] = np.sqrt(tcData.x*tcData.x + tcData.y*tcData.y) / abs(tcData.z)
 #the following cut removes almost no event at all
 tcData = tcData[ (tcData['Rz'] < FLAGS.maxROverZ) & (tcData['Rz'] > FLAGS.minROverZ) ]
 
-tcData['Rz' + '_bin'] = pd.cut( tcData['Rz'], bins=rzBinEdges, labels=False )
-tcData['phi' + '_bin'] = pd.cut( tcData['phi'], bins=phiBinEdges, labels=False )
+tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=rzBinEdges, labels=False )
+tcData['phi_bin'] = pd.cut( tcData['phi'], bins=phiBinEdges, labels=False )
 
 # save data for optimization task
 save_path = 'data/triggergeom_condensed.hdf5'
@@ -182,9 +182,9 @@ with h5py.File(save_path, mode='w') as storeOut:
 print('Optimization input data saved in {}.'.format(save_path))
 
 #convert bin ids back to values (central values in the bin)
-tcData['Rz'] = binConv(tcData['Rz' + '_bin'], binDistRz, FLAGS.minROverZ)
-tcData['phi'] = binConv(tcData['phi' + '_bin'], binDistPhi, -np.pi)
-tcData.drop(['Rz' + '_bin', 'phi' + '_bin'], axis=1)
+tcData['Rz'] = binConv(tcData['Rz_bin'], binDistRz, FLAGS.minROverZ)
+tcData['phi'] = binConv(tcData['phi_bin'], binDistPhi, -np.pi)
+tcData.drop(['Rz_bin', 'phi_bin'], axis=1)
 
 # if `-1` is included in FLAGS.ledges, the full selection is also drawn
 try:

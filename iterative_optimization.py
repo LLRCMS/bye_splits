@@ -272,7 +272,7 @@ if __name__ == "__main__":
     #quit()
 
     filling   (tc_map, **filling_kwargs)
-    smoothing (**smoothing_kwargs)
-    seeding   (**seeding_kwargs)
-    clustering(**clustering_kwargs)
-    validation(**validation_kwargs)
+    # smoothing (**smoothing_kwargs)
+    # seeding   (**seeding_kwargs)
+    # clustering(**clustering_kwargs)
+    # validation(**validation_kwargs)
