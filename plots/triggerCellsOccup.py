@@ -60,6 +60,7 @@ parser.add_argument('--maxROverZ', help='Maximum value of R/z, as defined in CMS
                     default=0.58, type=float)
 parser.add_argument('-d', '--debug', help='debug mode', action='store_true')
 parser.add_argument('-l', '--log', help='use color log scale', action='store_true')
+parser.add_argument('--apply_map', help='ma trigger cells to a different phi position', action='store_true')
 
 FLAGS = parser.parse_args()
                     
@@ -168,23 +169,34 @@ tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=rzBinEdges, labels=False )
 tcData['phi_bin'] = pd.cut( tcData['phi'], bins=phiBinEdges, labels=False )
 
 # save data for optimization task
-save_path = 'data/triggergeom_condensed.hdf5'
-with h5py.File(save_path, mode='w') as storeOut:
-    save_cols = ['Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
-    saveData = ( tcData[save_cols]
-                 .sort_values(by=['Rz_bin', 'phi'])
-                 .to_numpy()
-                )
+if not FLAGS.apply_map:
+    save_path = 'data/triggergeom_condensed.hdf5'
+    with h5py.File(save_path, mode='w') as storeOut:
+        save_cols = ['Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
+        saveData = ( tcData[save_cols]
+                    .sort_values(by=['Rz_bin', 'phi'])
+                    .to_numpy()
+                    )
     
-    storeOut['data'] = saveData
-    storeOut['data'].attrs['columns'] = save_cols
-    storeOut['data'].attrs['doc'] = 'Trigger cell phi vs. R/z positions for optimization.'
-print('Optimization input data saved in {}.'.format(save_path))
+        storeOut['data'] = saveData
+        storeOut['data'].attrs['columns'] = save_cols
+        storeOut['data'].attrs['doc'] = 'Trigger cell phi vs. R/z positions for optimization.'
+        print('Optimization input data saved in {}.'.format(save_path))
 
-#convert bin ids back to values (central values in the bin)
-tcData['Rz'] = binConv(tcData['Rz_bin'], binDistRz, FLAGS.minROverZ)
-tcData['phi'] = binConv(tcData['phi_bin'], binDistPhi, -np.pi)
-tcData.drop(['Rz_bin', 'phi_bin'], axis=1)
+
+if FLAGS.apply_map:
+    tcData = splittedClusters_tc.merge(tc_map, on='tc_id', how='right').dropna()
+    assert not np.count_nonzero(splittedClusters_tc.phi_old - splittedClusters_tc.tc_phi)
+
+else:
+    #convert bin ids back to values (central values in the bin)
+    tcData['Rz'] = binConv(tcData['Rz_bin'], binDistRz, FLAGS.minROverZ)
+    tcData['phi'] = binConv(tcData['phi_bin'], binDistPhi, -np.pi)
+    tcData.drop(['Rz_bin', 'phi_bin'], axis=1)
+
+    tcData.id = np.uint32(tcData.id)
+    print(tcData)
+    quit()
 
 # if `-1` is included in FLAGS.ledges, the full selection is also drawn
 try:
@@ -419,7 +431,7 @@ for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
         ]
         
         pics.append( (p,ev) )
-        tabs.append( Panel(child=p, title='Event {}'.format(ev)) )
+        tabs.append( Panel(child=p, title='{}'.format(ev)) )
 
 if not FLAGS.debug:
     outname = os.path.join('out', 'triggerCellsOccup')
