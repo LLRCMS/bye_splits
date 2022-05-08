@@ -42,7 +42,6 @@ base_kwargs = {
     'LayerEdges': [0,28],
     'IsHCAL': False,
 
-    'Debug': False,
     'DataFolder': DataFolder,
     'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
     'BasePath': os.path.join(os.environ['PWD'], DataFolder),

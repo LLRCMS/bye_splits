@@ -25,6 +25,7 @@ from smoothing import smoothing
 from seeding import seeding
 from clustering import clustering
 from validation import validation
+from plots.trigger_cells_occupancy import plot_trigger_cells_occupancy
 
 def is_sorted(arr, nbinsphi):
     diff = arr[:-1] - arr[1:]
@@ -89,7 +90,7 @@ def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, *
         doc = 'Trigger cell phi vs. R/z positions for optimization.'
         store['data'].attrs['doc'] = doc
 
-def optimization(**kw):
+def optimization(hyperparam, **kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
     plotter = Plotter(**optimization_kwargs)
     mode = 'variance'
@@ -136,7 +137,7 @@ def optimization(**kw):
         
         gl_orig = lb_orig2 - lb_orig1
         gr_orig = lb_orig3 - lb_orig2
-        stop = 0.7 * (abs(gl_orig) + abs(gr_orig))
+        stop = hyperparam * (abs(gl_orig) + abs(gr_orig))
         stop[stop<1] = 1 # algorithm stabilisation
 
         idxs = [ np.arange(kw['NbinsPhi']) ]
@@ -282,11 +283,10 @@ def optimization(**kw):
         plotter.save_iterative_bin_tab()
 
         df = df[['phi_old', 'phi_new', 'id']]
-        df.rename(columns={'id': 'tc_id'}, inplace=True)
 
         # fix upstream inconsistency when producing ROOT files
         # needed for TC id comparison later on
-        df.tc_id = np.uint32(df.tc_id)
+        df.id = np.uint32(df.id)
 
         df_total = df if ilayer==0 else pd.concat((df_total,df), axis=0)
 
@@ -296,7 +296,6 @@ def optimization(**kw):
                            tab_names = [''+str(x) for x in range(len(ldata))],
                            show_html=False )
 
-    #df_total.reset_index(inplace=True)
     return df_total
 
 if __name__ == "__main__":
@@ -304,15 +303,27 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--reprocess',
                         help='reprocess trigger cell geometry data',
                         action='store_true')
+    parser.add_argument('-p', '--plot',
+                        help='plot shifted trigger cells instead of originals',
+                        action='store_true')
     FLAGS = parser.parse_args()
 
     if FLAGS.reprocess:
         process_trigger_cell_geometry_data( **optimization_kwargs )
-        print('Trigger cell geometry data reprocessed.')
+        print('Trigger cell geometry data reprocessed.', flush=True)
+    else:
+        print('Trigger cell geometry was NOT reprocessed.', flush=True)
         
-    tc_map = optimization( **optimization_kwargs )
+    tc_map = optimization( hyperparam=0.7, **optimization_kwargs )
 
-    filling   (tc_map, **filling_kwargs)
+    if FLAGS.plot:
+        plot_trigger_cells_occupancy(trigger_cell_map=tc_map,
+                                     pos_endcap=True,
+                                     min_rz=optimization_kwargs['MinROverZ'],
+                                     max_rz=optimization_kwargs['MaxROverZ'],
+                                     layer_edges=[0,28])
+        
+    # filling   (tc_map, **filling_kwargs)
     # smoothing (**smoothing_kwargs)
     # seeding   (**seeding_kwargs)
     # clustering(**clustering_kwargs)
