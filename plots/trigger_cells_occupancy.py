@@ -23,6 +23,11 @@ import sys
 sys.path.append( os.environ['PWD'] )
 from airflow.airflow_dag import filling_kwargs as kw
 
+def calculateRoverZfromEta(eta):
+    """R/z = arctan(theta) [theta is obtained from pseudo-rapidity, eta]"""
+    _theta = 2*np.arctan( np.exp(-1 * eta) )
+    return np.arctan( _theta )
+
 def set_figure_props(p, xbincenters, ybincenters):
     """set figure properties"""
     p.axis.axis_line_color = 'black'
@@ -116,17 +121,19 @@ def plot_trigger_cells_occupancy(trigger_cell_map, pos_endcap,
     tcData = tcData.merge(trigger_cell_map, on='id', how='right').dropna()
     assert_diff = tcData.phi_old - tcData.phi
     assert not np.count_nonzero(assert_diff)
-    tcData.drop(['phi'], axis=1, inplace=True)
 
     copt = dict(labels=False)
     tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=kw['RzBinEdges'], **copt )
-    tcData['phi_bin'] = pd.cut( tcData['phi_old'], bins=kw['PhiBinEdges'], **copt )
+
+    # to check the effect of NOT applying the tc mapping
+    # replace `phi_new` by `phi_old`
+    tcData['phi_bin'] = pd.cut( tcData['phi_new'], bins=kw['PhiBinEdges'], **copt )
     
     # Convert bin ids back to values (central values in each bin)
-    tcData['Rz'] = binConv(tcData['Rz_bin'], binDistRz, min_rz)
-    tcData['phi'] = binConv(tcData['phi_bin'], binDistPhi, -np.pi)
-
-    tcData.drop(['Rz_bin', 'phi_bin'], axis=1, inplace=True)
+    tcData['Rz_center'] = binConv(tcData['Rz_bin'], binDistRz, min_rz)
+    tcData['phi_center'] = binConv(tcData['phi_bin'], binDistPhi, -np.pi)
+    
+    tcData.drop(['Rz_bin', 'phi_bin', 'Rz', 'phi'], axis=1, inplace=True)
 
     # if `-1` is included in layer_edges, the full selection is also drawn
     try:
@@ -142,14 +149,19 @@ def plot_trigger_cells_occupancy(trigger_cell_map, pos_endcap,
     groups = []
     for lmin,lmax in ledgeszip:
         groups.append( tcData[ (tcData.layer>lmin) & (tcData.layer<=lmax) ] )
-        groupby = groups[-1].groupby(['Rz', 'phi'], as_index=False)
+        groupby = groups[-1].groupby(['Rz_center', 'phi_center'], as_index=False)
         groups[-1] = groupby.count()
+
+        print(tcData)
+        print(groups[-1])
+        quit()
+
         eta_mins = groupby.min()['eta']
         eta_maxs = groupby.max()['eta']
         groups[-1].insert(0, 'min_eta', eta_mins)
         groups[-1].insert(0, 'max_eta', eta_maxs)
         groups[-1] = groups[-1].rename(columns={'z': 'nhits'})
-        groups[-1] = groups[-1][['phi', 'nhits', 'Rz', 'min_eta', 'max_eta']]
+        groups[-1] = groups[-1][['phi_center', 'nhits', 'Rz_center', 'min_eta', 'max_eta']]
 
     #########################################################################
     ################### DATA ANALYSIS: SIMULATION ###########################
@@ -241,13 +253,14 @@ def plot_trigger_cells_occupancy(trigger_cell_map, pos_endcap,
 
         title = title_common + '; {}'.format(tcSelections[idx])
         p = figure(width=1800, height=600, title=title,
-                   x_range=Range1d(tcData['phi'].min()-SHIFTH, tcData['phi'].max()+SHIFTH),
-                   y_range=Range1d(tcData['Rz'].min()-SHIFTV, tcData['Rz'].max().max()+SHIFTV),
-                   tools="hover,box_select,box_zoom,undo,redo,reset,save", x_axis_location='below',
+                   x_range=Range1d(tcData['phi_center'].min()-SHIFTH, tcData['phi_center'].max()+SHIFTH),
+                   y_range=Range1d(tcData['Rz_center'].min()-SHIFTV, tcData['Rz_center'].max().max()+SHIFTV),
+                   tools="hover,box_select,box_zoom,reset,save", x_axis_location='below',
                    x_axis_type='linear', y_axis_type='linear',
                    )
+        p.toolbar.logo = None
 
-        p.rect( x='phi', y='Rz',
+        p.rect( x='phi_center', y='Rz_center',
                 source=source,
                 width=binDistPhi, height=binDistRz,
                 width_units='data', height_units='data',
@@ -285,9 +298,8 @@ def plot_trigger_cells_occupancy(trigger_cell_map, pos_endcap,
                             'genpart_exeta', 'genpart_exphi' ]
             ev_tc = ev_tc.filter(items=_simCols_tc)
 
-
-            ev_3d.loc[:, 'cl3d_Roverz'] = np.arctan( 2*np.arctan( np.exp(-1 * ev_3d.cl3d_eta) ) )
-            ev_3d.loc[:, 'gen_Roverz'] = np.arctan( 2*np.arctan( np.exp(-1 * ev_3d.genpart_exeta) ) )
+            ev_3d['cl3d_Roverz'] = calculateRoverZfromEta(ev_3d.cl3d_eta)
+            ev_3d['gen_Roverz'] = calculateRoverZfromEta(ev_3d.genpart_exeta)
 
             cl3d_pos_rz, cl3d_pos_phi = ev_3d['cl3d_Roverz'].unique(), ev_3d['cl3d_phi'].unique()
             gen_pos_rz, gen_pos_phi = ev_3d['gen_Roverz'].unique(), ev_3d['genpart_exphi'].unique()

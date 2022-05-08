@@ -314,7 +314,7 @@ if __name__ == "__main__":
     else:
         print('Trigger cell geometry was NOT reprocessed.', flush=True)
         
-    tc_map = optimization( hyperparam=0.7, **optimization_kwargs )
+    tc_map = optimization( hyperparam=0., **optimization_kwargs )
 
     if FLAGS.plot:
         plot_trigger_cells_occupancy(trigger_cell_map=tc_map,
