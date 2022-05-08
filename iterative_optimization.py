@@ -1,14 +1,16 @@
 import os
+import argparse
 import random; random.seed(10)
+from copy import copy
 import numpy as np
 import pandas as pd
+import uproot as up
 import h5py
 import sys; np.set_printoptions(threshold=sys.maxsize, linewidth=170)
 
 from random_utils import get_html_name
 from data_processing import DataProcessing
 from plotter import Plotter
-from copy import copy
 
 from airflow.airflow_dag import (
     optimization_kwargs,
@@ -27,6 +29,65 @@ from validation import validation
 def is_sorted(arr, nbinsphi):
     diff = arr[:-1] - arr[1:]
     return np.all( (diff==0) | (diff==-1) | (diff==-2) | (diff==nbinsphi-1))
+
+def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, **kw):
+    """Prepare trigger cell geometry data to be used as
+    input to the iterative algorithm."""
+    tcDataPath = os.path.join(os.environ['PWD'], 'data', 'test_triggergeom.root')
+    tcFile = up.open(tcDataPath)
+
+    tcFolder = 'hgcaltriggergeomtester'
+    tcTreeName = 'TreeTriggerCells'
+    tcTree = tcFile[ os.path.join(tcFolder, tcTreeName) ]
+    if debug:
+        print('Input Tree:')
+        print(tcTree.show())
+        quit()
+
+    simDataPath = os.path.join(os.environ['PWD'], 'data', 'gen_cl3d_tc.hdf5')
+    simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
+    fes = ['ThresholdDummyHistomaxnoareath20']
+    for fe in fes:
+        simAlgoFiles[fe] = [ os.path.join(simDataPath) ]
+
+    tcVariables = {'zside', 'subdet', 'layer', 'phi', 'eta', 'x', 'y', 'z', 'id'}
+    assert(tcVariables.issubset(tcTree.keys()))
+    tcVariables = list(tcVariables)
+
+    tcData = tcTree.arrays(tcVariables, library='pd')
+    if debug:
+        print( tcData.describe() )
+    
+    if positive_endcap_only:
+        tcData = tcData[ tcData.zside == 1 ] #only look at positive endcap
+        tcData = tcData.drop(['zside'], axis=1)
+        tcVariables.remove('zside')
+
+    # ECAL (1), HCAL silicon (2) and HCAL scintillator (10, here ignored)
+    subdetCond = (tcData.subdet == 1) | (tcData.subdet == 2)
+    tcData = tcData[ subdetCond ]
+    tcData = tcData.drop(['subdet'], axis=1)
+    tcVariables.remove('subdet')
+
+    tcData['Rz'] = np.sqrt(tcData.x*tcData.x + tcData.y*tcData.y) / abs(tcData.z)
+    #the following cut removes almost no event at all
+    tcData = tcData[ (tcData['Rz'] < kw['MaxROverZ']) & (tcData['Rz'] >  kw['MinROverZ']) ]
+    
+    copt = dict(labels=False)
+    tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=kw['RzBinEdges'], **copt )
+    tcData['phi_bin'] = pd.cut( tcData['phi'], bins=kw['PhiBinEdges'], **copt )
+
+    # save data for optimization task
+    with h5py.File(kw['OptimizationIn'], mode='w') as store:
+        save_cols = ['Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
+        saveData = ( tcData[save_cols]
+                    .sort_values(by=['Rz_bin', 'phi'])
+                    .to_numpy() )
+
+        store['data'] = saveData
+        store['data'].attrs['columns'] = save_cols
+        doc = 'Trigger cell phi vs. R/z positions for optimization.'
+        store['data'].attrs['doc'] = doc
 
 def optimization(**kw):
     store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
@@ -238,38 +299,18 @@ def optimization(**kw):
     #df_total.reset_index(inplace=True)
     return df_total
 
-if __name__ == "__main__":  
-    # Nevents = 16#{{ dag_run.conf.nevents }}
-    # NbinsRz = 42
-    # NbinsPhi = 216
-    # MinROverZ = 0.076
-    # MaxROverZ = 0.58
-    # MinPhi = -np.pi
-    # MaxPhi = +np.pi
-    # DataFolder = 'data'
-    # optimization_kwargs = { 'NbinsRz': NbinsRz,
-    #                         'NbinsPhi': NbinsPhi,
-    #                         'MinROverZ': MinROverZ,
-    #                         'MaxROverZ': MaxROverZ,
-    #                         'MinPhi': MinPhi,
-    #                         'MaxPhi': MaxPhi,
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('-r', '--reprocess',
+                        help='reprocess trigger cell geometry data',
+                        action='store_true')
+    FLAGS = parser.parse_args()
 
-    #                         'LayerEdges': [0,28],
-    #                         'IsHCAL': False,
-
-    #                         'Debug': True,
-    #                         'DataFolder': DataFolder,
-    #                         'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
-    #                         'BasePath': os.path.join(os.environ['PWD'], DataFolder),
-
-    #                         'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
-    #                         'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
-    #                         'OptimizationIn': os.path.join(os.environ['PWD'], DataFolder, 'triggergeom_condensed.hdf5'),
-    #                         'OptimizationOut': 'None.hdf5',
-    #                        }
-
+    if FLAGS.reprocess:
+        process_trigger_cell_geometry_data( **optimization_kwargs )
+        print('Trigger cell geometry data reprocessed.')
+        
     tc_map = optimization( **optimization_kwargs )
-    #quit()
 
     filling   (tc_map, **filling_kwargs)
     # smoothing (**smoothing_kwargs)
