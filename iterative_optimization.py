@@ -298,6 +298,7 @@ def optimization(hyperparam, **kw):
     return df_total
 
 if __name__ == "__main__":
+    # parallel --dry-run -j $(nproc) --header : copython iterative_optimization.py -m {v1} -p ::: v1 0. .1 .2 .3 .4 .5 .6 .7 .8 .9 1.
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-r', '--reprocess',
                         help='reprocess trigger cell geometry data',
@@ -322,7 +323,7 @@ if __name__ == "__main__":
     tc_map = optimization( hyperparam=FLAGS.hyperparameter,
                           **optimization_kwargs )
 
-    filling(tc_map, **filling_kwargs)
+    # filling(tc_map, **filling_kwargs)
     # smoothing (**smoothing_kwargs)
     # seeding   (**seeding_kwargs)
     # clustering(**clustering_kwargs)
@@ -340,4 +341,5 @@ if __name__ == "__main__":
                                      pos_endcap=True,
                                      min_rz=optimization_kwargs['MinROverZ'],
                                      max_rz=optimization_kwargs['MaxROverZ'],
-                                     layer_edges=[0,28])
+                                     layer_edges=[0,28],
+                                     **optimization_kwargs)

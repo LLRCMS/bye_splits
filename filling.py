@@ -32,95 +32,117 @@ def filling(tc_map, debug=False, **kwargs):
 
     ### Data Processing ######################################################
     enrescuts = [-0.35]
-
     assert(len(enrescuts)==len(kwargs['FesAlgos']))
-    for i,(fe,cut) in enumerate(zip(kwargs['FesAlgos'],enrescuts)):
-        df = simAlgoDFs[fe]
-        df = df[ (df['genpart_exeta']>1.7) & (df['genpart_exeta']<2.8) ]
-        assert( df[ df['cl3d_eta']<0 ].shape[0] == 0 )
 
-        with SupressSettingWithCopyWarning():
-            df.loc[:,'enres'] = df.loc[:,'cl3d_energy']-df.loc[:,'genpart_energy']
-            df.loc[:,'enres'] /= df.loc[:,'genpart_energy']
+    with pd.HDFStore(kwargs['FillingOutPlot'], mode='w') as store:
 
-        nansel = pd.isna(df['enres']) 
-        nandf = df[nansel]
-        nandf['enres'] = 1.1
-        df = df[~nansel]
-        df = pd.concat([df,nandf], sort=False)
+        for i,(fe,cut) in enumerate(zip(kwargs['FesAlgos'],enrescuts)):
+            df = simAlgoDFs[fe]
+            df = df[ (df['genpart_exeta']>1.7) & (df['genpart_exeta']<2.8) ]
+            assert( df[ df['cl3d_eta']<0 ].shape[0] == 0 )
+             
+            with SupressSettingWithCopyWarning():
+                df.loc[:,'enres'] = df.loc[:,'cl3d_energy']-df.loc[:,'genpart_energy']
+                df.loc[:,'enres'] /= df.loc[:,'genpart_energy']
+             
+            #### Energy resolution histogram ########################################
+            # hist, edges = np.histogram(df['enres'], density=True, bins=150)
+             
+            # p = figure( width=500, height=300, title='Energy Resolution: ' + fe,
+            #             y_axis_type="log")
+            # p.toolbar.logo = None
+            # virtualmin = 1e-4 #avoid log scale issues
+            # p.quad(top=hist, bottom=virtualmin, left=edges[:-1], right=edges[1:],
+            #        fill_color="navy", line_color="white", alpha=0.7)
+            # p.line(x=[cut,cut], y=[virtualmin,max(hist)], line_color="#ff8888", line_width=4, alpha=0.9, legend_label="Cut")
+            # enresgrid.append(p)
+            # _ncols = 1 if len(enresgrid)==1 else 2
+            # show( gridplot(enresgrid, ncols=_ncols) )
 
-        # select events with splitted clusters (enres < energy cut)
-        # if an event has at least one cluster satisfying the enres condition,
-        # all of its clusters are kept (this eases comparison with CMSSW)
-        df.loc[:,'atLeastOne'] = ( df.groupby(['event'])
-                                  .apply(lambda grp: np.any(grp['enres'] < cut))
-                                  )
-        splittedClusters = df[ df['atLeastOne'] ]
+            #########################################################################
+             
+            nansel = pd.isna(df['enres']) 
+            nandf = df[nansel]
+            nandf['enres'] = 1.1
+            df = df[~nansel]
+            df = pd.concat([df,nandf], sort=False)
+             
+            # select events with splitted clusters (enres < energy cut)
+            # if an event has at least one cluster satisfying the enres condition,
+            # all of its clusters are kept (this eases comparison with CMSSW)
+            df.loc[:,'atLeastOne'] = ( df.groupby(['event'])
+                                      .apply(lambda grp: np.any(grp['enres'] < cut))
+                                      )
+            splittedClusters = df[ df['atLeastOne'] ]
+             
+            splittedClusters.drop(['atLeastOne'], axis=1)
+             
+            # random pick some events (fixing the seed for reproducibility)
+            _events_remaining = list(splittedClusters.index.unique())
+            if kwargs['Nevents'] == -1:
+                _events_sample = random.sample(_events_remaining,
+                                               len(_events_remaining))
+            else:
+                _events_sample = random.sample(_events_remaining, kwargs['Nevents'])
+             
+            splittedClusters = splittedClusters.loc[_events_sample]
+             
+            #splitting remaining data into cluster and tc to avoid tc data duplication
+            _cl3d_vars = [x for x in splittedClusters.columns.to_list() if 'tc_' not in x]
+             
+            splittedClusters_3d = splittedClusters[_cl3d_vars]
+            splittedClusters_3d = splittedClusters_3d.reset_index()
+             
+            #trigger cells info is repeated across clusters in the same event
+            _tc_vars = [x for x in splittedClusters.columns.to_list() if 'cl3d' not in x]
+            splittedClusters_tc = splittedClusters.groupby("event").head(1)[_tc_vars] #first() instead of head(1) also works
+            _tc_vars = [x for x in _tc_vars if 'tc_' in x]
+            splittedClusters_tc = splittedClusters_tc.explode( _tc_vars )
+             
+            for v in _tc_vars:
+                splittedClusters_tc[v] = splittedClusters_tc[v].astype(np.float64)
+             
+            splittedClusters_tc.tc_id = splittedClusters_tc.tc_id.astype('uint32')
+             
+            splittedClusters_tc['Rz'] = np.sqrt(splittedClusters_tc.tc_x*splittedClusters_tc.tc_x + splittedClusters_tc.tc_y*splittedClusters_tc.tc_y)  / abs(splittedClusters_tc.tc_z)
 
-        splittedClusters.drop(['atLeastOne'], axis=1)
+            splittedClusters_tc = splittedClusters_tc.reset_index()
+             
+            #pd cut returns np.nan when value lies outside the binning
+            splittedClusters_tc['Rz_bin'] = pd.cut( splittedClusters_tc['Rz'],
+                                                   bins=kwargs['RzBinEdges'],
+                                                   labels=False )
+            nansel = pd.isna(splittedClusters_tc['Rz_bin']) 
+            splittedClusters_tc = splittedClusters_tc[~nansel]
+             
+            tc_map = tc_map.rename(columns={'id': 'tc_id'})
+            splittedClusters_tc = splittedClusters_tc.merge(tc_map,
+                                                            on='tc_id',
+                                                            how='right').dropna()
+            assert not np.count_nonzero(splittedClusters_tc.phi_old - splittedClusters_tc.tc_phi)
+            #splittedClusters_tc = splittedClusters_tc.drop(['phi_old', 'tc_phi'],
+            #                                               axis=1)
+             
+            #splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['tc_phi'],
+            #                                            bins=kwargs['PhiBinEdges'], labels=False )
+            splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['phi_new'],
+                                                       bins=kwargs['PhiBinEdges'], labels=False )
+             
+            nansel = pd.isna(splittedClusters_tc['tc_phi_bin']) 
+            splittedClusters_tc = splittedClusters_tc[~nansel]
 
-        # random pick some events (fixing the seed for reproducibility)
-        _events_remaining = list(splittedClusters.index.unique())
-        if kwargs['Nevents'] == -1:
-            _events_sample = random.sample(_events_remaining,
-                                           len(_events_remaining))
-        else:
-            _events_sample = random.sample(_events_remaining, kwargs['Nevents'])
+            store[fe + '_3d'] = splittedClusters_3d
+            store[fe + '_tc'] = splittedClusters_tc
 
-        print(_events_sample)
-        quit()
-
-        splittedClusters = splittedClusters.loc[_events_sample]
-
-        #splitting remaining data into cluster and tc to avoid tc data duplication
-        _cl3d_vars = [x for x in splittedClusters.columns.to_list() if 'tc_' not in x]
-
-        splittedClusters_3d = splittedClusters[_cl3d_vars]
-        splittedClusters_3d = splittedClusters_3d.reset_index()
-
-        #trigger cells info is repeated across clusters in the same event
-        _tc_vars = [x for x in splittedClusters.columns.to_list() if 'cl3d' not in x]
-        splittedClusters_tc = splittedClusters.groupby("event").head(1)[_tc_vars] #first() instead of head(1) also works
-        _tc_vars = [x for x in _tc_vars if 'tc_' in x]
-        splittedClusters_tc = splittedClusters_tc.explode( _tc_vars )
-
-        for v in _tc_vars:
-            splittedClusters_tc[v] = splittedClusters_tc[v].astype(np.float64)
-
-        splittedClusters_tc.tc_id = splittedClusters_tc.tc_id.astype('uint32')
-
-        splittedClusters_tc['Rz'] = np.sqrt(splittedClusters_tc.tc_x*splittedClusters_tc.tc_x + splittedClusters_tc.tc_y*splittedClusters_tc.tc_y)  / abs(splittedClusters_tc.tc_z)
-        splittedClusters_tc = splittedClusters_tc.reset_index()
-
-        #pd cut returns np.nan when value lies outside the binning
-        splittedClusters_tc['Rz_bin'] = pd.cut( splittedClusters_tc['Rz'],
-                                               bins=kwargs['RzBinEdges'],
-                                               labels=False )
-        nansel = pd.isna(splittedClusters_tc['Rz_bin']) 
-        splittedClusters_tc = splittedClusters_tc[~nansel]
-
-        tc_map = tc_map.rename(columns={'id': 'tc_id'})
-        splittedClusters_tc = splittedClusters_tc.merge(tc_map,
-                                                        on='tc_id',
-                                                        how='right').dropna()
-        assert not np.count_nonzero(splittedClusters_tc.phi_old - splittedClusters_tc.tc_phi)
-
-        #splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['tc_phi'],
-        #                                            bins=kwargs['PhiBinEdges'], labels=False )
-        splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['phi_new'],
-                                                   bins=kwargs['PhiBinEdges'], labels=False )
-        
-        nansel = pd.isna(splittedClusters_tc['tc_phi_bin']) 
-        splittedClusters_tc = splittedClusters_tc[~nansel]
-
-        simAlgoPlots[fe] = (splittedClusters_3d, splittedClusters_tc)
+            simAlgoPlots[fe] = (splittedClusters_3d, splittedClusters_tc)
 
     ### Event Processing ######################################################
     with h5py.File(kwargs['FillingOut'], mode='w') as store:
 
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
             for ev in df_tc['event'].unique().astype('int'):
-                branches  = ['cl3d_layer_pt', 'event', 'genpart_reachedEE', 'enres']
+                branches  = ['cl3d_layer_pt', 'event',
+                             'genpart_reachedEE', 'enres']
                 ev_tc = df_tc[ df_tc.event == ev ]                
                 ev_3d = df_3d[ df_3d.event == ev ]
                 if debug:

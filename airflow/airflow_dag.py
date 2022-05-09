@@ -22,7 +22,7 @@ import numpy as np
 # https://predictivehacks.com/?all-tips=how-to-interact-with-airflow-via-the-command-line
 ###################################################
 
-Nevents = 16#{{ dag_run.conf.nevents }}
+Nevents = 30#{{ dag_run.conf.nevents }}
 NbinsRz = 42
 NbinsPhi = 216
 MinROverZ = 0.076
@@ -63,9 +63,10 @@ _fillBasePath = lambda x : os.path.join( base_kwargs['BasePath'], x)
 
 # filling task
 filling_kwargs = setDictionary(
-    { 'Nevents': Nevents,
-     'FillingIn': _fillBasePath('gen_cl3d_tc.hdf5'),
-     'FillingOut': _fillBasePath('filling.hdf5') }
+    { 'Nevents'       : Nevents,
+     'FillingIn'      : _fillBasePath('gen_cl3d_tc.hdf5'),
+     'FillingOut'     : _fillBasePath('filling.hdf5'),
+     'FillingOutPlot' : _fillBasePath('filling_plot.hdf5')}
      )
 
 # optimization task
@@ -75,6 +76,7 @@ optimization_kwargs = setDictionary(
       'WindowSize': 3,
       'OptimizationIn': _fillBasePath('triggergeom_condensed.hdf5'),
       'OptimizationOut': 'None.hdf5', #_fillBasePath('optimization.hdf5')
+      'FillingOutPlot': filling_kwargs['FillingOutPlot'],
       'Pretrained': False,
     }
 )
