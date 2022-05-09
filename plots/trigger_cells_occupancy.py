@@ -137,7 +137,7 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
     tcData['Rz_center'] = binConv(tcData['Rz_bin'], binDistRz, min_rz)
     tcData['phi_center'] = binConv(tcData['phi_bin'], binDistPhi, -np.pi)
     
-    tcData.drop(['Rz_bin', 'phi_bin', 'Rz', 'phi'], axis=1, inplace=True)
+    tcData = tcData.drop(['Rz_bin', 'phi_bin', 'Rz', 'phi'], axis=1)
 
     # if `-1` is included in layer_edges, the full selection is also drawn
     try:
@@ -228,7 +228,7 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
         #convert bin ids back to values (central values in the bin)
         splittedClusters_tc['Rz'] = binConv(splittedClusters_tc['Rz' + '_bin'], binDistRz, min_rz)
         splittedClusters_tc['tc_phi'] = binConv(splittedClusters_tc['tc_phi' + '_bin'], binDistPhi, -np.pi)
-        splittedClusters_tc.drop(['Rz' + '_bin', 'tc_phi' + '_bin'], axis=1, inplace=True)
+        splittedClusters_tc = splittedClusters_tc.drop(['Rz' + '_bin', 'tc_phi' + '_bin'], axis=1)
 
         simAlgoPlots[fe] = (splittedClusters_3d, splittedClusters_tc)
 
@@ -303,7 +303,7 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
 
             cl3d_pos_rz, cl3d_pos_phi = ev_3d['cl3d_Roverz'].unique(), ev_3d['cl3d_phi'].unique()
             gen_pos_rz, gen_pos_phi = ev_3d['gen_Roverz'].unique(), ev_3d['genpart_exphi'].unique()
-            ev_3d = ev_3d.drop(['cl3d_Roverz', 'cl3d_eta', 'cl3d_phi'], axis=1, inplace=True)
+            ev_3d = ev_3d.drop(['cl3d_Roverz', 'cl3d_eta', 'cl3d_phi'], axis=1)
             assert( len(gen_pos_rz) == 1 and len(gen_pos_phi) == 1 )
 
             groupby = ev_tc.groupby(['Rz', 'tc_phi'], as_index=False)

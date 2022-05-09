@@ -6,27 +6,24 @@ def valid1(energies, infile, outfile, nbinsRz, nbinsPhi):
     """
     compares all values of 2d histogram between local and CMSSW versions
     """
-    flocal  = open(infile, 'w')
-    fremote = open(outfile, 'r')
-    lines = fremote.readlines()
-
-    for line in lines:
-        l = line.split('\t')
-        if l[0]=='\n' or '#' in l[0]:
-            continue
-        bin1 = int(l[0])
-        bin2 = int(l[1])
-        val_remote = float(l[2].replace('\n', ''))
-        val_local = energies[bin1,bin2]
-        if abs(val_remote-val_local)>0.001:
-            print('Diff found! Bin1={}\t Bin2={}\tRemote={}\tLocal={}'.format(bin1, bin2, val_remote, val_local))
-    for bin1 in range(nbinsRz):
-        for bin2 in range(nbinsPhi):
-            flocal.write('{}\t{}\t{}\n'.format(bin1, bin2, np.around(energies[bin1,bin2], 6)))
-            
-    flocal.close()
-    fremote.close()
-
+    with (open(infile, 'w') as flocal,
+    open(outfile, 'r') as fremote):
+        lines = fremote.readlines()
+         
+        for line in lines:
+            l = line.split('\t')
+            if l[0]=='\n' or '#' in l[0]:
+                continue
+            bin1 = int(l[0])
+            bin2 = int(l[1])
+            val_remote = float(l[2].replace('\n', ''))
+            val_local = energies[bin1,bin2]
+            if abs(val_remote-val_local)>0.001:
+                print('Diff found! Bin1={}\t Bin2={}\tRemote={}\tLocal={}'.format(bin1, bin2, val_remote, val_local))
+        for bin1 in range(nbinsRz):
+            for bin2 in range(nbinsPhi):
+                flocal.write('{}\t{}\t{}\n'.format(bin1, bin2, np.around(energies[bin1,bin2], 6)))
+                
 
 def smoothAlongRz(arr, nbinsRz, nbinsPhi):
     """
@@ -117,59 +114,56 @@ def createHistogram(event, nbinsRz, nbinsPhi):
 
 # Event by event smoothing
 def smoothing(**kwargs):
-    storeIn  = h5py.File(kwargs['SmoothingIn'],  mode='r')
-    storeOut = h5py.File(kwargs['SmoothingOut'], mode='w')
+    with ( h5py.File(kwargs['SmoothingIn'],  mode='r') as storeIn,
+          h5py.File(kwargs['SmoothingOut'], mode='w') as storeOut ):
 
-    for falgo in kwargs['FesAlgos']:
-        keys = [x for x in storeIn.keys() if falgo in x and '_group' in x]
-        
-        for key in keys:
-            energies   = createHistogram( storeIn[key][:,[0,1,2]],
-                                          kwargs['NbinsRz'], kwargs['NbinsPhi'] )
-            weighted_x = createHistogram( storeIn[key][:,[0,1,3]],
-                                          kwargs['NbinsRz'], kwargs['NbinsPhi'] )
-            weighted_y = createHistogram( storeIn[key][:,[0,1,4]],
-                                          kwargs['NbinsRz'], kwargs['NbinsPhi'] )
-
-            # if '187544' in key:
-            #     valid1(energies,
-            #            infile='outLocalBeforeSmoothing.txt',
-            #            outfile='outCMSSWBeforeSmoothing.txt')
-
-            #printHistogram(ev)
-
-            energies = smoothAlongPhi(
-                energies,
-                kwargs['BinSums'],
-                kwargs['NbinsRz'],
-                kwargs['NbinsPhi'],
-                kwargs['SeedsNormByArea'],
-                kwargs['MinROverZ'],
-                kwargs['MaxROverZ'],
-                kwargs['AreaPerTriggerCell']
-            )
-
-            # if '187544' in key:
-            #     valid1(energies, '187544',
-            #            infile='outLocalHalfSmoothing.txt',
-            #            outfile='outCMSSWHalfSmoothing.txt')
-
-            #printHistogram(ev)
+        for falgo in kwargs['FesAlgos']:
+            keys = [x for x in storeIn.keys() if falgo in x and '_group' in x]
             
-            energies = smoothAlongRz(
-                energies,
-                kwargs['NbinsRz'],
-                kwargs['NbinsPhi'],
-            )
-
-            #printHistogram(ev)
-            
-            storeOut[key] = (energies, weighted_x, weighted_y)
-            storeOut[key].attrs['columns'] = ['energies', 'weighted_x', 'weighted_y']
-            storeOut[key].attrs['doc'] = 'Smoothed energies and projected bin positions'
-
-    storeIn.close()
-    storeOut.close()
+            for key in keys:
+                energies   = createHistogram( storeIn[key][:,[0,1,2]],
+                                              kwargs['NbinsRz'], kwargs['NbinsPhi'] )
+                weighted_x = createHistogram( storeIn[key][:,[0,1,3]],
+                                              kwargs['NbinsRz'], kwargs['NbinsPhi'] )
+                weighted_y = createHistogram( storeIn[key][:,[0,1,4]],
+                                              kwargs['NbinsRz'], kwargs['NbinsPhi'] )
+         
+                # if '187544' in key:
+                #     valid1(energies,
+                #            infile='outLocalBeforeSmoothing.txt',
+                #            outfile='outCMSSWBeforeSmoothing.txt')
+         
+                #printHistogram(ev)
+         
+                energies = smoothAlongPhi(
+                    energies,
+                    kwargs['BinSums'],
+                    kwargs['NbinsRz'],
+                    kwargs['NbinsPhi'],
+                    kwargs['SeedsNormByArea'],
+                    kwargs['MinROverZ'],
+                    kwargs['MaxROverZ'],
+                    kwargs['AreaPerTriggerCell']
+                )
+         
+                # if '187544' in key:
+                #     valid1(energies, '187544',
+                #            infile='outLocalHalfSmoothing.txt',
+                #            outfile='outCMSSWHalfSmoothing.txt')
+         
+                #printHistogram(ev)
+                
+                energies = smoothAlongRz(
+                    energies,
+                    kwargs['NbinsRz'],
+                    kwargs['NbinsPhi'],
+                )
+         
+                #printHistogram(ev)
+                
+                storeOut[key] = (energies, weighted_x, weighted_y)
+                storeOut[key].attrs['columns'] = ['energies', 'weighted_x', 'weighted_y']
+                storeOut[key].attrs['doc'] = 'Smoothed energies and projected bin positions'
 
 if __name__ == "__main__":
     from airflow.airflow_dag import smoothing_kwargs

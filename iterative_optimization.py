@@ -327,7 +327,9 @@ if __name__ == "__main__":
         process_trigger_cell_geometry_data( **optimization_kwargs )
         print('Trigger cell geometry data reprocessed.', flush=True)
     else:
-        print('Trigger cell geometry was NOT reprocessed.', flush=True)
+        m = ( 'Trigger cell geometry was NOT reprocessed.' +
+             ' Use `-r` to do so.' )
+        print(m, flush=True)
 
     tc_map = optimization( hyperparam=FLAGS.hyperparameter,
                           **optimization_kwargs )
@@ -343,8 +345,8 @@ if __name__ == "__main__":
                                      max_rz=optimization_kwargs['MaxROverZ'],
                                      layer_edges=[0,28])
         
-    filling   (tc_map, **filling_kwargs)
-    # smoothing (**smoothing_kwargs)
-    # seeding   (**seeding_kwargs)
-    # clustering(**clustering_kwargs)
-    # validation(**validation_kwargs)
+    filling(tc_map, **filling_kwargs)
+    smoothing (**smoothing_kwargs)
+    seeding   (**seeding_kwargs)
+    clustering(**clustering_kwargs)
+    validation(**validation_kwargs)

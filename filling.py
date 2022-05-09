@@ -25,7 +25,7 @@ class SupressSettingWithCopyWarning:
     def __exit__(self, *args):
         pd.options.mode.chained_assignment = self.saved_swcw
 
-def filling(tc_map, **kwargs):
+def filling(tc_map, debug=False, **kwargs):
     """
     Fills split clusters information according to the Stage2 FPGA fixed binning.
     """
@@ -42,7 +42,7 @@ def filling(tc_map, **kwargs):
         simAlgoDFs[fe] = pd.concat(dfs)
 
     simAlgoNames = sorted(simAlgoDFs.keys())
-    if kwargs['Debug']:
+    if debug:
         print('Input HDF5 keys:')
         print(simAlgoNames)
 
@@ -52,14 +52,6 @@ def filling(tc_map, **kwargs):
     assert(len(enrescuts)==len(kwargs['FesAlgos']))
     for i,(fe,cut) in enumerate(zip(kwargs['FesAlgos'],enrescuts)):
         df = simAlgoDFs[fe]
-        if kwargs['Debug']:
-            print(df[['genpart_exphi', 'tc_layer', 'tc_id']])
-            print(df.columns)
-
-        if kwargs['Debug']:
-            print('Cluster level information:')
-            print(df.filter(regex='cl3d_*.'))
-
         df = df[ (df['genpart_exeta']>1.7) & (df['genpart_exeta']<2.8) ]
         assert( df[ df['cl3d_eta']<0 ].shape[0] == 0 )
 
@@ -76,7 +68,9 @@ def filling(tc_map, **kwargs):
         # select events with splitted clusters (enres < energy cut)
         # if an event has at least one cluster satisfying the enres condition,
         # all of its clusters are kept (this eases comparison with CMSSW)
-        df.loc[:,'atLeastOne'] = df.groupby(['event']).apply(lambda grp: np.any(grp['enres'] < cut) )
+        df.loc[:,'atLeastOne'] = ( df.groupby(['event'])
+                                  .apply(lambda grp: np.any(grp['enres'] < cut))
+                                  )
         splittedClusters = df[ df['atLeastOne'] ]
         splittedClusters.drop(['atLeastOne'], axis=1)
 
@@ -88,11 +82,6 @@ def filling(tc_map, **kwargs):
         else:
             _events_sample = random.sample(_events_remaining, kwargs['Nevents'])
         splittedClusters = splittedClusters.loc[_events_sample]
-
-        if kwargs['Debug']:
-            print('SplitClusters Dataset: event random selection')
-            print(splittedClusters)
-            print(splittedClusters.columns)
 
         #splitting remaining data into cluster and tc to avoid tc data duplication
         _cl3d_vars = [x for x in splittedClusters.columns.to_list() if 'tc_' not in x]
@@ -108,17 +97,23 @@ def filling(tc_map, **kwargs):
 
         for v in _tc_vars:
             splittedClusters_tc[v] = splittedClusters_tc[v].astype(np.float64)
+
         splittedClusters_tc.tc_id = splittedClusters_tc.tc_id.astype('uint32')
 
         splittedClusters_tc['Rz'] = np.sqrt(splittedClusters_tc.tc_x*splittedClusters_tc.tc_x + splittedClusters_tc.tc_y*splittedClusters_tc.tc_y)  / abs(splittedClusters_tc.tc_z)
         splittedClusters_tc = splittedClusters_tc.reset_index()
 
         #pd cut returns np.nan when value lies outside the binning
-        splittedClusters_tc['Rz_bin'] = pd.cut( splittedClusters_tc['Rz'], bins=kwargs['RzBinEdges'], labels=False )
+        splittedClusters_tc['Rz_bin'] = pd.cut( splittedClusters_tc['Rz'],
+                                               bins=kwargs['RzBinEdges'],
+                                               labels=False )
         nansel = pd.isna(splittedClusters_tc['Rz_bin']) 
         splittedClusters_tc = splittedClusters_tc[~nansel]
 
-        splittedClusters_tc = splittedClusters_tc.merge(tc_map, on='tc_id', how='right').dropna()
+        tc_map = tc_map.rename(columns={'id': 'tc_id'})
+        splittedClusters_tc = splittedClusters_tc.merge(tc_map,
+                                                        on='tc_id',
+                                                        how='right').dropna()
         assert not np.count_nonzero(splittedClusters_tc.phi_old - splittedClusters_tc.tc_phi)
 
         #splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['tc_phi'],
@@ -139,7 +134,7 @@ def filling(tc_map, **kwargs):
                 branches  = ['cl3d_layer_pt', 'event', 'genpart_reachedEE', 'enres']
                 ev_tc = df_tc[ df_tc.event == ev ]                
                 ev_3d = df_3d[ df_3d.event == ev ]
-                if kwargs['Debug']:
+                if debug:
                     print(ev_3d.filter(items=branches))
 
                 _simCols_tc = ['tc_phi_bin', 'Rz_bin', 'tc_layer',
@@ -159,11 +154,14 @@ def filling(tc_map, **kwargs):
                 cl3d_pos_eta = ev_3d['cl3d_eta'].unique()
                 cl3d_en      = ev_3d['cl3d_energy'].unique()
 
-                store[str(_k) + '_' + str(ev) + '_clpos'] = (cl3d_pos_eta, cl3d_pos_phi, cl3d_pos_rz, cl3d_en)
-                store[str(_k) + '_' + str(ev) + '_clpos'].attrs['columns'] = ['cl3d_eta', 'cl3d_phi', 'cl3d_rz', 'cl3d_en']
+                store[str(_k) + '_' + str(ev) + '_clpos'] = (cl3d_pos_eta, cl3d_pos_phi,
+                                                             cl3d_pos_rz, cl3d_en)
+                clpos_cols = ['cl3d_eta', 'cl3d_phi', 'cl3d_rz', 'cl3d_en']
+                store[str(_k) + '_' + str(ev) + '_clpos'].attrs['columns'] = clpos_cols 
                 store[str(_k) + '_' + str(ev) + '_clpos'].attrs['doc'] = 'CMSSW cluster positions.'
 
-                gen_pos_rz, gen_pos_phi = ev_3d['gen_Roverz'].unique(), ev_3d['genpart_exphi'].unique()
+                gen_pos_rz = ev_3d['gen_Roverz'].unique()
+                gen_pos_phi = ev_3d['genpart_exphi'].unique()
                 ev_3d = ev_3d.drop(['cl3d_Roverz', 'cl3d_eta', 'cl3d_phi'], axis=1)
                 assert( len(gen_pos_rz) == 1 and len(gen_pos_phi) == 1 )
 
