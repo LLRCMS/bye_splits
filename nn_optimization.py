@@ -455,37 +455,5 @@ if __name__ == "__main__":
     config = ConfigProto()
     config.gpu_options.allow_growth = True
     session = InteractiveSession(config=config)
-    
-    Nevents = 16#{{ dag_run.conf.nevents }}
-    NbinsRz = 42
-    NbinsPhi = 216
-    MinROverZ = 0.076
-    MaxROverZ = 0.58
-    MinPhi = -np.pi
-    MaxPhi = +np.pi
-    DataFolder = 'data'
-    optimization_kwargs = { 'NbinsRz': NbinsRz,
-                            'NbinsPhi': NbinsPhi,
-                            'MinROverZ': MinROverZ,
-                            'MaxROverZ': MaxROverZ,
-                            'MinPhi': MinPhi,
-                            'MaxPhi': MaxPhi,
-
-                            'LayerEdges': [0,28],
-                            'IsHCAL': False,
-
-                            'Debug': True,
-                            'DataFolder': DataFolder,
-                            'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
-                            'BasePath': os.path.join(os.environ['PWD'], DataFolder),
-
-                            'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
-                            'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
-                            'Epochs': 99999,
-                            'KernelSize': 10,
-                            'OptimizationIn': os.path.join(os.environ['PWD'], DataFolder, 'triggergeom_condensed.hdf5'),
-                            'OptimizationOut': 'None.hdf5',
-                            'Pretrained': True,
-                           }
 
     optimization( **optimization_kwargs )
