@@ -180,13 +180,11 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
     assert(len(enrescuts)==len(fes))
     for i,(fe,cut) in enumerate(zip(fes,enrescuts)):
         df = simAlgoDFs[fe]
-        #print(df.groupby("event").filter(lambda x: len(x) > 1))
-
         df = df[ (df['genpart_exeta']>1.7) & (df['genpart_exeta']<2.8) ]
         df = df[ df['cl3d_eta']>0 ]
         df['enres'] = ( df['cl3d_energy']-df['genpart_energy'] ) / df['genpart_energy']
 
-        #### Energy resolution histogram ######################################################################
+        #### Energy resolution histogram ########################################
         hist, edges = np.histogram(df['enres'], density=True, bins=150)
 
         p = figure( width=500, height=300, title='Energy Resolution: ' + fe,
@@ -197,7 +195,7 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
                fill_color="navy", line_color="white", alpha=0.7)
         p.line(x=[cut,cut], y=[virtualmin,max(hist)], line_color="#ff8888", line_width=4, alpha=0.9, legend_label="Cut")
         enresgrid.append(p)
-        ######################################################################################################
+        #########################################################################
 
         nansel = pd.isna(df['enres']) 
         nandf = df[nansel]
@@ -306,7 +304,7 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
             ev_tc = df_tc[ df_tc.event == ev ]
             ev_3d_cmssw = df_3d_cmssw[ df_3d_cmssw.event == ev ]
             ev_3d_local = df_3d_local[ df_3d_local.event == ev ]
-
+            
             _simCols_tc = [ 'tc_mipPt', 'tc_z', 'Rz',
                             'tc_phi', 'tc_eta', 'tc_id',
                             'genpart_exeta', 'genpart_exphi' ]

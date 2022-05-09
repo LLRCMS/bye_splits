@@ -321,11 +321,14 @@ if __name__ == "__main__":
 
     tc_map = optimization( hyperparam=FLAGS.hyperparameter,
                           **optimization_kwargs )
-        
+
     filling(tc_map, **filling_kwargs)
-    smoothing (**smoothing_kwargs)
-    seeding   (**seeding_kwargs)
-    clustering(**clustering_kwargs)
+    # smoothing (**smoothing_kwargs)
+    # seeding   (**seeding_kwargs)
+    # clustering(**clustering_kwargs)
+
+    # validates whether the local clustering is equivalent to CMSSW's
+    # unsuccessful when providing a custom trigger cell position mapping!
     # validation(**validation_kwargs)
 
     if FLAGS.plot:

@@ -1,5 +1,5 @@
 import os
-import random
+import random; random.seed(18)
 import numpy as np
 import pandas as pd
 import h5py
@@ -56,6 +56,7 @@ def filling(tc_map, debug=False, **kwargs):
                                   .apply(lambda grp: np.any(grp['enres'] < cut))
                                   )
         splittedClusters = df[ df['atLeastOne'] ]
+
         splittedClusters.drop(['atLeastOne'], axis=1)
 
         # random pick some events (fixing the seed for reproducibility)
@@ -65,6 +66,10 @@ def filling(tc_map, debug=False, **kwargs):
                                            len(_events_remaining))
         else:
             _events_sample = random.sample(_events_remaining, kwargs['Nevents'])
+
+        print(_events_sample)
+        quit()
+
         splittedClusters = splittedClusters.loc[_events_sample]
 
         #splitting remaining data into cluster and tc to avoid tc data duplication
