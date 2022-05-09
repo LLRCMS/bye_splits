@@ -102,11 +102,11 @@ def optimization(hyperparam, **kw):
 
     assert (np.sort(np.unique(store_in['data'][:,4])) == np.sort(store_in['data'][:,4])).all()
 
-    data, bins, bbb, _ = dp.preprocess( data=store_in['data'],
-                                       nbins_phi=kw['NbinsPhi'],
-                                       nbins_rz=kw['NbinsRz'],
-                                       window_size=window_size,
-                                       normalize=False )
+    data, bins, _, _ = dp.preprocess( data=store_in['data'],
+                                     nbins_phi=kw['NbinsPhi'],
+                                     nbins_rz=kw['NbinsRz'],
+                                     window_size=window_size,
+                                     normalize=False )
 
     def get_edge(idx, misalignment, ncellstot):
         """returns the index corresponding to the first element in bin with id `id`"""
@@ -228,19 +228,16 @@ def optimization(hyperparam, **kw):
                 if not is_sorted(ld[:,1], kw['NbinsPhi']):
                     print('Not Sorted!!!!!')
                     quit()
-                    # print('Edge: {}'.format(edge))
-                    # print("Side: {}, Region: {}, Ids: {}, Misalign: {}".format(side, (id1,id2,id3), region, misalign))
-                    # print(ld[:,1])
-                    # breakpoint()
 
         phi_new_low_edges = kw['PhiBinEdges'][:-1][ld[:,1].astype(int)]
         phi_new_high_edges = kw['PhiBinEdges'][1:][ld[:,1].astype(int)]
 
-        half_bin_width = 0. #could also be: (kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
         df = pd.DataFrame(dict(phi_old=phi_old,
                                bin_old=np.array(data[ilayer])[:,1],
                                bin_new=ld[:,1],
-                               id=ld[:,2]))
+                               # fix upstream inconsistency when producing ROOT files
+                               # needed for TC id comparison later on
+                               id=np.uint32(ld[:,2])))
 
         # the bin edge to use to calculate the phi distance to the nearest edge depends on whether the trigger cell is moving
         # to the left or to the right bin. The following introduces a mask to perform the conditional decision.
@@ -248,6 +245,8 @@ def optimization(hyperparam, **kw):
         df['move_to_the_right'] = 0
         df.loc[ df.move_to_the_left == -1, 'move_to_the_right' ] = 1
         df.loc[ df.move_to_the_left == -1, 'move_to_the_left' ] = 0
+        # each row must have either left or right equal to zero
+        assert not np.count_nonzero(df.move_to_the_left * df.move_to_the_right != 0.) 
 
         # fix boundary conditions
         df.loc[ df.bin_old-df.bin_new == kw['NbinsPhi']-1,    'move_to_the_left']   = 0
@@ -255,11 +254,15 @@ def optimization(hyperparam, **kw):
         df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_left']   = 1
         df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_right']  = 0
 
-        d_left  = df.move_to_the_left  * abs(phi_new_high_edges-phi_old)
-        d_right = df.move_to_the_right * abs(phi_new_low_edges-phi_old)
-        df['distance'] = half_bin_width - d_left + d_right
+        half_bin_width = (kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
+        assert round(half_bin_width,5) == round((kw['PhiBinEdges'][-1]-kw['PhiBinEdges'][-2])/2,5)
+        df['d_left']  = df.move_to_the_left  * abs(phi_old - phi_new_high_edges + half_bin_width)
+        df['d_right'] = df.move_to_the_right * abs(phi_new_low_edges  - phi_old + half_bin_width)
+        assert not np.count_nonzero(df.d_left * df.d_right != 0.) 
 
-        # the distance is zero when the bin did not change
+        df['distance'] = -1*df.d_left + df.d_right
+
+        # the distance is zero when the bin does not change
         df.loc[ df.bin_old==df.bin_new, 'distance' ] = 0.
 
         nonzero_ratio = 1. - float(len(df[df.distance == 0])) / float(len(df.distance))
@@ -268,14 +271,26 @@ def optimization(hyperparam, **kw):
         df.loc[ df.distance >= np.pi, 'distance' ] = abs(df.loc[ df.distance >= np.pi, 'distance' ] - 2*np.pi)
         df.loc[ df.distance < -np.pi, 'distance' ] = -abs(df.loc[ df.distance < -np.pi, 'distance' ] + 2*np.pi)
 
-        df['phi_new'] = df.distance + df.phi_old
+        df['phi_new'] = df.phi_old + df.distance
 
         cond1 = (df.bin_new-df.bin_old < 0) & (df.distance>0)
         df.loc[cond1, 'phi_new'] = df.loc[cond1, 'phi_new'] - 2*np.pi
 
         cond2 = (df.bin_new-df.bin_old > 0) & (df.distance<0)
         df.loc[cond2, 'phi_new'] = df.loc[cond2, 'phi_new'] + 2*np.pi
-        
+
+        # copt = dict(labels=False)
+        # df['phi_bin'] = pd.cut( df['phi_new'], bins=optimization_kwargs['PhiBinEdges'], **copt )
+        # print(df[:30])
+        # #groupby = df.groupby(['phi_bin'], as_index=False)
+        # groupby = df.groupby(['phi_bin'], as_index=False)
+        # group = groupby.count()
+        # print(group)
+        # print(sum(group.move_to_the_right))
+        # print(optimization_kwargs['PhiBinEdges'][0], optimization_kwargs['PhiBinEdges'][-1])
+        # print(np.min(df.phi_new), np.max(df.phi_new) )
+        # quit()
+
         plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
         plotter.save_gen_phi_data(df.distance)
         plotter.save_iterative_phi_tab(nonzero_ratio=nonzero_ratio,
@@ -283,10 +298,6 @@ def optimization(hyperparam, **kw):
         plotter.save_iterative_bin_tab()
 
         df = df[['phi_old', 'phi_new', 'id']]
-
-        # fix upstream inconsistency when producing ROOT files
-        # needed for TC id comparison later on
-        df.id = np.uint32(df.id)
 
         df_total = df if ilayer==0 else pd.concat((df_total,df), axis=0)
 
@@ -306,6 +317,10 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot',
                         help='plot shifted trigger cells instead of originals',
                         action='store_true')
+    parser.add_argument('-m', '--hyperparameter',
+                        help='iterative algorithm tunable parameter',
+                        default=0.5, type=float)
+
     FLAGS = parser.parse_args()
 
     if FLAGS.reprocess:
@@ -313,17 +328,22 @@ if __name__ == "__main__":
         print('Trigger cell geometry data reprocessed.', flush=True)
     else:
         print('Trigger cell geometry was NOT reprocessed.', flush=True)
-        
-    tc_map = optimization( hyperparam=0., **optimization_kwargs )
+
+    tc_map = optimization( hyperparam=FLAGS.hyperparameter,
+                          **optimization_kwargs )
 
     if FLAGS.plot:
+        suf = '_param' + str(FLAGS.hyperparameter).replace('.','p')
+        plot_name = os.path.join('out',
+                                os.path.basename(__file__) + suf + '.html')
         plot_trigger_cells_occupancy(trigger_cell_map=tc_map,
+                                     plot_name=plot_name,
                                      pos_endcap=True,
                                      min_rz=optimization_kwargs['MinROverZ'],
                                      max_rz=optimization_kwargs['MaxROverZ'],
                                      layer_edges=[0,28])
         
-    # filling   (tc_map, **filling_kwargs)
+    filling   (tc_map, **filling_kwargs)
     # smoothing (**smoothing_kwargs)
     # seeding   (**seeding_kwargs)
     # clustering(**clustering_kwargs)

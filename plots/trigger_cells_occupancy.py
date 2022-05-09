@@ -7,7 +7,7 @@ import uproot as up
 import h5py
 from bokeh.io import export_png
 
-from bokeh.io import output_file, show
+from bokeh.io import output_file, show, save
 from bokeh.layouts import layout
 from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
                           LogColorMapper, LogTicker,
@@ -43,10 +43,13 @@ def set_figure_props(p, xbincenters, ybincenters):
         ("max(eta)", "@{max_eta}"),
     ]
 
-def plot_trigger_cells_occupancy(trigger_cell_map, pos_endcap,
+def plot_trigger_cells_occupancy(trigger_cell_map,
+                                 plot_name,
+                                 pos_endcap,
                                  min_rz, max_rz,
                                  layer_edges,
-                                 log_scale=False):
+                                 log_scale=False,
+								 show_html=False):
     rzBinCenters = ['{:.2f}'.format(x) for x in ( kw['RzBinEdges'][1:] + kw['RzBinEdges'][:-1] ) / 2 ]
     phiBinCenters = ['{:.2f}'.format(x) for x in ( kw['PhiBinEdges'][1:] + kw['PhiBinEdges'][:-1] ) / 2 ]
     binDistRz = kw['RzBinEdges'][1] - kw['RzBinEdges'][0] #assumes the binning is regular
@@ -119,6 +122,7 @@ def plot_trigger_cells_occupancy(trigger_cell_map, pos_endcap,
     tcData.id = np.uint32(tcData.id)
 
     tcData = tcData.merge(trigger_cell_map, on='id', how='right').dropna()
+
     assert_diff = tcData.phi_old - tcData.phi
     assert not np.count_nonzero(assert_diff)
 
@@ -151,10 +155,6 @@ def plot_trigger_cells_occupancy(trigger_cell_map, pos_endcap,
         groups.append( tcData[ (tcData.layer>lmin) & (tcData.layer<=lmax) ] )
         groupby = groups[-1].groupby(['Rz_center', 'phi_center'], as_index=False)
         groups[-1] = groupby.count()
-
-        print(tcData)
-        print(groups[-1])
-        quit()
 
         eta_mins = groupby.min()['eta']
         eta_maxs = groupby.max()['eta']
@@ -369,15 +369,14 @@ def plot_trigger_cells_occupancy(trigger_cell_map, pos_endcap,
             pics.append( (p,ev) )
             tabs.append( Panel(child=p, title='{}'.format(ev)) )
 
-
-    outname = os.path.join('out', 'triggerCellsOccup')
-    output_file(outname+'.html')
+    output_file(plot_name)
 
     tc_panels = []
     for i,bkg in enumerate(tc_backgrounds):
         tc_panels.append( Panel(child=bkg, title='Selection {}'.format(i)) )
 
-    show( layout([[enresgrid[0], Tabs(tabs=tabs)], [Tabs(tabs=tc_panels)]]) )
+    lay = layout([[enresgrid[0], Tabs(tabs=tabs)], [Tabs(tabs=tc_panels)]])
+    show(lay) if show_html else save(lay)
     # for pic,ev in pics:
     #     export_png(pic, filename=outname+'_event{}.png'.format(ev))
 
