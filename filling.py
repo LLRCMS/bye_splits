@@ -4,26 +4,10 @@ import numpy as np
 import pandas as pd
 import h5py
 
-from random_utils import calculateRoverZfromEta
-
-class SupressSettingWithCopyWarning:
-    """
-    Temporarily supress pandas SettingWithCopyWarning.
-    It is known to ocasionally provide false positives.
-    https://stackoverflow.com/questions/20625582/how-to-deal-with-settingwithcopywarning-in-pandas
-    """
-    def __init__(self, chained=None):
-        acceptable = [None, 'warn', 'raise']
-        assert chained in acceptable, "chained must be in " + str(acceptable)
-        self.swcw = chained
-
-    def __enter__(self):
-        self.saved_swcw = pd.options.mode.chained_assignment
-        pd.options.mode.chained_assignment = self.swcw
-        return self
-
-    def __exit__(self, *args):
-        pd.options.mode.chained_assignment = self.saved_swcw
+from random_utils import (
+    calcRzFromEta,
+    SupressSettingWithCopyWarning,
+)
 
 def filling(tc_map, debug=False, **kwargs):
     """
@@ -146,8 +130,8 @@ def filling(tc_map, debug=False, **kwargs):
                 ev_tc['weighted_y'] = ev_tc['tc_mipPt'] * ev_tc['tc_y'] / np.abs(ev_tc['tc_z'])
 
                 with SupressSettingWithCopyWarning():
-                    ev_3d.loc[:,'cl3d_Roverz'] = calculateRoverZfromEta(ev_3d.loc[:,'cl3d_eta'])
-                    ev_3d.loc[:,'gen_Roverz']  = calculateRoverZfromEta(ev_3d.loc[:,'genpart_exeta'])
+                    ev_3d.loc[:,'cl3d_Roverz'] = calcRzFromEta(ev_3d.loc[:,'cl3d_eta'])
+                    ev_3d.loc[:,'gen_Roverz']  = calcRzFromEta(ev_3d.loc[:,'genpart_exeta'])
 
                 cl3d_pos_rz  = ev_3d['cl3d_Roverz'].unique() 
                 cl3d_pos_phi = ev_3d['cl3d_phi'].unique()

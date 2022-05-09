@@ -106,7 +106,8 @@ seeding_kwargs = setDictionary(
 clustering_kwargs = setDictionary(
     { 'ClusteringInTC': filling_kwargs['FillingOut'],
       'ClusteringInSeeds': seeding_kwargs['SeedingOut'],
-      'ClusteringOut': _fillBasePath('clustering.hdf5'),
+	  'ClusteringOutPlot': _fillBasePath('clustering_validation.hdf5'),
+      'ClusteringOutValidation': _fillBasePath('clustering_plotting.hdf5'),
       'CoeffA': ( (0.015,)*7 + (0.020,)*7 + (0.030,)*7 + (0.040,)*7 + #EM
                   (0.040,)*6 + (0.050,)*6 + # FH
                   (0.050,)*12 ), # BH
@@ -117,7 +118,7 @@ clustering_kwargs = setDictionary(
 
 # validation task
 validation_kwargs = setDictionary(
-    { 'ClusteringOut': clustering_kwargs['ClusteringOut'],
+    { 'ClusteringOutValidation': clustering_kwargs['ClusteringOutValidation'],
       'FillingOut': filling_kwargs['FillingOut'] }
 )
 

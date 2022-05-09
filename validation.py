@@ -4,7 +4,7 @@ import pandas as pd
 import h5py
 
 def validation(**kwargs):
-    with (pd.HDFStore(kwargs['ClusteringOut'], mode='r') as storeInLocal,
+    with (pd.HDFStore(kwargs['ClusteringOutValidation'], mode='r') as storeInLocal,
           h5py.File(kwargs['FillingOut'], mode='r') as storeInCMSSW):
 
         for falgo in kwargs['FesAlgos']:
@@ -38,7 +38,6 @@ def validation(**kwargs):
                     print(len(locEta))
                     print(cmssw)
                     print(len(remEta))
-                    breakpoint()
          
                 errorThreshold = .5E-3
                 for i in range(len(locEta)):

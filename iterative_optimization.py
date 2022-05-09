@@ -279,18 +279,6 @@ def optimization(hyperparam, **kw):
         cond2 = (df.bin_new-df.bin_old > 0) & (df.distance<0)
         df.loc[cond2, 'phi_new'] = df.loc[cond2, 'phi_new'] + 2*np.pi
 
-        # copt = dict(labels=False)
-        # df['phi_bin'] = pd.cut( df['phi_new'], bins=optimization_kwargs['PhiBinEdges'], **copt )
-        # print(df[:30])
-        # #groupby = df.groupby(['phi_bin'], as_index=False)
-        # groupby = df.groupby(['phi_bin'], as_index=False)
-        # group = groupby.count()
-        # print(group)
-        # print(sum(group.move_to_the_right))
-        # print(optimization_kwargs['PhiBinEdges'][0], optimization_kwargs['PhiBinEdges'][-1])
-        # print(np.min(df.phi_new), np.max(df.phi_new) )
-        # quit()
-
         plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
         plotter.save_gen_phi_data(df.distance)
         plotter.save_iterative_phi_tab(nonzero_ratio=nonzero_ratio,
@@ -333,6 +321,12 @@ if __name__ == "__main__":
 
     tc_map = optimization( hyperparam=FLAGS.hyperparameter,
                           **optimization_kwargs )
+        
+    filling(tc_map, **filling_kwargs)
+    smoothing (**smoothing_kwargs)
+    seeding   (**seeding_kwargs)
+    clustering(**clustering_kwargs)
+    # validation(**validation_kwargs)
 
     if FLAGS.plot:
         suf = '_param' + str(FLAGS.hyperparameter).replace('.','p')
@@ -344,9 +338,3 @@ if __name__ == "__main__":
                                      min_rz=optimization_kwargs['MinROverZ'],
                                      max_rz=optimization_kwargs['MaxROverZ'],
                                      layer_edges=[0,28])
-        
-    filling(tc_map, **filling_kwargs)
-    smoothing (**smoothing_kwargs)
-    seeding   (**seeding_kwargs)
-    clustering(**clustering_kwargs)
-    validation(**validation_kwargs)

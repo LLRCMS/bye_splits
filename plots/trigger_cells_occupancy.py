@@ -22,13 +22,14 @@ from bokeh.palettes import viridis as _palette
 import sys
 sys.path.append( os.environ['PWD'] )
 from airflow.airflow_dag import filling_kwargs as kw
+from airflow.airflow_dag import clustering_kwargs as cl_kw
 
-def calculateRoverZfromEta(eta):
-    """R/z = arctan(theta) [theta is obtained from pseudo-rapidity, eta]"""
-    _theta = 2*np.arctan( np.exp(-1 * eta) )
-    return np.arctan( _theta )
+from random_utils import (
+    calcRzFromEta,
+    SupressSettingWithCopyWarning,
+)
 
-def set_figure_props(p, xbincenters, ybincenters):
+def set_figure_props(p, xbincenters, ybincenters, hide_legend=True):
     """set figure properties"""
     p.axis.axis_line_color = 'black'
     p.axis.major_tick_line_color = 'black'
@@ -36,6 +37,8 @@ def set_figure_props(p, xbincenters, ybincenters):
     p.axis.major_label_standoff = 2
     p.xaxis.axis_label = r"$$\color{black} \phi$$"
     p.yaxis.axis_label = '$$R/z$$'
+    if hide_legend:
+        p.legend.click_policy='hide'
     
     p.hover.tooltips = [
         ("#hits", "@{'nhits'}"),
@@ -99,6 +102,12 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
         simAlgoDFs[fe] = pd.concat(dfs)
 
     simAlgoNames = sorted(simAlgoDFs.keys())
+
+    #########################################################################
+    ######### INPUTS: CLUSTERING AFTER CUSTOM ITERATIVE ALGORITHM ###########
+    #########################################################################
+    with pd.HDFStore(cl_kw['ClusteringOutPlot'], mode='r') as store:
+        splittedClusters_3d_local = store['data']
 
     #########################################################################
     ################### DATA ANALYSIS: TRIGGER CELLS ########################
@@ -182,6 +191,7 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
 
         p = figure( width=500, height=300, title='Energy Resolution: ' + fe,
                     y_axis_type="log")
+        p.toolbar.logo = None
         virtualmin = 1e-4 #avoid log scale issues
         p.quad(top=hist, bottom=virtualmin, left=edges[:-1], right=edges[1:],
                fill_color="navy", line_color="white", alpha=0.7)
@@ -206,8 +216,8 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
 
         #splitting remaining data into cluster and tc to avoid tc data duplication
         _cl3d_vars = [x for x in splittedClusters.columns.to_list() if 'tc_' not in x]
-        splittedClusters_3d = splittedClusters[_cl3d_vars]
-        splittedClusters_3d = splittedClusters_3d.reset_index()
+        splittedClusters_3d_cmssw = splittedClusters[_cl3d_vars]
+        splittedClusters_3d_cmssw = splittedClusters_3d_cmssw.reset_index()
         _tc_vars = [x for x in splittedClusters.columns.to_list() if 'cl3d' not in x]
 
         #trigger cells info is repeated across clusters in the same event
@@ -230,7 +240,9 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
         splittedClusters_tc['tc_phi'] = binConv(splittedClusters_tc['tc_phi' + '_bin'], binDistPhi, -np.pi)
         splittedClusters_tc = splittedClusters_tc.drop(['Rz' + '_bin', 'tc_phi' + '_bin'], axis=1)
 
-        simAlgoPlots[fe] = (splittedClusters_3d, splittedClusters_tc)
+        simAlgoPlots[fe] = (splittedClusters_3d_cmssw,
+                            splittedClusters_tc,
+                            splittedClusters_3d_local )
 
 
     output_file( os.path.join('out', 'energyResolution.html') )
@@ -274,7 +286,7 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
                              )
         p.add_layout(color_bar, 'right')
 
-        set_figure_props(p, phiBinCenters, rzBinCenters)
+        set_figure_props(p, phiBinCenters, rzBinCenters, hide_legend=False)
 
         p.hover.tooltips = [
             ("#hits", "@{nhits}"),
@@ -289,21 +301,24 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
     #########################################################################
     tabs, pics = ([] for _ in range(2))
 
-    for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
+    for i,(_k,(df_3d_cmssw,df_tc,df_3d_local)) in enumerate(simAlgoPlots.items()):
         for ev in df_tc['event'].unique():
             ev_tc = df_tc[ df_tc.event == ev ]
-            ev_3d = df_3d[ df_3d.event == ev ]
+            ev_3d_cmssw = df_3d_cmssw[ df_3d_cmssw.event == ev ]
+            ev_3d_local = df_3d_local[ df_3d_local.event == ev ]
+
             _simCols_tc = [ 'tc_mipPt', 'tc_z', 'Rz',
                             'tc_phi', 'tc_eta', 'tc_id',
                             'genpart_exeta', 'genpart_exphi' ]
             ev_tc = ev_tc.filter(items=_simCols_tc)
 
-            ev_3d['cl3d_Roverz'] = calculateRoverZfromEta(ev_3d.cl3d_eta)
-            ev_3d['gen_Roverz'] = calculateRoverZfromEta(ev_3d.genpart_exeta)
+            with SupressSettingWithCopyWarning():
+                ev_3d_cmssw['cl3d_Roverz']=calcRzFromEta(ev_3d_cmssw.cl3d_eta)
+                ev_3d_cmssw['gen_Roverz']=calcRzFromEta(ev_3d_cmssw.genpart_exeta)
 
-            cl3d_pos_rz, cl3d_pos_phi = ev_3d['cl3d_Roverz'].unique(), ev_3d['cl3d_phi'].unique()
-            gen_pos_rz, gen_pos_phi = ev_3d['gen_Roverz'].unique(), ev_3d['genpart_exphi'].unique()
-            ev_3d = ev_3d.drop(['cl3d_Roverz', 'cl3d_eta', 'cl3d_phi'], axis=1)
+            cl3d_pos_rz, cl3d_pos_phi = ev_3d_cmssw['cl3d_Roverz'].unique(), ev_3d_cmssw['cl3d_phi'].unique()
+            gen_pos_rz, gen_pos_phi = ev_3d_cmssw['gen_Roverz'].unique(), ev_3d_cmssw['genpart_exphi'].unique()
+            ev_3d_cmssw = ev_3d_cmssw.drop(['cl3d_Roverz', 'cl3d_eta', 'cl3d_phi'], axis=1)
             assert( len(gen_pos_rz) == 1 and len(gen_pos_phi) == 1 )
 
             groupby = ev_tc.groupby(['Rz', 'tc_phi'], as_index=False)
@@ -327,6 +342,7 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
                        tools="hover,box_select,box_zoom,reset,save", x_axis_location='below',
                        x_axis_type='linear', y_axis_type='linear',
                        )
+            p.toolbar.logo = None
 
             mapoptions = dict( low=group['sum_en'].min(),
                                high=group['sum_en'].max() )
@@ -354,12 +370,17 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
                     legend_label='Generated particle position', **cross_options)
             p.cross(x=cl3d_pos_phi, y=cl3d_pos_rz, color='red',
                     legend_label='3D cluster positions', **cross_options)
-
+            p.cross(x=ev_3d_local.phi, y=ev_3d_local.Rz, color='brown',
+                    legend_label='New', **cross_options)
             set_figure_props(p, phiBinCenters, rzBinCenters)
 
             for bkg in tc_backgrounds:
-                bkg.cross(x=gen_pos_phi, y=gen_pos_rz, color='orange', **cross_options)
-                bkg.cross(x=cl3d_pos_phi, y=cl3d_pos_rz, color='red', **cross_options)
+                bkg.cross(x=gen_pos_phi, y=gen_pos_rz,
+                          color='orange', **cross_options)
+                bkg.cross(x=cl3d_pos_phi, y=cl3d_pos_rz,
+                          color='red', **cross_options)
+                bkg.cross(x=ev_3d_local.phi, y=ev_3d_local.Rz,
+                          color='brown', **cross_options)
 
             p.hover.tooltips = [
                 ("#hits", "@{nhits}"),
