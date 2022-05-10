@@ -44,23 +44,7 @@ def filling(tc_map, debug=False, **kwargs):
             with SupressSettingWithCopyWarning():
                 df.loc[:,'enres'] = df.loc[:,'cl3d_energy']-df.loc[:,'genpart_energy']
                 df.loc[:,'enres'] /= df.loc[:,'genpart_energy']
-             
-            #### Energy resolution histogram ########################################
-            # hist, edges = np.histogram(df['enres'], density=True, bins=150)
-             
-            # p = figure( width=500, height=300, title='Energy Resolution: ' + fe,
-            #             y_axis_type="log")
-            # p.toolbar.logo = None
-            # virtualmin = 1e-4 #avoid log scale issues
-            # p.quad(top=hist, bottom=virtualmin, left=edges[:-1], right=edges[1:],
-            #        fill_color="navy", line_color="white", alpha=0.7)
-            # p.line(x=[cut,cut], y=[virtualmin,max(hist)], line_color="#ff8888", line_width=4, alpha=0.9, legend_label="Cut")
-            # enresgrid.append(p)
-            # _ncols = 1 if len(enresgrid)==1 else 2
-            # show( gridplot(enresgrid, ncols=_ncols) )
-
-            #########################################################################
-             
+                          
             nansel = pd.isna(df['enres']) 
             nandf = df[nansel]
             nandf['enres'] = 1.1
@@ -74,11 +58,17 @@ def filling(tc_map, debug=False, **kwargs):
                                       .apply(lambda grp: np.any(grp['enres'] < cut))
                                       )
             splittedClusters = df[ df['atLeastOne'] ]
+
+            with pd.HDFStore(kwargs['FillingOutComp'], mode='w') as storeComp:
+                df = df.filter(regex='^gen.*')
+                storeComp[fe + '_gen'] = df
              
-            splittedClusters.drop(['atLeastOne'], axis=1)
+            splittedClusters = splittedClusters.drop(['atLeastOne', 'matches', 'best_match', 'cl3d_layer_pt'],
+                                                     axis=1)
              
             # random pick some events (fixing the seed for reproducibility)
             _events_remaining = list(splittedClusters.index.unique())
+
             if kwargs['Nevents'] == -1:
                 _events_sample = random.sample(_events_remaining,
                                                len(_events_remaining))

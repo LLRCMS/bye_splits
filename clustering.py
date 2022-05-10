@@ -5,9 +5,7 @@ import h5py
 from random_utils import calcRzFromEta
 
 def clustering(**kwargs):
-    with ( h5py.File(kwargs['ClusteringInSeeds'], mode='r') as storeInSeeds, 
-          h5py.File(kwargs['ClusteringInTC'], mode='r') as storeInTC,
-          pd.HDFStore(kwargs['ClusteringOutValidation'], mode='w') as storeOut ):
+    with h5py.File(kwargs['ClusteringInSeeds'], mode='r') as storeInSeeds, h5py.File(kwargs['ClusteringInTC'], mode='r') as storeInTC, pd.HDFStore(kwargs['ClusteringOutValidation'], mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:
             seed_keys = [x for x in storeInSeeds.keys() if falgo in x ]

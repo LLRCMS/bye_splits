@@ -1,5 +1,7 @@
 import os
+import csv
 import argparse
+from tqdm import tqdm
 import random; random.seed(10)
 from copy import copy
 import numpy as np
@@ -24,7 +26,7 @@ from filling import filling
 from smoothing import smoothing
 from seeding import seeding
 from clustering import clustering
-from validation import validation
+from validation import validation, stats_collector
 from plots.trigger_cells_occupancy import plot_trigger_cells_occupancy
 
 def is_sorted(arr, nbinsphi):
@@ -107,6 +109,7 @@ def optimization(hyperparam, **kw):
                                      nbins_rz=kw['NbinsRz'],
                                      window_size=window_size,
                                      normalize=False )
+    store_in.close()
 
     def get_edge(idx, misalignment, ncellstot):
         """returns the index corresponding to the first element in bin with id `id`"""
@@ -306,9 +309,9 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot',
                         help='plot shifted trigger cells instead of originals',
                         action='store_true')
-    parser.add_argument('-m', '--hyperparameter',
-                        help='iterative algorithm tunable parameter',
-                        default=0.5, type=float)
+    parser.add_argument('-m', '--hyperparameters',
+                        help='iterative algorithm tunable parameter', nargs='+',
+                        default=[0.5], type=float)
 
     FLAGS = parser.parse_args()
 
@@ -320,26 +323,53 @@ if __name__ == "__main__":
              ' Use `-r` to do so.' )
         print(m, flush=True)
 
-    tc_map = optimization( hyperparam=FLAGS.hyperparameter,
-                          **optimization_kwargs )
+    with open( os.path.join('data', 'stats.csv'), 'w', newline='') as csvfile, pd.HDFStore(optimization_kwargs['OptimizationEnResOut'], mode='w') as storeEnRes:
 
-    # filling(tc_map, **filling_kwargs)
-    # smoothing (**smoothing_kwargs)
-    # seeding   (**seeding_kwargs)
-    # clustering(**clustering_kwargs)
+        fieldnames = ['hyperparameter', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
+                      'locrat1', 'locrat2', 'remrat1', 'remrat2']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
 
-    # validates whether the local clustering is equivalent to CMSSW's
-    # unsuccessful when providing a custom trigger cell position mapping!
-    # validation(**validation_kwargs)
+        sys.stderr.flush()
+        for hp in tqdm(FLAGS.hyperparameters):
+            tc_map = optimization( hyperparam=hp,
+                                  **optimization_kwargs )
+        
+            filling(tc_map, **filling_kwargs)
+            smoothing(**smoothing_kwargs)
+            seeding(**seeding_kwargs)
+            clustering(**clustering_kwargs)
+            res = stats_collector(**validation_kwargs)
 
-    if FLAGS.plot:
-        suf = '_param' + str(FLAGS.hyperparameter).replace('.','p')
-        plot_name = os.path.join('out',
-                                os.path.basename(__file__) + suf + '.html')
-        plot_trigger_cells_occupancy(trigger_cell_map=tc_map,
-                                     plot_name=plot_name,
-                                     pos_endcap=True,
-                                     min_rz=optimization_kwargs['MinROverZ'],
-                                     max_rz=optimization_kwargs['MaxROverZ'],
-                                     layer_edges=[0,28],
-                                     **optimization_kwargs)
+            writer.writerow({'hyperparameter': hp,
+                             'c_loc1': res[0],
+                             'c_loc2': res[1],
+                             'c_rem1': res[2],
+                             'c_rem2': res[3],
+                             'locrat1': res[4],
+                             'locrat2': res[5],
+                             'remrat1': res[6],
+                             'remrat2': res[7]})
+
+            assert len(optimization_kwargs['FesAlgos']) == 1
+
+            df_enres = pd.DataFrame({'enres_old': res[8], 'enres_new': res[9]})
+            storeEnRes[optimization_kwargs['FesAlgos'][0] + '_data_' + str(hp).replace('.','p')] = df_enres
+            if hp == FLAGS.hyperparameters[0]:
+                storeEnRes[optimization_kwargs['FesAlgos'][0] + '_meta'] = pd.Series(FLAGS.hyperparameters)
+                
+            # validates whether the local clustering is equivalent to CMSSW's
+            # unsuccessful when providing a custom trigger cell position mapping!
+            # validation(**validation_kwargs)
+        
+            if FLAGS.plot:
+                suf = '_param' + str(FLAGS.hyperparameter).replace('.','p')
+                plot_name = os.path.join('out',
+                                         os.path.basename(__file__) + suf + '.html')
+                plot_trigger_cells_occupancy(trigger_cell_map=tc_map,
+                                             plot_name=plot_name,
+                                             pos_endcap=True,
+                                             min_rz=optimization_kwargs['MinROverZ'],
+                                             max_rz=optimization_kwargs['MaxROverZ'],
+                                             layer_edges=[0,28],
+                                             **optimization_kwargs)

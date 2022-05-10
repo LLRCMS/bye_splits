@@ -6,8 +6,7 @@ def valid1(energies, infile, outfile, nbinsRz, nbinsPhi):
     """
     compares all values of 2d histogram between local and CMSSW versions
     """
-    with (open(infile, 'w') as flocal,
-    open(outfile, 'r') as fremote):
+    with open(infile, 'w') as flocal, open(outfile, 'r') as fremote :
         lines = fremote.readlines()
          
         for line in lines:
@@ -114,8 +113,8 @@ def createHistogram(event, nbinsRz, nbinsPhi):
 
 # Event by event smoothing
 def smoothing(**kwargs):
-    with ( h5py.File(kwargs['SmoothingIn'],  mode='r') as storeIn,
-          h5py.File(kwargs['SmoothingOut'], mode='w') as storeOut ):
+
+    with h5py.File(kwargs['SmoothingIn'],  mode='r') as storeIn, h5py.File(kwargs['SmoothingOut'], mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:
             keys = [x for x in storeIn.keys() if falgo in x and '_group' in x]

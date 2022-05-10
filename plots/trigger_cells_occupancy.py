@@ -1,11 +1,9 @@
 import os
-import random; random.seed(18)
 import argparse
 import numpy as np
 import pandas as pd
 import uproot as up
-import h5py
-from bokeh.io import export_png
+#from bokeh.io import export_png
 
 from bokeh.io import output_file, show, save
 from bokeh.layouts import layout, row

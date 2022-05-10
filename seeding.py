@@ -7,8 +7,7 @@ def validation(mipPts, event, infile, outfile,
     """
     compares all values of 2d histogram between local and CMSSW versions
     """
-    with (open(infile, 'w') as flocal,
-          open(outfile, 'r') as fremote):
+    with open(infile, 'w') as flocal, open(outfile, 'r') as fremote:
         lines = fremote.readlines()
          
         for line in lines:
@@ -27,8 +26,7 @@ def validation(mipPts, event, infile, outfile,
                 flocal.write('{}\t{}\t{}\n'.format(bin1, bin2, np.around(mipPts[bin1,bin2], 6)))
             
 def seeding(debug=False, **kwargs):
-    with ( h5py.File(kwargs['SeedingIn'],  mode='r') as storeIn,
-        h5py.File(kwargs['SeedingOut'], mode='w') as storeOut):
+    with h5py.File(kwargs['SeedingIn'],  mode='r') as storeIn, h5py.File(kwargs['SeedingOut'], mode='w') as storeOut:
 
         for falgo in kwargs['FesAlgos']:
             keys = [x for x in storeIn.keys() if falgo in x]
