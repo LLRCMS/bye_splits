@@ -31,10 +31,10 @@ def filling(tc_map, debug=False, **kwargs):
         print(simAlgoNames)
 
     ### Data Processing ######################################################
-    enrescuts = [-0.35]
+    enrescuts = [0.35] #0.35
     assert(len(enrescuts)==len(kwargs['FesAlgos']))
 
-    with pd.HDFStore(kwargs['FillingOutPlot'], mode='w') as store:
+    with pd.HDFStore(kwargs['FillingOutPlot'], mode='w') as store, pd.HDFStore(kwargs['FillingOutComp'], mode='w') as storeComp:
 
         for i,(fe,cut) in enumerate(zip(kwargs['FesAlgos'],enrescuts)):
             df = simAlgoDFs[fe]
@@ -42,40 +42,41 @@ def filling(tc_map, debug=False, **kwargs):
             assert( df[ df['cl3d_eta']<0 ].shape[0] == 0 )
              
             with SupressSettingWithCopyWarning():
-                df.loc[:,'enres'] = df.loc[:,'cl3d_energy']-df.loc[:,'genpart_energy']
+                #df.loc[:,'enres'] = df.loc[:,'cl3d_energy']-df.loc[:,'genpart_energy']
+                df.loc[:,'enres'] = df.loc[:,'cl3d_energy']
                 df.loc[:,'enres'] /= df.loc[:,'genpart_energy']
                           
-            nansel = pd.isna(df['enres']) 
+            nansel = pd.isna(df['enres'])
             nandf = df[nansel]
             nandf['enres'] = 1.1
             df = df[~nansel]
             df = pd.concat([df,nandf], sort=False)
-             
+
             # select events with splitted clusters (enres < energy cut)
             # if an event has at least one cluster satisfying the enres condition,
             # all of its clusters are kept (this eases comparison with CMSSW)
             df.loc[:,'atLeastOne'] = ( df.groupby(['event'])
                                       .apply(lambda grp: np.any(grp['enres'] < cut))
                                       )
-            splittedClusters = df[ df['atLeastOne'] ]
 
-            with pd.HDFStore(kwargs['FillingOutComp'], mode='w') as storeComp:
-                df = df.filter(regex='^gen.*')
-                storeComp[fe + '_gen'] = df
-             
-            splittedClusters = splittedClusters.drop(['atLeastOne', 'matches', 'best_match', 'cl3d_layer_pt'],
-                                                     axis=1)
-             
-            # random pick some events (fixing the seed for reproducibility)
-            _events_remaining = list(splittedClusters.index.unique())
+            df = df[ df['genpart_exeta']>2.7 ] #1332 events survive
+            _events_all = list(df.index.unique())
+            # _events_remaining = list(df[ df.atLeastOne ].index.unique())
+            # _events_sample_all = random.sample(_events_all, 10000)
 
-            if kwargs['Nevents'] == -1:
-                _events_sample = random.sample(_events_remaining,
-                                               len(_events_remaining))
-            else:
-                _events_sample = random.sample(_events_remaining, kwargs['Nevents'])
+            storeComp[fe + '_gen'] = df.filter(regex='^gen.*')
              
-            splittedClusters = splittedClusters.loc[_events_sample]
+            df = df.drop(['atLeastOne', 'matches', 'best_match', 'cl3d_layer_pt'], axis=1)
+             
+            # # random pick some events (fixing the seed for reproducibility)
+            # if kwargs['Nevents'] == -1:
+            #     _events_sample = random.sample(_events_remaining,
+            #                                    len(_events_remaining))
+            # else:
+            #     _events_sample = random.sample(_events_remaining, kwargs['Nevents'])
+             
+            #splittedClusters = df.loc[_events_sample + _events_sample_all]
+            splittedClusters = df.loc[_events_all]
              
             #splitting remaining data into cluster and tc to avoid tc data duplication
             _cl3d_vars = [x for x in splittedClusters.columns.to_list() if 'tc_' not in x]

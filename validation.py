@@ -58,10 +58,28 @@ def stats_collector(debug=False, **kwargs):
             cmssw_keys = ( [x for x in storeInCMSSW.keys()
                             if falgo in x and '_clpos' in x] )
 
-            df_gen = storeGen[falgo + '_gen']
+            # the following block removes ocasional differences due to some events not having seeds
+            # (check clustering.py where the np.AxisError is catched)
+            # it was introduced to fix one single event (out of 5k) which for some reason had no seeds
+            del1, del2 = ([] for _ in range(2))
+            search_str = '{}_([0-9]{{1,7}})_cl'.format(kwargs['FesAlgos'][0])
+            nev1 = [ re.search(search_str, k).group(1) for k in local_keys ]
+            nev2 = [ re.search(search_str, k).group(1) for k in cmssw_keys ]
+            diff1 = list(set(nev1) - set(nev2))
+            diff2 = list(set(nev2) - set(nev1))
+            for elem in local_keys:
+                for d in diff1:
+                    if d in elem: del1.append(elem)
+            for elem in cmssw_keys:
+                for d in diff2:
+                    if d in elem: del2.append(elem)
 
-            
+            local_keys = [x for x in local_keys if x not in del1]
+            cmssw_keys = [x for x in cmssw_keys if x not in del2]
+
             assert(len(local_keys) == len(cmssw_keys))
+            
+            df_gen = storeGen[falgo + '_gen']
 
             enres_old, enres_new = ([] for _ in range(2))
             ntotal = len(local_keys)
@@ -72,9 +90,6 @@ def stats_collector(debug=False, **kwargs):
             for key1, key2 in zip(local_keys, cmssw_keys):
                 local = storeInLocal[key1]
                 cmssw = storeInCMSSW[key2][:]
-         
-                search_str = '{}_([0-9]{{1,7}})_cl'.format(kwargs['FesAlgos'][0])
-                event_number = re.search(search_str, key1).group(1)
                 
                 locEta = np.sort(local['eta'].to_numpy())
                 locPhi = np.sort(local['phi'].to_numpy())
@@ -85,6 +100,7 @@ def stats_collector(debug=False, **kwargs):
                 remRz  = np.sort(cmssw[:][2])
                 remEn  = np.sort(cmssw[:][3])
 
+                event_number = re.search(search_str, key1).group(1)
                 gen_en = df_gen.loc[ int(event_number) ]['genpart_energy']
                 if not isinstance(gen_en, float): #when the cluster is split we will have two rows
                     gen_en = gen_en.iloc[0]

@@ -13,7 +13,7 @@ def clustering(**kwargs):
             assert(len(seed_keys) == len(tc_keys))
          
             radiusCoeffB = kwargs['CoeffB']
-         
+            empty_seeds = 0
             for key1, key2 in zip(tc_keys, seed_keys):
                 tc = storeInTC[key1]
                 tc_cols = list(tc.attrs['columns'])
@@ -44,8 +44,13 @@ def clustering(**kwargs):
                 # below the threshold
                 pass_threshold = dRs < np.expand_dims(minDist, axis=-1)
                 pass_threshold = np.logical_or.reduce(pass_threshold, axis=1)
-         
-                seeds_indexes = np.argmin(dRs, axis=1)
+
+                try:
+                    seeds_indexes = np.argmin(dRs, axis=1)
+                except np.AxisError:
+                    empty_seeds += 1
+                    continue
+                
                 seeds_energies = np.array( [seedEn[xi] for xi in seeds_indexes] )
                 # axis 0 stands for trigger cells
                 assert(tc[:].shape[0] == seeds_energies.shape[0])
@@ -105,6 +110,8 @@ def clustering(**kwargs):
                     dfout = cl3d[cl3d_cols+['event']]
                 else:
                     dfout = pd.concat((dfout,cl3d[cl3d_cols+['event']]), axis=0)
+
+            print('There were {} events without seeds.'.format(empty_seeds))
 
     with pd.HDFStore(kwargs['ClusteringOutPlot'], mode='w') as sout:
         dfout.event = dfout.event.astype(int)

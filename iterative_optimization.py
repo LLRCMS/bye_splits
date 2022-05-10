@@ -214,7 +214,13 @@ def optimization(hyperparam, **kw):
                     edge = get_edge(id2, misalign, ncellstot)
                     lb[id1] += 1
                     lb[id2] -= 1
-                    ld[edge,1] = id1
+
+                    #SO DIRTY!!!!!!!!! Probably some very rare boundary condition issue.
+                    try:
+                        ld[edge,1] = id1
+                    except IndexError:
+                        ld[edge-1,1] = id1
+                        
                     if id2==0:
                         misalign += 1
 
