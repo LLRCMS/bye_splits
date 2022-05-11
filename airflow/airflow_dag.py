@@ -22,7 +22,6 @@ import numpy as np
 # https://predictivehacks.com/?all-tips=how-to-interact-with-airflow-via-the-command-line
 ###################################################
 
-Nevents = -1#{{ dag_run.conf.nevents }}
 NbinsRz = 42
 NbinsPhi = 216
 MinROverZ = 0.076
@@ -54,20 +53,24 @@ if len(base_kwargs['FesAlgos'])!=1:
                      ' assumes there is only on algo.\n'
                      'The script must be adapted.')
 
-
 def setDictionary(adict):
     adict.update(base_kwargs)
     return adict
     
-_fillBasePath = lambda x : os.path.join( base_kwargs['BasePath'], x)
+def fill_path(x, param='', selection='', extension='hdf5'):
+    if param != '':
+        param = '_PARAM_' + str(param).replace('.','p')
+    if selection != '':
+        suf = '_SEL_' + selection
+    name = x + param + '.' + extension
+    return os.path.join( base_kwargs['BasePath'], name)
 
 # filling task
 filling_kwargs = setDictionary(
-    { 'Nevents'       : Nevents,
-     'FillingIn'      : _fillBasePath('gen_cl3d_tc.hdf5'),
-     'FillingOut'     : _fillBasePath('filling.hdf5'),
-     'FillingOutComp' : _fillBasePath('filling_comp.hdf5'),
-     'FillingOutPlot' : _fillBasePath('filling_plot.hdf5')}
+    {'FillingIn'      : 'gen_cl3d_tc',
+     'FillingOut'     : 'filling',
+     'FillingOutComp' : 'filling_comp',
+     'FillingOutPlot' : 'filling_plot' }
      )
 
 # optimization task
@@ -75,8 +78,9 @@ optimization_kwargs = setDictionary(
     { 'Epochs': 99999,
       'KernelSize': 10,
       'WindowSize': 3,
-      'OptimizationIn': _fillBasePath('triggergeom_condensed.hdf5'),
-      'OptimizationEnResOut': _fillBasePath('opt_enres.hdf5'),
+      'OptimizationIn': 'triggergeom_condensed',
+      'OptimizationEnResOut': 'opt_enres',
+      'OptimizationCSVOut': 'stats',
       'FillingOutPlot': filling_kwargs['FillingOutPlot'],
       'Pretrained': False,
     }
@@ -95,13 +99,13 @@ smoothing_kwargs = setDictionary(
         'SeedsNormByArea': False,
         'AreaPerTriggerCell': 4.91E-05,
         'SmoothingIn': filling_kwargs['FillingOut'],
-        'SmoothingOut': _fillBasePath('smoothing.hdf5') }
+        'SmoothingOut': 'smoothing' }
     )
 
 # seeding task
 seeding_kwargs = setDictionary(
     { 'SeedingIn': smoothing_kwargs['SmoothingOut'],
-      'SeedingOut': _fillBasePath('seeding.hdf5'),
+      'SeedingOut': 'seeding',
       'histoThreshold': 20. }
     )
 
@@ -109,8 +113,8 @@ seeding_kwargs = setDictionary(
 clustering_kwargs = setDictionary(
     { 'ClusteringInTC': filling_kwargs['FillingOut'],
       'ClusteringInSeeds': seeding_kwargs['SeedingOut'],
-	  'ClusteringOutPlot': _fillBasePath('clustering_validation.hdf5'),
-      'ClusteringOutValidation': _fillBasePath('clustering_plotting.hdf5'),
+	  'ClusteringOutPlot': 'clustering_validation',
+      'ClusteringOutValidation': 'clustering_plotting',
       'CoeffA': ( (0.015,)*7 + (0.020,)*7 + (0.030,)*7 + (0.040,)*7 + #EM
                   (0.040,)*6 + (0.050,)*6 + # FH
                   (0.050,)*12 ), # BH

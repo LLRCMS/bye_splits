@@ -2,10 +2,16 @@ import re
 import numpy as np
 import pandas as pd
 import h5py
-from random_utils import calcRzFromEta
+from random_utils import (
+    calcRzFromEta,
+)
+from airflow.airflow_dag import fill_path
 
-def clustering(**kwargs):
-    with h5py.File(kwargs['ClusteringInSeeds'], mode='r') as storeInSeeds, h5py.File(kwargs['ClusteringInTC'], mode='r') as storeInTC, pd.HDFStore(kwargs['ClusteringOutValidation'], mode='w') as storeOut :
+def clustering(param, **kwargs):
+    inclusteringseeds = fill_path(kwargs['ClusteringInSeeds'], param=param)
+    inclusteringtc = fill_path(kwargs['ClusteringInTC'], param=param)
+    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param=param)
+    with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:
             seed_keys = [x for x in storeInSeeds.keys() if falgo in x ]
@@ -113,7 +119,9 @@ def clustering(**kwargs):
 
             print('There were {} events without seeds.'.format(empty_seeds))
 
-    with pd.HDFStore(kwargs['ClusteringOutPlot'], mode='w') as sout:
+
+    outclustering = fill_path(kwargs['ClusteringOutPlot'], param=param) 
+    with pd.HDFStore(outclustering, mode='w') as sout:
         dfout.event = dfout.event.astype(int)
         sout['data'] = dfout
 

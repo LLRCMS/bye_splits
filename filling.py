@@ -8,14 +8,16 @@ from random_utils import (
     calcRzFromEta,
     SupressSettingWithCopyWarning,
 )
+from airflow.airflow_dag import fill_path
 
-def filling(tc_map, debug=False, **kwargs):
+def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwargs):
     """
     Fills split clusters information according to the Stage2 FPGA fixed binning.
-    """
+    """    
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
     for fe in kwargs['FesAlgos']:
-        simAlgoFiles[fe] = [ kwargs['FillingIn'] ]
+        infilling = fill_path(kwargs['FillingIn'], '')
+        simAlgoFiles[fe] = [ infilling ]
 
     for fe,files in simAlgoFiles.items():
         name = fe
@@ -31,19 +33,17 @@ def filling(tc_map, debug=False, **kwargs):
         print(simAlgoNames)
 
     ### Data Processing ######################################################
-    enrescuts = [0.35] #0.35
-    assert(len(enrescuts)==len(kwargs['FesAlgos']))
+    outfillingplot = fill_path(kwargs['FillingOutPlot'], param)
+    outfillingcomp = fill_path(kwargs['FillingOutComp'], param)
+    with pd.HDFStore(outfillingplot, mode='w') as store, pd.HDFStore(outfillingcomp, mode='w') as storeComp:
 
-    with pd.HDFStore(kwargs['FillingOutPlot'], mode='w') as store, pd.HDFStore(kwargs['FillingOutComp'], mode='w') as storeComp:
-
-        for i,(fe,cut) in enumerate(zip(kwargs['FesAlgos'],enrescuts)):
+        for i,fe in enumerate(kwargs['FesAlgos']):
             df = simAlgoDFs[fe]
             df = df[ (df['genpart_exeta']>1.7) & (df['genpart_exeta']<2.8) ]
             assert( df[ df['cl3d_eta']<0 ].shape[0] == 0 )
              
             with SupressSettingWithCopyWarning():
-                #df.loc[:,'enres'] = df.loc[:,'cl3d_energy']-df.loc[:,'genpart_energy']
-                df.loc[:,'enres'] = df.loc[:,'cl3d_energy']
+                df.loc[:,'enres'] = df.loc[:,'cl3d_energy']-df.loc[:,'genpart_energy']
                 df.loc[:,'enres'] /= df.loc[:,'genpart_energy']
                           
             nansel = pd.isna(df['enres'])
@@ -52,31 +52,39 @@ def filling(tc_map, debug=False, **kwargs):
             df = df[~nansel]
             df = pd.concat([df,nandf], sort=False)
 
-            # select events with splitted clusters (enres < energy cut)
-            # if an event has at least one cluster satisfying the enres condition,
-            # all of its clusters are kept (this eases comparison with CMSSW)
-            df.loc[:,'atLeastOne'] = ( df.groupby(['event'])
-                                      .apply(lambda grp: np.any(grp['enres'] < cut))
-                                      )
+            if selection.startswith('above_eta_'):
+                df = df[ df['genpart_exeta'] > float(selection.split('above_eta_')[1]) ] #1332 events survive
+            elif selection == 'splits_only':
+                # select events with splitted clusters (enres < energy cut)
+                # if an event has at least one cluster satisfying the enres condition,
+                # all of its clusters are kept (this eases comparison with CMSSW)
+                df.loc[:,'atLeastOne'] = ( df.groupby(['event'])
+                                          .apply(lambda grp: np.any(grp['enres'] < -0.35))
+                                          )
+                df = df[ df['atLeastOne'] ] #214 events survive
+                df = df.drop(['atLeastOne'], axis=1)
+            else:
+                raise ValueError('Selection {} is not supported.'.format(selection))
 
-            df = df[ df['genpart_exeta']>2.7 ] #1332 events survive
-            _events_all = list(df.index.unique())
-            # _events_remaining = list(df[ df.atLeastOne ].index.unique())
+            #_events_all = list(df.index.unique())
+            _events_remaining = list(df.index.unique())
+
             # _events_sample_all = random.sample(_events_all, 10000)
 
             storeComp[fe + '_gen'] = df.filter(regex='^gen.*')
              
-            df = df.drop(['atLeastOne', 'matches', 'best_match', 'cl3d_layer_pt'], axis=1)
+            df = df.drop(['matches', 'best_match', 'cl3d_layer_pt'], axis=1)
              
-            # # random pick some events (fixing the seed for reproducibility)
-            # if kwargs['Nevents'] == -1:
-            #     _events_sample = random.sample(_events_remaining,
-            #                                    len(_events_remaining))
-            # else:
-            #     _events_sample = random.sample(_events_remaining, kwargs['Nevents'])
+            # random pick some events (fixing the seed for reproducibility)
+            if nevents == -1:
+                _events_sample = random.sample(_events_remaining,
+                                               len(_events_remaining))
+            else:
+                _events_sample = random.sample(_events_remaining, nevents)
              
+            #splittedClusters = df.loc[_events_all]
             #splittedClusters = df.loc[_events_sample + _events_sample_all]
-            splittedClusters = df.loc[_events_all]
+            splittedClusters = df.loc[_events_sample]
              
             #splitting remaining data into cluster and tc to avoid tc data duplication
             _cl3d_vars = [x for x in splittedClusters.columns.to_list() if 'tc_' not in x]
@@ -128,7 +136,8 @@ def filling(tc_map, debug=False, **kwargs):
             simAlgoPlots[fe] = (splittedClusters_3d, splittedClusters_tc)
 
     ### Event Processing ######################################################
-    with h5py.File(kwargs['FillingOut'], mode='w') as store:
+    outfilling = fill_path(kwargs['FillingOut'], param)
+    with h5py.File(outfilling, mode='w') as store:
 
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
             for ev in df_tc['event'].unique().astype('int'):

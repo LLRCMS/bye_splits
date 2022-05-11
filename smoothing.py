@@ -1,6 +1,6 @@
 import numpy as np
 import h5py
-
+from airflow.airflow_dag import fill_path
 
 def valid1(energies, infile, outfile, nbinsRz, nbinsPhi):
     """
@@ -112,9 +112,11 @@ def createHistogram(event, nbinsRz, nbinsPhi):
     return arr
 
 # Event by event smoothing
-def smoothing(**kwargs):
+def smoothing(param, **kwargs):
+    insmoothing = fill_path(kwargs['SmoothingIn'], param=param)
+    outsmoothing = fill_path(kwargs['SmoothingOut'], param=param) 
 
-    with h5py.File(kwargs['SmoothingIn'],  mode='r') as storeIn, h5py.File(kwargs['SmoothingOut'], mode='w') as storeOut :
+    with h5py.File(insmoothing,  mode='r') as storeIn, h5py.File(outsmoothing, mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:
             keys = [x for x in storeIn.keys() if falgo in x and '_group' in x]

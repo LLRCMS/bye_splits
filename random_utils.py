@@ -39,8 +39,8 @@ class dotDict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-def get_html_name(script_name):
+def get_html_name(script_name, extra=''):
     f = os.path.basename(script_name)
     f = f.split('.')
-    f = f[0] + '.html'
+    f = f[0] + extra + '.html'
     return f

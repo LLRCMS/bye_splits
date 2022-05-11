@@ -2,6 +2,7 @@ import re
 import numpy as np
 import pandas as pd
 import h5py
+from airflow.airflow_dag import fill_path
 
 def validation(**kwargs):
     with pd.HDFStore(kwargs['ClusteringOutValidation'], mode='r') as storeInLocal, h5py.File(kwargs['FillingOut'], mode='r') as storeInCMSSW :
@@ -50,8 +51,11 @@ def validation(**kwargs):
                         print('\tRz difference: {}'.format(locRz[i] - remRz[i]))
                         print('\tEn difference: {}'.format(locEn[i] - remEn[i]))
 
-def stats_collector(debug=False, **kwargs):
-    with pd.HDFStore(kwargs['ClusteringOutValidation'], mode='r') as storeInLocal, h5py.File(kwargs['FillingOut'], mode='r') as storeInCMSSW, pd.HDFStore(kwargs['FillingOutComp'], mode='r') as storeGen:
+def stats_collector(param, debug=False, **kwargs):
+    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param)
+    outfilling = fill_path(kwargs['FillingOut'], param)
+    outfillingcomp = fill_path(kwargs['FillingOutComp'], param)
+    with pd.HDFStore(outclusteringvalidation, mode='r') as storeInLocal, h5py.File(outfilling, mode='r') as storeInCMSSW, pd.HDFStore(outfillingcomp, mode='r') as storeGen:
         
         for falgo in kwargs['FesAlgos']:
             local_keys = [x for x in storeInLocal.keys() if falgo in x]
@@ -107,8 +111,8 @@ def stats_collector(debug=False, **kwargs):
 
                 # ignoring the lowest energy clusters when there is a splitting
                 # which give an even worse result
-                _enres_old = gen_en - max(remEn)
-                _enres_new = gen_en - max(locEn)              
+                _enres_old = max(remEn)
+                _enres_new = max(locEn)
                 enres_old.append( _enres_old / gen_en )
                 enres_new.append( _enres_new / gen_en )
 

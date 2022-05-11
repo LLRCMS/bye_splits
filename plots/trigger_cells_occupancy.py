@@ -19,8 +19,11 @@ from bokeh.palettes import viridis as _palette
 
 import sys
 sys.path.append( os.environ['PWD'] )
-from airflow.airflow_dag import filling_kwargs as kw
-from airflow.airflow_dag import clustering_kwargs as cl_kw
+from airflow.airflow_dag import (
+    filling_kwargs as kw,
+    clustering_kwargs as cl_kw,
+    fill_path,
+)
 
 from random_utils import (
     calcRzFromEta,
@@ -39,7 +42,8 @@ def set_figure_props(p, xbincenters, ybincenters, hide_legend=True):
     if hide_legend:
         p.legend.click_policy='hide'
     
-def plot_trigger_cells_occupancy(trigger_cell_map,
+def plot_trigger_cells_occupancy(param,
+                                 trigger_cell_map,
                                  plot_name,
                                  pos_endcap,
                                  layer_edges,
@@ -102,7 +106,8 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
     #########################################################################
     ######### INPUTS: CLUSTERING AFTER CUSTOM ITERATIVE ALGORITHM ###########
     #########################################################################
-    with pd.HDFStore(cl_kw['ClusteringOutPlot'], mode='r') as store:
+    outclusteringplot = fill_path(cl_kw['ClusteringOutPlot'], param)
+    with pd.HDFStore(outclusteringplot, mode='r') as store:
         splittedClusters_3d_local = store['data']
 
     #########################################################################
@@ -174,7 +179,8 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
     #########################################################################
     for i,fe in enumerate(kw['FesAlgos']):
 
-        with pd.HDFStore(kw['FillingOutPlot'], mode='r') as store:
+        outfillingplot = fill_path(kw['FillingOutPlot'], param)
+        with pd.HDFStore(outfillingplot, mode='r') as store:
             splittedClusters_3d_cmssw = store[fe + '_3d']
             splittedClusters_tc = store[fe + '_tc']
 
@@ -370,8 +376,8 @@ def plot_trigger_cells_occupancy(trigger_cell_map,
                           color=colors[0], **base_cross_opt)
                 bkg.cross(x=cl3d_pos_phi, y=cl3d_pos_rz,
                           color=colors[1], **base_cross_opt)
-                bkg.cross(x=ev_3d_local.phi, y=ev_3d_local.Rz,
-                          color=colors[2], **base_cross_opt)
+                # bkg.cross(x=ev_3d_local.phi, y=ev_3d_local.Rz,
+                #           color=colors[2], **base_cross_opt)
 
             #pics.append( (p,ev) )
             r = row(p1,p2)
@@ -400,7 +406,8 @@ if __name__ == "__main__":
     FLAGS = parser.parse_args()
 
     # ERROR: standalone does not receive tc_map
-    plot_trigger_cells_occupancy(tc_map, FLAGS.pos_endcap,
+    plot_trigger_cells_occupancy(param,
+                                 tc_map, FLAGS.pos_endcap,
                                  FLAGS.ledges,
                                  FLAGS.log)
 

@@ -20,7 +20,8 @@ from airflow.airflow_dag import (
     smoothing_kwargs,
     seeding_kwargs,
     clustering_kwargs,
-    validation_kwargs
+    validation_kwargs,
+    fill_path,
     )
 from filling import filling
 from smoothing import smoothing
@@ -299,8 +300,8 @@ def optimization(hyperparam, **kw):
         df_total = df if ilayer==0 else pd.concat((df_total,df), axis=0)
 
         # end loop over the layers
-        
-    plotter.plot_iterative( plot_name=get_html_name(__file__),
+
+    plotter.plot_iterative( plot_name=get_html_name(__file__, extra='_'+str(hyperparam).replace('.','p')),
                            tab_names = [''+str(x) for x in range(len(ldata))],
                            show_html=False )
 
@@ -318,6 +319,12 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--hyperparameters',
                         help='iterative algorithm tunable parameter', nargs='+',
                         default=[0.5], type=float)
+    parser.add_argument('-s', '--selection',
+                        help='selection used to select cluster under study',
+                        default='splits', type=str)
+    parser.add_argument('-n', '--nevents',
+                        help='selection used to select cluster under study',
+                        default=-1, type=int)
 
     FLAGS = parser.parse_args()
 
@@ -329,7 +336,9 @@ if __name__ == "__main__":
              ' Use `-r` to do so.' )
         print(m, flush=True)
 
-    with open( os.path.join('data', 'stats.csv'), 'w', newline='') as csvfile, pd.HDFStore(optimization_kwargs['OptimizationEnResOut'], mode='w') as storeEnRes:
+    outresen = fill_path(optimization_kwargs['OptimizationEnResOut'], selection=FLAGS.selection)
+    outcsv = fill_path(optimization_kwargs['OptimizationCSVOut'], selection=FLAGS.selection, extension='csv')
+    with open( os.path.join('data', 'stats.csv'), 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes:
 
         fieldnames = ['hyperparameter', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
                       'locrat1', 'locrat2', 'remrat1', 'remrat2']
@@ -338,14 +347,18 @@ if __name__ == "__main__":
 
         sys.stderr.flush()
         for hp in tqdm(FLAGS.hyperparameters):
-            tc_map = optimization( hyperparam=hp,
-                                  **optimization_kwargs )
+            tc_map = optimization( hyperparam=hp, **optimization_kwargs )
         
-            filling(tc_map, **filling_kwargs)
-            smoothing(**smoothing_kwargs)
-            seeding(**seeding_kwargs)
-            clustering(**clustering_kwargs)
-            res = stats_collector(**validation_kwargs)
+            filling(hp, FLAGS.nevents, tc_map, FLAGS.selection, **filling_kwargs)
+            print('filling done', flush=True)
+            smoothing(hp, **smoothing_kwargs)
+            print('smoothing done', flush=True)
+            seeding(hp, **seeding_kwargs)
+            print('seeding done', flush=True)
+            clustering(hp, **clustering_kwargs)
+            print('clustering done', flush=True)
+            res = stats_collector(hp, **validation_kwargs)
+            print('statistics collection done', flush=True)
 
             writer.writerow({'hyperparameter': hp,
                              'c_loc1': res[0],
@@ -356,23 +369,35 @@ if __name__ == "__main__":
                              'locrat2': res[5],
                              'remrat1': res[6],
                              'remrat2': res[7]})
-
+            print('csv info written', flush=True)
+            
             assert len(optimization_kwargs['FesAlgos']) == 1
 
             df_enres = pd.DataFrame({'enres_old': res[8], 'enres_new': res[9]})
             storeEnRes[optimization_kwargs['FesAlgos'][0] + '_data_' + str(hp).replace('.','p')] = df_enres
             if hp == FLAGS.hyperparameters[0]:
                 storeEnRes[optimization_kwargs['FesAlgos'][0] + '_meta'] = pd.Series(FLAGS.hyperparameters)
-                
+         
             # validates whether the local clustering is equivalent to CMSSW's
             # unsuccessful when providing a custom trigger cell position mapping!
             # validation(**validation_kwargs)
         
             if FLAGS.plot:
-                suf = '_param' + str(FLAGS.hyperparameter).replace('.','p')
-                plot_name = os.path.join('out',
-                                         os.path.basename(__file__) + suf + '.html')
-                plot_trigger_cells_occupancy(trigger_cell_map=tc_map,
+
+                suf = '_SEL_'
+                if FLAGS.selection.startswith('above_eta_'):
+                    suf += float(s.split('above_eta_')[1])
+                elif FLAGS.selection == 'splits_only':
+                    suf += FLAGS.selection
+                else:
+                    raise ValueError('Selection {} is not supported.'.format(FLAGS.selection))
+
+                suf += '_PARAM_' + str(hp).replace('.','p')
+
+                this_file = os.path.basename(__file__).split('.')[0]
+                plot_name = os.path.join('out', this_file + suf + '.html')
+                plot_trigger_cells_occupancy(hp,
+                                             trigger_cell_map=tc_map,
                                              plot_name=plot_name,
                                              pos_endcap=True,
                                              min_rz=optimization_kwargs['MinROverZ'],

@@ -1,4 +1,5 @@
 import os
+import argparse
 import sys; sys.path.append( os.environ['PWD'] )
 import numpy as np
 import pandas as pd
@@ -13,20 +14,22 @@ from bokeh.models import (
 
 from airflow.airflow_dag import (
     optimization_kwargs,
+    fill_path,
 )
 
 def stats_plotter():
-    df = pd.read_csv(os.path.join('data', 'stats.csv'), sep=',', header=0)
+    outcsv = fill_path(optimization_kwargs['OptimizationCSVOut'], extension='csv')
+    df = pd.read_csv(outcsv, sep=',', header=0)
 
     fig_opt = dict(width=600,
                    height=300,
-                   x_range=Range1d(-0.1, 1.1),
+                   #x_range=Range1d(-0.1, 1.1),
                    #y_range=Range1d(-0.05, 1.05),
                    tools="save",
                    x_axis_location='below',
                    x_axis_type='linear',
                    y_axis_type='linear')
-    p1 = figure(title='Ratio of splitted clusters', **fig_opt)
+    p1 = figure(title='Ratio of split clusters', **fig_opt)
     base_circle_opt = dict(x=df.hyperparameter,
                            size=4, line_width=4)
     cmssw_circle_opt = dict(y=df.remrat2,
@@ -47,7 +50,9 @@ def stats_plotter():
 
 def energy_resolution_plotter():
     assert len(optimization_kwargs['FesAlgos']) == 1
-    with pd.HDFStore(optimization_kwargs['OptimizationEnResOut'], mode='r') as storeEnRes:
+    outooptimisationenres = fill_path(optimization_kwargs['OptimizationEnResOut'], '')
+
+    with pd.HDFStore(outooptimisationenres, mode='r') as storeEnRes:
 
         hyperparameters = storeEnRes[optimization_kwargs['FesAlgos'][0] + '_meta' ]
         figures = []
@@ -63,7 +68,7 @@ def energy_resolution_plotter():
             # std_new.append( np.std( df['enres_new']) )
             # mean_new.append( np.mean( df['enres_new'] ) )
             
-            hist_opt = dict(density=False, bins=int(len(df)/50))
+            hist_opt = dict(density=False, bins=50)
             hold, edgold = np.histogram(df['enres_old'], **hist_opt)
             hnew, edgnew = np.histogram(df['enres_new'], **hist_opt)
              
@@ -78,11 +83,16 @@ def energy_resolution_plotter():
             p.quad(top=hnew, left=edgnew[:-1], right=edgnew[1:],
                    fill_color='red', legend_label='Custom', alpha=0.5, **quad_opt)
             p.legend.click_policy='hide'
+            p.legend.location = 'top_left'
             figures.append(p)
 
-        fig_summ = figure( width=600, height=300, title='Energy Resolution Summary (eta > 2.7 )'.format(hp),
+        if FLAGS.selection.startswith('above_eta_'):
+            title_suf = ' (eta > ' + FLAGS.selection.split('above_eta_')[1] + ')'
+        elif FLAGS.selection == 'splits_only':
+            title_suf = '(split clusters only)'
+        fig_summ = figure( width=600, height=300, title='RMS {}'.format(title_suf),
                            tools='save,box_zoom,reset', y_axis_type='linear',
-                           x_range=Range1d(-0.1, 1.1),
+                           #x_range=Range1d(-0.1, 1.1),
                            #y_range=Range1d(-0.05, 1.05),
                            )
         fig_summ.toolbar.logo = None
@@ -96,6 +106,7 @@ def energy_resolution_plotter():
         fig_summ.circle(y=en_old, color='blue', legend_label='CMSSW', alpha=1., **points_opt) 
         fig_summ.circle(y=en_new, color='red', legend_label='Custom', alpha=1., **points_opt) 
         fig_summ.legend.click_policy='hide'
+        fig_summ.legend.location = 'bottom_right'
 
         # source_old = ColumnDataSource(data=dict(base=hyperparameters,
         #                                         lower=abs(mean_old-std_old/2),
@@ -116,16 +127,22 @@ def energy_resolution_plotter():
         return fig_summ, figures
     
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(description='')
-    # parser.add_argument('--ledges', help='layer edges (if -1 is added the full range is also included)', default=[0,28], nargs='+', type=int)
-    # parser.add_argument('--pos_endcap', help='Use only the positive endcap.',
-    #                     default=True, type=bool)
-    # parser.add_argument('--hcal', help='Consider HCAL instead of default ECAL.', action='store_true')
-    # parser.add_argument('-l', '--log', help='use color log scale', action='store_true')
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('-s', '--selection',
+                        help='selection used to select cluster under study',
+                        default='splits', type=str)
+    FLAGS = parser.parse_args()
 
-    # FLAGS = parser.parse_args()
+    suf = '_SEL_'
+    if FLAGS.selection.startswith('above_eta_'):
+        suf += FLAGS.selection
+    elif FLAGS.selection == 'splits_only':
+        suf += FLAGS.selection
+    else:
+        raise ValueError('Selection {} is not supported.'.format(FLAGS.selection))
 
-    output_file( os.path.join('out', 'stats_collection.html') )
+    this_file = os.path.basename(__file__).split('.')[0]
+    output_file( os.path.join('out', this_file + suf + '.html') )
     
     stats_fig  = stats_plotter()
     summ_fig, enres_figs = energy_resolution_plotter()
