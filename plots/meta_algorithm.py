@@ -9,7 +9,12 @@ from bokeh.io import output_file, show, save
 from bokeh.models import (
     Range1d,
     ColumnDataSource,
-    Whisker
+    Whisker,
+    BooleanFilter,
+    CustomJS,
+    CustomJSFilter,
+    CDSView,
+    Slider,
 )
 
 from airflow.airflow_dag import (
@@ -32,15 +37,17 @@ def stats_plotter():
     p1 = figure(title='Ratio of split clusters', **fig_opt)
     base_circle_opt = dict(x=df.hyperparameter,
                            size=4, line_width=4)
-    cmssw_circle_opt = dict(y=df.remrat2,
+    base_line_opt = dict(x=df.hyperparameter,
+                         line_width=3)
+    cmssw_line_opt = dict(y=df.remrat2,
                             color='blue',
                             legend_label='CMSSW',
-                            **base_circle_opt)
+                            **base_line_opt)
     custom_circle_opt = dict(y=df.locrat2,
                              color='red',
-                             legend_label='Custom algorithm',
+                             legend_label='Custom',
                              **base_circle_opt)
-    p1.circle(**cmssw_circle_opt)
+    p1.line(**cmssw_line_opt)
     p1.circle(**custom_circle_opt)
     p1.legend.location = 'bottom_right'
     p1.toolbar.logo = None
@@ -54,8 +61,7 @@ def energy_resolution_plotter():
 
     with pd.HDFStore(outooptimisationenres, mode='r') as storeEnRes:
 
-        hyperparameters = storeEnRes[optimization_kwargs['FesAlgos'][0] + '_meta' ]
-        figures = []
+        hyperparameters = storeEnRes[optimization_kwargs['FesAlgos'][0] + '_meta' ].tolist()
         en_old, en_new = ([] for x in range(2))
         #std_old, std_new, mean_new, mean_old = ([] for x in range(4))
         for hp in hyperparameters:
@@ -71,20 +77,63 @@ def energy_resolution_plotter():
             hist_opt = dict(density=False, bins=50)
             hold, edgold = np.histogram(df['enres_old'], **hist_opt)
             hnew, edgnew = np.histogram(df['enres_new'], **hist_opt)
-             
-            p = figure( width=400, height=250, title='Energy Resolution (algo parameter = {})'.format(hp),
-                       tools='save,box_zoom,reset', y_axis_type='linear')
-            p.toolbar.logo = None
+
+            line_centers = edgnew[1:]-(edgnew[1]-edgnew[0])/2
+            repeated_parameter = [hp for _ in range(len(hnew))]
+            if hp == hyperparameters[0]:
+                enres_dict = dict(x=line_centers.tolist(),
+                                  y=hnew.tolist(),
+                                  hp=repeated_parameter)
+            else:
+                enres_dict['x'].extend(line_centers.tolist())
+                enres_dict['y'].extend(hnew.tolist())
+                enres_dict['hp'].extend(repeated_parameter)
+
+
+        max_source = max(enres_dict['y'])
+        enres_source = ColumnDataSource(data=enres_dict)
         
-            virtualmin = 1e-4 #avoid log scale issues
-            quad_opt = dict(bottom=virtualmin, line_color='white', line_width=0)
-            p.quad(top=hold, left=edgold[:-1], right=edgold[1:],
-                   fill_color='blue', legend_label='CMSSW', alpha=1., **quad_opt)
-            p.quad(top=hnew, left=edgnew[:-1], right=edgnew[1:],
-                   fill_color='red', legend_label='Custom', alpha=0.5, **quad_opt)
-            p.legend.click_policy='hide'
-            p.legend.location = 'top_left'
-            figures.append(p)
+        callback = CustomJS(args=dict(s=enres_source), code="""
+s.change.emit();
+""")
+        slider = Slider(start=hyperparameters[0],
+                        end=hyperparameters[-1],
+                        value=hyperparameters[0],
+                        step=.1, title='Tunable Parameter')
+        slider.js_on_change('value', callback)
+
+        filt = CustomJSFilter(args=dict(slider=slider), code="""
+        var indices = new Array(source.get_length());
+        var f = slider.value;
+
+        const data = source.data['hp'];
+
+        for (var i=0; i < source.get_length(); i++){{
+            indices[i] = data[i] == f;
+        }}
+        return indices;
+        """)
+        view = CDSView(source=enres_source, filters=[filt])
+
+        p = figure( width=600, height=300,
+                    title='Energy Resolution: RecoPt/GenPt',
+                    y_range=Range1d(-1, max_source+1),
+                    tools='save,box_zoom,reset', y_axis_type='linear' )
+        p.toolbar.logo = None
+        virtualmin = 1e-4 #avoid log scale issues
+
+        #quad_opt = dict(bottom=virtualmin, line_color='white', line_width=0)
+        quad_opt = dict(line_width=3)
+        p.step(x=edgold[1:]-(edgold[1]-edgold[0])/2,
+               y=hnew,
+               color='blue', legend_label='CMSSW', **quad_opt)
+        p.step(source=enres_source, view=view,
+               x='x',
+               y='y',
+               color='red', legend_label='Custom', **quad_opt)
+
+        p.legend.click_policy='hide'
+        p.legend.location = 'top_left'
 
         if FLAGS.selection.startswith('above_eta_'):
             title_suf = ' (eta > ' + FLAGS.selection.split('above_eta_')[1] + ')'
@@ -102,35 +151,23 @@ def energy_resolution_plotter():
         # std_new = np.array(std_new)
         # mean_old = np.array(mean_old)
         # mean_new = np.array(mean_new)
-        points_opt = dict(x=hyperparameters, size=8)
-        fig_summ.circle(y=en_old, color='blue', legend_label='CMSSW', alpha=1., **points_opt) 
-        fig_summ.circle(y=en_new, color='red', legend_label='Custom', alpha=1., **points_opt) 
+        points_opt = dict(x=hyperparameters)
+        fig_summ.line(y=en_old, color='blue', legend_label='CMSSW',
+                      line_width=3,
+                      **points_opt) 
+        fig_summ.circle(y=en_new, color='red', legend_label='Custom',
+                        size=8,
+                        **points_opt) 
         fig_summ.legend.click_policy='hide'
-        fig_summ.legend.location = 'bottom_right'
-
-        # source_old = ColumnDataSource(data=dict(base=hyperparameters,
-        #                                         lower=abs(mean_old-std_old/2),
-        #                                         upper=abs(mean_old+std_old/2)))
-        # source_new = ColumnDataSource(data=dict(base=hyperparameters,
-        #                                         lower=abs(mean_new-std_new/2),
-        #                                         upper=abs(mean_new+std_new/2)))
-
-        # fig_summ.add_layout(
-        #     Whisker(source=source_old, base="base", upper="upper", lower="lower",
-        #             line_color='blue')
-        # )
-        # fig_summ.add_layout(
-        #     Whisker(source=source_new, base="base", upper="upper", lower="lower",
-        #             line_color='red')
-        # )
+        fig_summ.legend.location = 'top_right'
         
-        return fig_summ, figures
+        return fig_summ, p, slider
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-s', '--selection',
                         help='selection used to select cluster under study',
-                        default='splits', type=str)
+                        default='splits_only', type=str)
     FLAGS = parser.parse_args()
 
     suf = '_SEL_'
@@ -145,14 +182,14 @@ if __name__ == "__main__":
     output_file( os.path.join('out', this_file + suf + '.html') )
     
     stats_fig  = stats_plotter()
-    summ_fig, enres_figs = energy_resolution_plotter()
+    summ_fig, enres_fig, slider = energy_resolution_plotter()
 
     ncols = 4
-    lay_list = [[stats_fig, summ_fig]]
-    for i,fig in enumerate(enres_figs):
-        if i%4==0:
-            lay_list.append([])
-        lay_list[-1].append( fig )
+    lay_list = [[stats_fig, summ_fig], [slider], [enres_fig]]
+    # for i,fig in enumerate(enres_figs):
+    #     if i%4==0:
+    #         lay_list.append([])
+    #     lay_list[-1].append( fig )
 
     lay = layout(lay_list)
-    show(lay) #if show_html else save(lay)
+    save(lay) #if show_html else save(lay)

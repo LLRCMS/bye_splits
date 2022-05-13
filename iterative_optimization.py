@@ -94,7 +94,8 @@ def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, *
         store['data'].attrs['doc'] = doc
 
 def optimization(hyperparam, **kw):
-    store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
+    outresen = fill_path(kw['OptimizationIn'], selection=FLAGS.selection)
+    store_in  = h5py.File(outresen,  mode='r')
     plotter = Plotter(**optimization_kwargs)
     mode = 'variance'
     window_size = 3
@@ -321,7 +322,7 @@ if __name__ == "__main__":
                         default=[0.5], type=float)
     parser.add_argument('-s', '--selection',
                         help='selection used to select cluster under study',
-                        default='splits', type=str)
+                        default='splits_only', type=str)
     parser.add_argument('-n', '--nevents',
                         help='selection used to select cluster under study',
                         default=-1, type=int)
