@@ -83,6 +83,7 @@ optimization_kwargs = setDictionary(
       'OptimizationCSVOut': 'stats',
       'FillingOutPlot': filling_kwargs['FillingOutPlot'],
       'Pretrained': False,
+      'LayersToOptimize': [x for x in range(9)],
     }
 )
 
