@@ -26,13 +26,18 @@ class DataProcessing:
                     normalize=True ):
         """Prepare the data to serve as input to the net in R/z slices"""
         # data variables' indexes
-        assert data.attrs['columns'].tolist() == ['Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
+        cols = ['tc_x', 'tc_y', 'R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
+        print(data.attrs['columns'].tolist())
+        assert data.attrs['columns'].tolist() == cols
 
-        rz_idx = 0
-        phi_idx = 1
-        rzbin_idx = 2
-        phibin_idx = 3
-        tc_id_idx = 4
+        x_idx      = 0
+        y_idx      = 1
+        r_idx      = 2
+        rz_idx     = 3
+        phi_idx    = 4
+        rzbin_idx  = 5
+        phibin_idx = 6
+        tc_id_idx  = 7
 
         data = data[()] #eager (lazy is the default)
 
@@ -134,7 +139,7 @@ class DataProcessing:
 
         bins = []
         for rzslice in data:
-            tmp = rzslice[:,1].astype(int)
+            tmp = rzslice[:,phi_idx].astype(int)
             tmp = np.bincount( tmp )
 
             #normalization

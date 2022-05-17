@@ -73,7 +73,10 @@ def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, *
     tcData = tcData.drop(['subdet'], axis=1)
     tcVariables.remove('subdet')
 
-    tcData['Rz'] = np.sqrt(tcData.x*tcData.x + tcData.y*tcData.y) / abs(tcData.z)
+    tcData['tc_x'] = tcData.x
+    tcData['tc_y'] = tcData.y
+    tcData['R'] = np.sqrt(tcData.x*tcData.x + tcData.y*tcData.y)
+    tcData['Rz'] = tcData.R / abs(tcData.z)
     #the following cut removes almost no event at all
     tcData = tcData[ (tcData['Rz'] < kw['MaxROverZ']) & (tcData['Rz'] >  kw['MinROverZ']) ]
     
@@ -82,8 +85,9 @@ def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, *
     tcData['phi_bin'] = pd.cut( tcData['phi'], bins=kw['PhiBinEdges'], **copt )
 
     # save data for optimization task
-    with h5py.File(kw['OptimizationIn'], mode='w') as store:
-        save_cols = ['Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
+    inoptfile = fill_path(kw['OptimizationIn'], selection=FLAGS.selection)
+    with h5py.File(inoptfile, mode='w') as store:
+        save_cols = ['tc_x', 'tc_y', 'R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
         saveData = ( tcData[save_cols]
                     .sort_values(by=['Rz_bin', 'phi'])
                     .to_numpy() )
@@ -95,6 +99,7 @@ def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, *
 
 def optimization(hyperparam, **kw):
     outresen = fill_path(kw['OptimizationIn'], selection=FLAGS.selection)
+
     store_in  = h5py.File(outresen,  mode='r')
     plotter = Plotter(**optimization_kwargs)
     mode = 'variance'
@@ -104,13 +109,14 @@ def optimization(hyperparam, **kw):
     dp = DataProcessing( phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
                          bin_bounds=(0,50) )
 
-    assert (np.sort(np.unique(store_in['data'][:,4])) == np.sort(store_in['data'][:,4])).all()
+    # check detids make sense
+    assert (np.sort(np.unique(store_in['data'][:,-1])) == np.sort(store_in['data'][:,-1])).all()
 
     data, bins, _, _ = dp.preprocess( data=store_in['data'],
-                                     nbins_phi=kw['NbinsPhi'],
-                                     nbins_rz=kw['NbinsRz'],
-                                     window_size=window_size,
-                                     normalize=False )
+                                      nbins_phi=kw['NbinsPhi'],
+                                      nbins_rz=kw['NbinsRz'],
+                                      window_size=window_size,
+                                      normalize=False )
     store_in.close()
 
     def get_edge(idx, misalignment, ncellstot):
@@ -122,10 +128,20 @@ def optimization(hyperparam, **kw):
             edge += ncellstot
         return edge
 
+    x_idx      = 0
+    y_idx      = 1
+    r_idx      = 2
+    phi_idx    = 3
+    phibin_idx = 4
+    detid_idx  = 5
+    
     for ilayer,(ldata,lbins) in enumerate(zip(data, bins)):
         ld = np.array(ldata)
         lb = np.array(lbins)
-        phi_old = ld[:,0]
+        radiae = ld[:,r_idx]
+        tc_x = ld[:,x_idx]
+        tc_y = ld[:,y_idx]
+        phi_old = ld[:,phi_idx]
 
         run_algorithm = True
         if ilayer not in kw['LayersToOptimize']:
@@ -206,7 +222,7 @@ def optimization(hyperparam, **kw):
                         edge = get_edge(id2, misalign, ncellstot) - 1
                         lb[id1] -= 1
                         lb[id2] += 1
-                        ld[edge,1] = id2
+                        ld[edge,phibin_idx] = id2
                         if id2==0:
                             misalign -= 1
              
@@ -214,7 +230,7 @@ def optimization(hyperparam, **kw):
                         edge = get_edge(id3, misalign, ncellstot)
                         lb[id3] -= 1
                         lb[id2] += 1
-                        ld[edge,1] = id2
+                        ld[edge,phibin_idx] = id2
                         if id2==lastidx:
                             misalign += 1
              
@@ -225,9 +241,9 @@ def optimization(hyperparam, **kw):
              
                         #SO DIRTY!!!!!!!!! Probably some very rare boundary condition issue.
                         try:
-                            ld[edge,1] = id1
+                            ld[edge,phibin_idx] = id1
                         except IndexError:
-                            ld[edge-1,1] = id1
+                            ld[edge-1,phibin_idx] = id1
                             
                         if id2==0:
                             misalign += 1
@@ -236,26 +252,32 @@ def optimization(hyperparam, **kw):
                         edge = get_edge(id3, misalign, ncellstot) - 1
                         lb[id3] += 1
                         lb[id2] -= 1
-                        ld[edge,1] = id3
+                        ld[edge,phibin_idx] = id3
                         if id2==lastidx:
                             misalign -= 1
                     else:
                         raise RuntimeError('Impossible 2!')                    
              
-                    if not is_sorted(ld[:,1], kw['NbinsPhi']):
+                    if not is_sorted(ld[:,phibin_idx], kw['NbinsPhi']):
                         print('Not Sorted!!!!!')
                         quit()
              
-            phi_new_low_edges = kw['PhiBinEdges'][:-1][ld[:,1].astype(int)]
-            phi_new_high_edges = kw['PhiBinEdges'][1:][ld[:,1].astype(int)]
+            phi_new_low_edges = kw['PhiBinEdges'][:-1][ld[:,phibin_idx].astype(int)]
+            phi_new_high_edges = kw['PhiBinEdges'][1:][ld[:,phibin_idx].astype(int)]
              
             df = pd.DataFrame(dict(phi_old=phi_old,
-                                   bin_old=np.array(data[ilayer])[:,1],
-                                   bin_new=ld[:,1],
+                                   bin_old=np.array(data[ilayer])[:,phibin_idx],
+                                   bin_new=ld[:,phibin_idx],
                                    # fix upstream inconsistency when producing ROOT files
                                    # needed for TC id comparison later on
-                                   id=np.uint32(ld[:,2])))
-             
+                                   radius=radiae,
+                                   tc_x=tc_x,
+                                   tc_y=tc_y,
+                                   id=np.uint32(ld[:,detid_idx])))
+
+            df.xdist = df.radius*np.sen(np.abs(df.phi_old-df.phi_new)) - df.tc_x
+            df.ydist = df.radius*np.cos(np.abs(df.phi_old-df.phi_new)) - df.tc_y
+    
             # the bin edge to use to calculate the phi distance to the nearest edge depends on whether the trigger cell is moving
             # to the left or to the right bin. The following introduces a mask to perform the conditional decision.
             df['move_to_the_left'] = np.sign(df.bin_old - df.bin_new).astype(int)
@@ -271,8 +293,8 @@ def optimization(hyperparam, **kw):
             df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_left']   = 1
             df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_right']  = 0
              
-            half_bin_width = (kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
-            assert round(half_bin_width,5) == round((kw['PhiBinEdges'][-1]-kw['PhiBinEdges'][-2])/2,5)
+            half_bin_width = 0.0001#(kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
+            #assert round(half_bin_width,5) == round((kw['PhiBinEdges'][-1]-kw['PhiBinEdges'][-2])/2,5)
             df['d_left']  = df.move_to_the_left  * abs(phi_old - phi_new_high_edges + half_bin_width)
             df['d_right'] = df.move_to_the_right * abs(phi_new_low_edges  - phi_old + half_bin_width)
             assert not np.count_nonzero(df.d_left * df.d_right != 0.) 
@@ -301,14 +323,18 @@ def optimization(hyperparam, **kw):
             plotter.save_iterative_phi_tab(nonzero_ratio=nonzero_ratio,
                                            ncellstot=ncellstot )
             plotter.save_iterative_bin_tab()
-             
-            df = df[['phi_old', 'phi_new', 'id']]
 
         else: # if run_algorithm:
             df = pd.DataFrame(dict(phi_old=phi_old,
                                    phi_new=phi_old,
-                                   id=np.uint32(ld[:,2])))
+                                   radius=radiae,
+                                   tc_x=tc_x,
+                                   tc_y=tc_y,
+                                   id=np.uint32(ld[:,detid_idx])))
+            df.xdist = df.radius*np.sen(np.abs(df.phi_old-df.phi_new)) - df.tc_x
+            df.ydist = df.radius*np.cos(np.abs(df.phi_old-df.phi_new)) - df.tc_y
 
+        df = df[['phi_old', 'phi_new', 'id']]
         df_total = df if ilayer==0 else pd.concat((df_total,df), axis=0)
 
         # end loop over the layers
