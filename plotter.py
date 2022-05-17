@@ -4,6 +4,7 @@ Some plots.
 import os
 import numpy as np
 import pandas as pd
+from copy import copy
 from bokeh.layouts import column
 from bokeh.models import CustomJS, Slider
 from bokeh.plotting import ColumnDataSource, figure, show, save
@@ -21,9 +22,11 @@ class Plotter:
         self.dim_phis = (1200, 300)
         self.margin = (10,70)
 
-        self.phi_tabs, self.bin_tabs = ([] for _ in range(2))
+        self.bin_tabs = []
+        self.dist_tabs = dict(phi=[], x=[], y=[])
 
         self.reset()
+        self.called_save_phi_distances = False
     
     def reset(self):
         """Prepare for a new tab."""
@@ -36,7 +39,8 @@ class Plotter:
         self.orig_data_counts = None
         self.orig_bins = None
         self.phi_old = None
-        self.phi_new = []
+        self.phi_dist, self.x_dist, self.y_dist = ([] for _ in range(3))
+        self.called_save_phi_distances = False
         
     def save_orig_data(self, data, data_type, boundary_sizes, bins=None, minlength=None):
         """
@@ -267,49 +271,69 @@ class Plotter:
             output_file(plot_name)
             save(layout)
 
-    def save_orig_phi_data(self, phi_old):
-        self.phi_old = phi_old
-
-    def save_gen_phi_data(self, phi_new):
-        self.phi_new.append(phi_new)
-
+    def save_phi_distances(self, phi_dist, x_dist, y_dist):
+        assert len(phi_dist) == len(x_dist)
+        assert len(phi_dist) == len(y_dist)
+        self.phi_dist.append(phi_dist)
+        self.x_dist.append(x_dist)
+        self.y_dist.append(y_dist)
+            
     def save_iterative_phi_tab(self, nonzero_ratio, ncellstot):
         # phi values display
-        gen0 = self.phi_old
-        phi_s = { 'curr_x': gen0 }
-        phi_s.update( {'curr_y': self.phi_new[0]} )
-        phi_s.update( {'color': ['gray' if x==0 else 'blue' for x in self.phi_new[0]]} )
+        phi_s = { 'x_dist': np.arange(len(self.phi_dist[0])),
+                  'def_y_phidist': self.phi_dist[0],
+                  'def_c_phidist': ['gray' if x==0 else 'blue' for x in self.phi_dist[0]],
+                  'def_y_xdist': self.x_dist[0],                                       
+                  'def_c_xdist': ['gray' if x==0 else 'blue' for x in self.x_dist[0]], 
+                  'def_y_ydist': self.y_dist[0],                                       
+                  'def_c_ydist': ['gray' if x==0 else 'blue' for x in self.y_dist[0]], }
 
-        for i, phis in enumerate(self.phi_new):
-            phi_s.update({'phi'+str(i): phis})
+        for i, (p,x,y) in enumerate(zip(self.phi_dist,self.x_dist,self.y_dist)):
+            phi_s.update({'y_phidist'+str(i) : p})
+            phi_s.update({'y_xdist'+str(i)   : x})
+            phi_s.update({'y_ydist'+str(i)   : y})
 
         phi_s = ColumnDataSource(data=phi_s)
-
-        # plotting phis
         plot_opt = dict(width=self.dim_phis[0], height=self.dim_phis[1])
-        p = figure(**plot_opt,
-                   tools="hover,pan,box_zoom,reset,save")
-        p.circle('curr_x', 'curr_y', color='color', source=phi_s)
-        p.xaxis.axis_label = 'Trigger cell index'
-        p.yaxis.axis_label = 'Distance travelled in phi'
 
-        self.phi_tabs.append( p )
+        suffixes = ('phi', 'x', 'y')
+        for suf in suffixes:
+            if suf == suffixes[0]:
+                p = figure(tools="hover,pan,box_zoom,reset,save", **plot_opt)
+            else:
+                p = figure(x_range=first_range, tools="hover,pan,box_zoom,reset,save", **plot_opt)
+                
+            if suf == suffixes[0]:
+                first_range = p.x_range
 
-        text1 = 'Ratio: {0:.2f}'.format(nonzero_ratio)
-        text2 = 'NCells: {0}'.format(ncellstot)
-        glyph1 = Label(x=self.margin[0], y=self.dim_phis[1]-self.margin[1],
-                       text=text1, angle=0.0, text_color='black', text_font_size='9pt',
-                       x_units='screen', y_units='screen')
-        glyph2 = Label(x=self.margin[0], y=self.dim_phis[1]-self.margin[1]-15,
-                       text=text2, angle=0.0, text_color='black', text_font_size='9pt',
-                       x_units='screen', y_units='screen')
-        p.add_layout(glyph1)
-        p.add_layout(glyph2)
+            if suf != suffixes[-1]:
+                p.xaxis.visible = False
+
+            if suf != suffixes[0] and suf != suffixes[-1]:
+                p.min_border = 0
+                
+            p.circle('x_dist', 'def_y_' + suf + 'dist',
+                     color='def_c_' + suf + 'dist',
+                     source=phi_s)
+            p.xaxis.axis_label = 'Trigger cell index'
+            p.yaxis.axis_label = 'Distance travelled in ' + suf
+
+            text1 = 'Ratio: {0:.2f}'.format(nonzero_ratio)
+            text2 = 'NCells: {0}'.format(ncellstot)
+            text_opt = dict(x=self.margin[0], angle=0.0,
+                            text_color='black', text_font_size='9pt',
+                            x_units='screen', y_units='screen')
+            glyph1 = Label(y=self.dim_phis[1]-self.margin[1], text=text1, **text_opt)
+            glyph2 = Label(y=self.dim_phis[1]-self.margin[1]-15, text=text2, **text_opt)
+            p.add_layout(glyph1)
+            p.add_layout(glyph2)
         
-        p.hover.tooltips = [
-            ('id', '@curr_x'),
-        ]
-        p.toolbar.logo = None
+            # p.hover.tooltips = [
+            #     ('id', '@x_dist'),
+            #     ]
+            p.toolbar.logo = None
+
+            self.dist_tabs[suf].append( p )
         
     def save_iterative_bin_tab(self, show_html=False):
         """Plots the data collected by the save_* methods."""
@@ -337,26 +361,16 @@ class Plotter:
 
         self.bin_tabs.append( p )
         
-        # callback = CustomJS(args=dict(s3=bins_s),
-        #                     code="""
-        #                     const d3 = s3.data;
-        #                     const slval = cb_obj.value;
-        #                     const numberstr = slval.toString();
-        #                     d3['curr_y'] = d3['bc'+numberstr];
-        #                     s3.change.emit();
-        #                     """)
-
-        # slider = Slider(start=0, end=len(self.gen_bins_counts),
-        #                 value=0, step=1., title='Epoch')
-        # slider.js_on_change('value', callback)
-
         p.toolbar.logo = None
 
     def plot_iterative(self, plot_name, tab_names, show_html):
-        assert len(self.bin_tabs)==len(self.phi_tabs)
+        assert len(self.bin_tabs)==len(self.dist_tabs['phi'])
         self.tabs = []
-        for name, pt, bt in zip(tab_names, self.phi_tabs, self.bin_tabs):
-            l = column(pt, bt)
+        for name, phitab, xtab, ytab, bt in zip(tab_names,
+                                                self.dist_tabs['phi'],
+                                                self.dist_tabs['x'],
+                                                self.dist_tabs['y'], self.bin_tabs):
+            l = column(phitab, xtab, ytab, bt)
             tb = Panel(child=l, title=name)
             self.tabs.append( tb )
         

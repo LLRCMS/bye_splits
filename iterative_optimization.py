@@ -154,7 +154,6 @@ def optimization(hyperparam, **kw):
             ncellstot = sum(lb)
             lastidx = kw['NbinsPhi']-1
              
-            plotter.save_orig_phi_data(np.arange(len(phi_old)))
             plotter.save_orig_data( data=copy(lb), data_type='bins', boundary_sizes=0 )
              
             # initial differences for stopping criterion
@@ -274,9 +273,6 @@ def optimization(hyperparam, **kw):
                                    tc_x=tc_x,
                                    tc_y=tc_y,
                                    id=np.uint32(ld[:,detid_idx])))
-
-            df.xdist = df.radius*np.sen(np.abs(df.phi_old-df.phi_new)) - df.tc_x
-            df.ydist = df.radius*np.cos(np.abs(df.phi_old-df.phi_new)) - df.tc_y
     
             # the bin edge to use to calculate the phi distance to the nearest edge depends on whether the trigger cell is moving
             # to the left or to the right bin. The following introduces a mask to perform the conditional decision.
@@ -317,9 +313,28 @@ def optimization(hyperparam, **kw):
              
             cond2 = (df.bin_new-df.bin_old > 0) & (df.distance<0)
             df.loc[cond2, 'phi_new'] = df.loc[cond2, 'phi_new'] + 2*np.pi
-             
+
+            xdist_f = lambda q: df.radius*np.sin(np.abs(q)) - df.tc_x
+            ydist_f = lambda q: df.radius*np.cos(np.abs(q)) - df.tc_y
+            df['xdist'] = xdist_f(df.phi_old-df.phi_new)
+            df['ydist'] = ydist_f(df.phi_old-df.phi_new)
+
+            # boundary condition: from bin 0 to 215
+            cond3 = ( (df.phi_new < 0.) & (df.phi_old > 0.)
+                     & (df.phi_old-df.phi_new>kw['MaxPhi']) )
+            df.loc[cond3, 'xdist'] = xdist_f(df.phi_old-df.phi_new-2*np.pi)
+            df.loc[cond3, 'ydist'] = ydist_f(df.phi_old-df.phi_new-2*np.pi)
+
+            # boundary condition: from bin 215 to 0
+            cond4 = ( (df.phi_new > 0) & (df.phi_old < 0)
+                     & (df.phi_old-df.phi_new<kw['MaxPhi']) )
+            df.loc[cond4, 'xdist'] = xdist_f(df.phi_old-df.phi_new+2*np.pi)
+            df.loc[cond4, 'ydist'] = ydist_f(df.phi_old-df.phi_new+2*np.pi)
+
             plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
-            plotter.save_gen_phi_data(df.distance)
+            plotter.save_phi_distances(phi_dist=df.distance,
+                                       x_dist=df.xdist,
+                                       y_dist=df.ydist)
             plotter.save_iterative_phi_tab(nonzero_ratio=nonzero_ratio,
                                            ncellstot=ncellstot )
             plotter.save_iterative_bin_tab()
@@ -331,8 +346,6 @@ def optimization(hyperparam, **kw):
                                    tc_x=tc_x,
                                    tc_y=tc_y,
                                    id=np.uint32(ld[:,detid_idx])))
-            df.xdist = df.radius*np.sen(np.abs(df.phi_old-df.phi_new)) - df.tc_x
-            df.ydist = df.radius*np.cos(np.abs(df.phi_old-df.phi_new)) - df.tc_y
 
         df = df[['phi_old', 'phi_new', 'id']]
         df_total = df if ilayer==0 else pd.concat((df_total,df), axis=0)
@@ -341,8 +354,8 @@ def optimization(hyperparam, **kw):
     plot_name = os.path.join( 'out',
                               get_html_name(__file__, extra='_'+str(hyperparam).replace('.','p')) )
     plotter.plot_iterative( plot_name=plot_name,
-                           tab_names = [''+str(x) for x in range(len(ldata))],
-                           show_html=False )
+                            tab_names = [''+str(x) for x in range(len(ldata))],
+                            show_html=False )
 
     return df_total
 
