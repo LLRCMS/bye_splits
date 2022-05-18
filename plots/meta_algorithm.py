@@ -90,29 +90,44 @@ def energy_resolution_plotter():
                 enres_dict['hp'].extend(repeated_parameter)
 
 
-        max_source = max(enres_dict['y'])
+        max_source = max( max(enres_dict['y']), max(hold) )
         enres_source = ColumnDataSource(data=enres_dict)
         
         callback = CustomJS(args=dict(s=enres_source), code="""
 s.change.emit();
 """)
-        slider = Slider(start=hyperparameters[0],
-                        end=hyperparameters[-1],
-                        value=hyperparameters[0],
-                        step=.1, title='Tunable Parameter')
+
+        slider_d = dict(zip(np.arange(len(hyperparameters)),hyperparameters))
+        from bokeh.models.formatters import  FuncTickFormatter
+        fmt = FuncTickFormatter(code="""
+var labels = {};
+return labels[tick];
+""".format(slider_d))
+
+        slider = Slider(start=min(slider_d.keys()),
+                        end=max(slider_d.keys()),
+                        step=1, value=0, 
+                        format=fmt)
+# add to CustomJS: var labels = {};
+# add to CustomJS: indices[i] = data[i] == labels[f];
+# add to CustomJS: .format(slider_d)
+        # slider = Slider(start=hyperparameters[0],
+        #                 end=hyperparameters[-1],
+        #                 value=hyperparameters[0],
+        #                 step=.1, title='Tunable Parameter')
         slider.js_on_change('value', callback)
 
         filt = CustomJSFilter(args=dict(slider=slider), code="""
         var indices = new Array(source.get_length());
         var f = slider.value;
-
+        var labels = {};
         const data = source.data['hp'];
 
         for (var i=0; i < source.get_length(); i++){{
-            indices[i] = data[i] == f;
+            indices[i] = data[i] == labels[f];
         }}
         return indices;
-        """)
+        """.format(slider_d))
         view = CDSView(source=enres_source, filters=[filt])
 
         p = figure( width=600, height=300,
@@ -125,7 +140,7 @@ s.change.emit();
         #quad_opt = dict(bottom=virtualmin, line_color='white', line_width=0)
         quad_opt = dict(line_width=3)
         p.step(x=edgold[1:]-(edgold[1]-edgold[0])/2,
-               y=hnew,
+               y=hold,
                color='blue', legend_label='CMSSW', **quad_opt)
         p.step(source=enres_source, view=view,
                x='x',
@@ -139,8 +154,10 @@ s.change.emit();
             title_suf = ' (eta > ' + FLAGS.selection.split('above_eta_')[1] + ')'
         elif FLAGS.selection == 'splits_only':
             title_suf = '(split clusters only)'
-        fig_summ = figure( width=600, height=300, title='RMS {}'.format(title_suf),
-                           tools='save,box_zoom,reset', y_axis_type='linear',
+        fig_summ = figure( width=600, height=300,
+                           title='RMS {}'.format(title_suf),
+                           tools='save,box_zoom,reset',
+                           y_axis_type='linear',
                            #x_range=Range1d(-0.1, 1.1),
                            #y_range=Range1d(-0.05, 1.05),
                            )
