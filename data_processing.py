@@ -2,6 +2,7 @@
 Functions used for data processing.
 """
 import numpy as np
+from random_utils import dotDict
 
 class DataProcessing:
     def __init__(self, phi_bounds, bin_bounds):
@@ -26,18 +27,16 @@ class DataProcessing:
                     normalize=True ):
         """Prepare the data to serve as input to the net in R/z slices"""
         # data variables' indexes
-        cols = ['tc_x', 'tc_y', 'R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
+        cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
         print(data.attrs['columns'].tolist())
         assert data.attrs['columns'].tolist() == cols
 
-        x_idx      = 0
-        y_idx      = 1
-        r_idx      = 2
-        rz_idx     = 3
-        phi_idx    = 4
-        rzbin_idx  = 5
-        phibin_idx = 6
-        tc_id_idx  = 7
+        idx_d = dotDict(dict(r      = 0,
+                             rz     = 1,
+                             phi    = 2,
+                             rzbin  = 3,
+                             phibin = 4,
+                             tc_id  = 5, ))
 
         data = data[()] #eager (lazy is the default)
 
@@ -52,7 +51,7 @@ class DataProcessing:
             """
             Shift data. Originally meant to avoid negative values.
             """
-            if index == phi_idx:
+            if index == idx_d['phi']:
                 data[:,index] += self.shift_phi
             assert len(data[:,index][ data[:,index] < self.min_bound ]) == 0
             return data
@@ -87,7 +86,7 @@ class DataProcessing:
             """
             Standard max-min normalization of column `index`.
             """
-            if index == phi_idx:
+            if index == idx_d.phi:
                 data[:,index] = self.a_norm_phi * data[:,index] + self.b_norm_phi
             else:
                 raise ValueError()
@@ -113,33 +112,34 @@ class DataProcessing:
         if normalize:
             data = _shift_data(
                 data,
-                index=phi_idx
+                index=idx_d.phi
             )
             data = _normalize_data(
                 data,
-                index=phi_idx
+                index=idx_d.phi
             )
         data = _split_data(
             data,
-            split_index=rzbin_idx,
-            sort_index=phibin_idx,
+            split_index=idx_d.rzbin,
+            sort_index=idx_d.phibin,
             nbins_rz=nbins_rz
         )
         data, data_with_boundaries, boundary_sizes = _set_boundary_conditions_data(
             data,
             window_size,
-            phibin_idx,
+            idx_d.phibin,
             nbins_phi
         )
+        idxs_to_remove = [idx_d.rz, idx_d.rzbin]
         data, data_with_boundaries = _drop_columns_data(
             data,
             data_with_boundaries,
-            idxs=[rz_idx, rzbin_idx]
+            idxs=idxs_to_remove
         )
 
         bins = []
         for rzslice in data:
-            tmp = rzslice[:,phi_idx].astype(int)
+            tmp = rzslice[:,idx_d.phi].astype(int)
             tmp = np.bincount( tmp )
 
             #normalization
@@ -148,7 +148,19 @@ class DataProcessing:
             
             bins.append(tmp)
 
-        return data, bins, data_with_boundaries, boundary_sizes
+        # remove items from index dict
+        for idx in idxs_to_remove:
+            rem = [s for s in idx_d if idx_d[s]==idx]
+            assert len(rem) == 1
+            idx_d.pop(rem[0])
+
+        # impose consecutive numbers
+        c = 0
+        for k in idx_d:
+            idx_d[k] = c
+            c += 1
+
+        return data, bins, data_with_boundaries, boundary_sizes, idx_d
 
     def postprocess(self, data, bins):
         """Adapt the output of the neural network."""

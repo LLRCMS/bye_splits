@@ -23,7 +23,7 @@ class Plotter:
         self.margin = (10,70)
 
         self.bin_tabs = []
-        self.dist_tabs = dict(phi=[], x=[], y=[])
+        self.dist_tabs = dict(phi=[], eucl=[], arc=[])
 
         self.reset()
         self.called_save_phi_distances = False
@@ -39,7 +39,7 @@ class Plotter:
         self.orig_data_counts = None
         self.orig_bins = None
         self.phi_old = None
-        self.phi_dist, self.x_dist, self.y_dist = ([] for _ in range(3))
+        self.phi_dist, self.eucl_dist, self.arc_dist = ([] for _ in range(3))
         self.called_save_phi_distances = False
         
     def save_orig_data(self, data, data_type, boundary_sizes, bins=None, minlength=None):
@@ -271,52 +271,51 @@ class Plotter:
             output_file(plot_name)
             save(layout)
 
-    def save_phi_distances(self, phi_dist, x_dist, y_dist):
-        assert len(phi_dist) == len(x_dist)
-        assert len(phi_dist) == len(y_dist)
+    def save_phi_distances(self, phi_dist, eucl_dist, arc_dist):
+        assert len(phi_dist) == len(eucl_dist)
+        assert len(phi_dist) == len(arc_dist)
         self.phi_dist.append(phi_dist)
-        self.x_dist.append(x_dist)
-        self.y_dist.append(y_dist)
+        self.eucl_dist.append(eucl_dist)
+        self.arc_dist.append(arc_dist)
             
     def save_iterative_phi_tab(self, nonzero_ratio, ncellstot):
         # phi values display
         phi_s = { 'x_dist': np.arange(len(self.phi_dist[0])),
                   'def_y_phidist': self.phi_dist[0],
                   'def_c_phidist': ['gray' if x==0 else 'blue' for x in self.phi_dist[0]],
-                  'def_y_xdist': self.x_dist[0],                                       
-                  'def_c_xdist': ['gray' if x==0 else 'blue' for x in self.x_dist[0]], 
-                  'def_y_ydist': self.y_dist[0],                                       
-                  'def_c_ydist': ['gray' if x==0 else 'blue' for x in self.y_dist[0]], }
+                  'def_y_eucldist': self.eucl_dist[0],                                       
+                  'def_c_eucldist': ['gray' if x==0 else 'blue' for x in self.eucl_dist[0]], 
+                  'def_y_arcdist': self.arc_dist[0],                                       
+                  'def_c_arcdist': ['gray' if x==0 else 'blue' for x in self.arc_dist[0]], }
 
-        for i, (p,x,y) in enumerate(zip(self.phi_dist,self.x_dist,self.y_dist)):
+        for i, (p,x,y) in enumerate(zip(self.phi_dist,self.eucl_dist,self.arc_dist)):
             phi_s.update({'y_phidist'+str(i) : p})
-            phi_s.update({'y_xdist'+str(i)   : x})
-            phi_s.update({'y_ydist'+str(i)   : y})
+            phi_s.update({'y_eucldist'+str(i)   : x})
+            phi_s.update({'y_arcdist'+str(i)   : y})
 
         phi_s = ColumnDataSource(data=phi_s)
         plot_opt = dict(width=self.dim_phis[0], height=self.dim_phis[1])
 
-        suffixes = ('phi', 'x', 'y')
+        suffixes = ('phi', 'eucl', 'arc')
         for suf in suffixes:
             if suf == suffixes[0]:
-                p = figure(tools="hover,pan,box_zoom,reset,save", **plot_opt)
+                p = figure(tools="pan,box_zoom,reset,save", **plot_opt)
             else:
-                p = figure(x_range=first_range, tools="hover,pan,box_zoom,reset,save", **plot_opt)
+                p = figure(x_range=first_range, tools="pan,box_zoom,reset,save", **plot_opt)
                 
             if suf == suffixes[0]:
                 first_range = p.x_range
-
-            if suf != suffixes[-1]:
-                p.xaxis.visible = False
-
-            if suf != suffixes[0] and suf != suffixes[-1]:
-                p.min_border = 0
                 
             p.circle('x_dist', 'def_y_' + suf + 'dist',
                      color='def_c_' + suf + 'dist',
                      source=phi_s)
             p.xaxis.axis_label = 'Trigger cell index'
-            p.yaxis.axis_label = 'Distance travelled in ' + suf
+            ldict = {'phi': 'Azimuthal',
+                     'eucl': 'Euclidean',
+                     'arc': 'Arc'}
+            p.yaxis.axis_label = '{} distance moved'.format(ldict[suf])
+            if suf in ('eucl', 'arc'):
+                p.yaxis.axis_label += ' [cm]'
 
             text1 = 'Ratio: {0:.2f}'.format(nonzero_ratio)
             text2 = 'NCells: {0}'.format(ncellstot)
@@ -328,9 +327,6 @@ class Plotter:
             p.add_layout(glyph1)
             p.add_layout(glyph2)
         
-            # p.hover.tooltips = [
-            #     ('id', '@x_dist'),
-            #     ]
             p.toolbar.logo = None
 
             self.dist_tabs[suf].append( p )
@@ -368,8 +364,9 @@ class Plotter:
         self.tabs = []
         for name, phitab, xtab, ytab, bt in zip(tab_names,
                                                 self.dist_tabs['phi'],
-                                                self.dist_tabs['x'],
-                                                self.dist_tabs['y'], self.bin_tabs):
+                                                self.dist_tabs['eucl'],
+                                                self.dist_tabs['arc'],
+                                                self.bin_tabs):
             l = column(phitab, xtab, ytab, bt)
             tb = Panel(child=l, title=name)
             self.tabs.append( tb )
