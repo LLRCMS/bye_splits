@@ -122,12 +122,12 @@ def smoothing(param, **kwargs):
             keys = [x for x in storeIn.keys() if falgo in x and '_group' in x]
             
             for key in keys:
-                energies   = createHistogram( storeIn[key][:,[0,1,2]],
-                                              kwargs['NbinsRz'], kwargs['NbinsPhi'] )
-                weighted_x = createHistogram( storeIn[key][:,[0,1,3]],
-                                              kwargs['NbinsRz'], kwargs['NbinsPhi'] )
-                weighted_y = createHistogram( storeIn[key][:,[0,1,4]],
-                                              kwargs['NbinsRz'], kwargs['NbinsPhi'] )
+                opts = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
+                energies   = createHistogram( storeIn[key][:,[0,1,2]], *opts)
+                wght_x     = createHistogram( storeIn[key][:,[0,1,3]], *opts)
+                wght_y     = createHistogram( storeIn[key][:,[0,1,4]], *opts)
+                wght_x_new = createHistogram( storeIn[key][:,[0,1,5]], *opts)
+                wght_y_new = createHistogram( storeIn[key][:,[0,1,6]], *opts)
          
                 # if '187544' in key:
                 #     valid1(energies,
@@ -162,9 +162,12 @@ def smoothing(param, **kwargs):
          
                 #printHistogram(ev)
                 
-                storeOut[key] = (energies, weighted_x, weighted_y)
-                storeOut[key].attrs['columns'] = ['energies', 'weighted_x', 'weighted_y']
-                storeOut[key].attrs['doc'] = 'Smoothed energies and projected bin positions'
+                storeOut[key] = (energies, wght_x, wght_y, wght_x_new, wght_y_new)
+                storeOut[key].attrs['columns'] = [ 'energies',
+                                                   'wght_x', 'wght_y',
+                                                   'wght_x_new', 'wght_y_new' ]
+                doc_message = 'Smoothed energies and projected bin positions'
+                storeOut[key].attrs['doc'] = doc_message
 
 if __name__ == "__main__":
     from airflow.airflow_dag import smoothing_kwargs

@@ -15,7 +15,7 @@ from data_processing import DataProcessing
 from plotter import Plotter
 
 from airflow.airflow_dag import (
-    optimization_kwargs,
+    optimization_kwargs as opt_kw,
     filling_kwargs,
     smoothing_kwargs,
     seeding_kwargs,
@@ -99,7 +99,7 @@ def optimization(hyperparam, **kw):
     outresen = fill_path(kw['OptimizationIn'], selection=FLAGS.selection)
 
     store_in  = h5py.File(outresen,  mode='r')
-    plotter = Plotter(**optimization_kwargs)
+    plotter = Plotter(**opt_kw)
     mode = 'variance'
     window_size = 3
 
@@ -119,7 +119,9 @@ def optimization(hyperparam, **kw):
     store_in.close()
 
     def get_edge(idx, misalignment, ncellstot):
-        """returns the index corresponding to the first element in bin with id `id`"""
+        """
+        Returns the index corresponding to the first element in bin with id `id`
+        """
         edge = sum(lb[:idx]) + misalignment
         if edge > ncellstot:
             edge -= ncellstot
@@ -144,7 +146,8 @@ def optimization(hyperparam, **kw):
             ncellstot = sum(lb)
             lastidx = kw['NbinsPhi']-1
              
-            plotter.save_orig_data( data=copy(lb), data_type='bins', boundary_sizes=0 )
+            plotter.save_orig_data( data=copy(lb), data_type='bins',
+                                    boundary_sizes=0 )
              
             # initial differences for stopping criterion
             lb_orig2 = lb[:]
@@ -376,15 +379,15 @@ if __name__ == "__main__":
     FLAGS = parser.parse_args()
 
     if FLAGS.reprocess:
-        process_trigger_cell_geometry_data( **optimization_kwargs )
+        process_trigger_cell_geometry_data( **opt_kw )
         print('Trigger cell geometry data reprocessed.', flush=True)
     else:
         m = ( 'Trigger cell geometry was NOT reprocessed.' +
              ' Use `-r` to do so.' )
         print(m, flush=True)
 
-    outresen = fill_path(optimization_kwargs['OptimizationEnResOut'], selection=FLAGS.selection)
-    outcsv = fill_path(optimization_kwargs['OptimizationCSVOut'], selection=FLAGS.selection, extension='csv')
+    outresen = fill_path(opt_kw['OptimizationEnResOut'], selection=FLAGS.selection)
+    outcsv = fill_path(opt_kw['OptimizationCSVOut'], selection=FLAGS.selection, extension='csv')
     with open( os.path.join('data', 'stats.csv'), 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes:
 
         fieldnames = ['hyperparameter', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
@@ -394,9 +397,10 @@ if __name__ == "__main__":
 
         sys.stderr.flush()
         for hp in tqdm(FLAGS.hyperparameters):
-            tc_map = optimization( hyperparam=hp, **optimization_kwargs )
+            tc_map = optimization( hyperparam=hp, **opt_kw )
         
-            filling(hp, FLAGS.nevents, tc_map, FLAGS.selection, **filling_kwargs)
+            out_filling = filling(hp, FLAGS.nevents, tc_map,
+                                  FLAGS.selection, **filling_kwargs)
             print('filling done', flush=True)
             smoothing(hp, **smoothing_kwargs)
             print('smoothing done', flush=True)
@@ -407,23 +411,27 @@ if __name__ == "__main__":
             res = stats_collector(hp, **validation_kwargs)
             print('statistics collection done', flush=True)
 
-            writer.writerow({'hyperparameter': hp,
-                             'c_loc1': res[0],
-                             'c_loc2': res[1],
-                             'c_rem1': res[2],
-                             'c_rem2': res[3],
-                             'locrat1': res[4],
-                             'locrat2': res[5],
-                             'remrat1': res[6],
-                             'remrat2': res[7]})
+            writer.writerow({'hyperparameter' : hp,
+                             'c_loc1'         : res[0],
+                             'c_loc2'         : res[1],
+                             'c_rem1'         : res[2],
+                             'c_rem2'         : res[3],
+                             'locrat1'        : res[4],
+                             'locrat2'        : res[5],
+                             'remrat1'        : res[6],
+                             'remrat2'        : res[7]})
             print('csv info written', flush=True)
             
-            assert len(optimization_kwargs['FesAlgos']) == 1
+            assert len(opt_kw['FesAlgos']) == 1
 
             df_enres = pd.DataFrame({'enres_old': res[8], 'enres_new': res[9]})
-            storeEnRes[optimization_kwargs['FesAlgos'][0] + '_data_' + str(hp).replace('.','p')] = df_enres
+            key = opt_kw['FesAlgos'][0] + '_data_' + str(hp).replace('.','p')
+            storeEnRes [key] = df_enres
+            # storePosRes[key] = 
             if hp == FLAGS.hyperparameters[0]:
-                storeEnRes[optimization_kwargs['FesAlgos'][0] + '_meta'] = pd.Series(FLAGS.hyperparameters)
+                series = pd.Series(FLAGS.hyperparameters) 
+                storeEnRes [opt_kw['FesAlgos'][0]+'_meta'] = series
+                storePosRes[opt_kw['FesAlgos'][0]+'_meta'] = series
          
             # validates whether the local clustering is equivalent to CMSSW's
             # unsuccessful when providing a custom trigger cell position mapping!
@@ -447,7 +455,7 @@ if __name__ == "__main__":
                                              trigger_cell_map=tc_map,
                                              plot_name=plot_name,
                                              pos_endcap=True,
-                                             min_rz=optimization_kwargs['MinROverZ'],
-                                             max_rz=optimization_kwargs['MaxROverZ'],
+                                             min_rz=opt_kw['MinROverZ'],
+                                             max_rz=opt_kw['MaxROverZ'],
                                              layer_edges=[0,28],
-                                             **optimization_kwargs)
+                                             **opt_kw)

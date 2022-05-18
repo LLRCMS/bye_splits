@@ -34,7 +34,7 @@ def clustering(param, **kwargs):
                            radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:,5])) )
                 # print('minDist: ', minDist)
                 
-                seedEn, seedX, seedY = storeInSeeds[key2]
+                seedEn, seedX, seedY, _, _ = storeInSeeds[key2]
          
                 dRs = np.array([])
                 for iseed, (en, sx, sy) in enumerate(zip(seedEn, seedX, seedY)):
@@ -75,24 +75,30 @@ def clustering(param, **kwargs):
                 assert(len(cols)==res.shape[1])
                 df = pd.DataFrame(res, columns=cols)
          
-                df['cl3d_pos_x'] = df['tc_x'] * df['tc_mipPt']
-                df['cl3d_pos_y'] = df['tc_y'] * df['tc_mipPt']
-                df['cl3d_pos_z'] = df['tc_z'] * df['tc_mipPt']
+                df['cl3d_pos_x'] = df.tc_x * df.tc_mipPt
+                df['cl3d_pos_y'] = df.tc_y * df.tc_mipPt
+                df['cl3d_pos_z'] = df.tc_z * df.tc_mipPt
+                df['cl3d_pos_x_new'] = df.tc_x_new * df.tc_mipPt
+                df['cl3d_pos_y_new'] = df.tc_y_new * df.tc_mipPt
 
                 cl3d_cols = ['cl3d_pos_x', 'cl3d_pos_y', 'cl3d_pos_z',
                              'tc_mipPt', 'tc_pt']
                 cl3d = df.groupby(['seed_idx']).sum()[cl3d_cols]
-                cl3d = cl3d.rename(columns={'cl3d_pos_x': 'x',
-                                        'cl3d_pos_y': 'y',
-                                        'cl3d_pos_z': 'z',
-                                        'tc_mipPt':   'mipPt',
-                                        'tc_pt':      'pt'})
+                cl3d = cl3d.rename(columns={'cl3d_pos_x'     : 'x',
+                                            'cl3d_pos_y'     : 'y',
+                                            'cl3d_pos_z'     : 'z',
+                                            'cl3d_pos_x_new' : 'xnew',
+                                            'cl3d_pos_y_new' : 'ynew',
+                                            'tc_mipPt'       : 'mipPt',
+                                            'tc_pt'          : 'pt'})
          
                 cl3d = cl3d[ cl3d.pt > kwargs['PtC3dThreshold'] ]
                 
                 cl3d.x /= cl3d.mipPt
                 cl3d.y /= cl3d.mipPt
                 cl3d.z /= cl3d.mipPt
+                cl3d.xnew /= cl3d.mipPt
+                cl3d.ynew /= cl3d.mipPt
          
                 cl3d['x2']   = cl3d.x*cl3d.x
                 cl3d['y2']   = cl3d.y*cl3d.y
@@ -110,7 +116,7 @@ def clustering(param, **kwargs):
                     raise ValueError('The event number was not extracted!')
                 
                 cl3d['event'] = event_number.group(1)
-                cl3d_cols = ['en', 'x', 'y', 'z', 'eta', 'phi', 'Rz']
+                cl3d_cols = ['en', 'x', 'y', 'z', 'xnew', 'ynew', 'eta', 'phi', 'Rz']
                 storeOut[key] = cl3d[cl3d_cols]
                 if key1 == tc_keys[0] and key2 == seed_keys[0]:
                     dfout = cl3d[cl3d_cols+['event']]
@@ -118,7 +124,6 @@ def clustering(param, **kwargs):
                     dfout = pd.concat((dfout,cl3d[cl3d_cols+['event']]), axis=0)
 
             print('There were {} events without seeds.'.format(empty_seeds))
-
 
     outclustering = fill_path(kwargs['ClusteringOutPlot'], param=param) 
     with pd.HDFStore(outclustering, mode='w') as sout:

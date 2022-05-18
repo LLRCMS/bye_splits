@@ -95,14 +95,18 @@ def stats_collector(param, debug=False, **kwargs):
                 local = storeInLocal[key1]
                 cmssw = storeInCMSSW[key2][:]
                 
-                locEta = np.sort(local['eta'].to_numpy())
-                locPhi = np.sort(local['phi'].to_numpy())
-                locRz  = np.sort(local['Rz'].to_numpy())
-                locEn  = np.sort(local['en'].to_numpy())
-                remEta = np.sort(cmssw[:][0])
-                remPhi = np.sort(cmssw[:][1])
-                remRz  = np.sort(cmssw[:][2])
-                remEn  = np.sort(cmssw[:][3])
+                locEta  = np.sort(local['eta'].to_numpy())
+                locPhi  = np.sort(local['phi'].to_numpy())
+                locRz   = np.sort(local['Rz'].to_numpy())
+                locEn   = np.sort(local['en'].to_numpy())
+                locX    = np.sort(local['x'].to_numpy())
+                locY    = np.sort(local['y'].to_numpy())
+                locXnew = np.sort(local['xnew'].to_numpy())
+                locYnew = np.sort(local['ynew'].to_numpy())
+                remEta  = np.sort(cmssw[:][0])
+                remPhi  = np.sort(cmssw[:][1])
+                remRz   = np.sort(cmssw[:][2])
+                remEn   = np.sort(cmssw[:][3])
 
                 event_number = re.search(search_str, key1).group(1)
                 gen_en = df_gen.loc[ int(event_number) ]['genpart_energy']

@@ -18,12 +18,12 @@ from bokeh.models import (
 )
 
 from airflow.airflow_dag import (
-    optimization_kwargs,
+    optimization_kwargs as opt_kw
     fill_path,
 )
 
 def stats_plotter():
-    outcsv = fill_path(optimization_kwargs['OptimizationCSVOut'], extension='csv')
+    outcsv = fill_path(opt_kw['OptimizationCSVOut'], extension='csv')
     df = pd.read_csv(outcsv, sep=',', header=0)
 
     fig_opt = dict(width=600,
@@ -56,16 +56,16 @@ def stats_plotter():
     return p1
 
 def energy_resolution_plotter():
-    assert len(optimization_kwargs['FesAlgos']) == 1
-    outooptimisationenres = fill_path(optimization_kwargs['OptimizationEnResOut'], '')
+    assert len(opt_kw['FesAlgos']) == 1
+    outooptimisationenres = fill_path(opt_kw['OptimizationEnResOut'], '')
+    outooptimisationposres = fill_path(opt_kw['OptimizationPosResOut'], '')
+    with pd.HDFStore(outooptimisationenres, mode='r') as storeEnRes, pd.HDFStore(outooptimisationposres, mode='r') as storePosRes:
 
-    with pd.HDFStore(outooptimisationenres, mode='r') as storeEnRes:
-
-        hyperparameters = storeEnRes[optimization_kwargs['FesAlgos'][0] + '_meta' ].tolist()
+        hyperparameters = storeEnRes[opt_kw['FesAlgos'][0] + '_meta' ].tolist()
         en_old, en_new = ([] for x in range(2))
         #std_old, std_new, mean_new, mean_old = ([] for x in range(4))
         for hp in hyperparameters:
-            df = storeEnRes[ optimization_kwargs['FesAlgos'][0] + '_data_' + str(hp).replace('.','p') ]
+            df = storeEnRes[ opt_kw['FesAlgos'][0] + '_data_' + str(hp).replace('.','p') ]
 
             en_old.append( np.sqrt(np.mean( df['enres_old']**2 )) / np.mean( df['enres_old'] ) )
             en_new.append( np.sqrt(np.mean( df['enres_new']**2 )) / np.mean( df['enres_new'] ) )

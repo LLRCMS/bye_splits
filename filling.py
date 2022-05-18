@@ -43,7 +43,8 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
             assert( df[ df['cl3d_eta']<0 ].shape[0] == 0 )
              
             with SupressSettingWithCopyWarning():
-                df.loc[:,'enres'] = df.loc[:,'cl3d_energy']-df.loc[:,'genpart_energy']
+                df.loc[:,'enres'] = ( df.loc[:,'cl3d_energy']
+                                      - df.loc[:,'genpart_energy'] )
                 df.loc[:,'enres'] /= df.loc[:,'genpart_energy']
                           
             nansel = pd.isna(df['enres'])
@@ -53,18 +54,22 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
             df = pd.concat([df,nandf], sort=False)
 
             if selection.startswith('above_eta_'):
-                df = df[ df['genpart_exeta'] > float(selection.split('above_eta_')[1]) ] #1332 events survive
+                #1332 events survive
+                df = df[ df['genpart_exeta']
+                        > float(selection.split('above_eta_')[1]) ] 
             elif selection == 'splits_only':
                 # select events with splitted clusters (enres < energy cut)
                 # if an event has at least one cluster satisfying the enres condition,
                 # all of its clusters are kept (this eases comparison with CMSSW)
                 df.loc[:,'atLeastOne'] = ( df.groupby(['event'])
-                                          .apply(lambda grp: np.any(grp['enres'] < -0.35))
+                                          .apply(lambda grp:
+                                                 np.any(grp['enres'] < -0.35))
                                           )
                 df = df[ df['atLeastOne'] ] #214 events survive
                 df = df.drop(['atLeastOne'], axis=1)
             else:
-                raise ValueError('Selection {} is not supported.'.format(selection))
+                m = 'Selection {} is not supported.'.format(selection)
+                raise ValueError(m)
 
             #_events_all = list(df.index.unique())
             _events_remaining = list(df.index.unique())
@@ -82,58 +87,60 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
             else:
                 _events_sample = random.sample(_events_remaining, nevents)
              
-            #splittedClusters = df.loc[_events_all]
-            #splittedClusters = df.loc[_events_sample + _events_sample_all]
-            splittedClusters = df.loc[_events_sample]
+            #split = df.loc[_events_all]
+            #split = df.loc[_events_sample + _events_sample_all]
+            split = df.loc[_events_sample]
              
             #splitting remaining data into cluster and tc to avoid tc data duplication
-            _cl3d_vars = [x for x in splittedClusters.columns.to_list() if 'tc_' not in x]
+            _cl3d_vars = [x for x in split.columns.to_list()
+                          if 'tc_' not in x]
              
-            splittedClusters_3d = splittedClusters[_cl3d_vars]
-            splittedClusters_3d = splittedClusters_3d.reset_index()
+            split_3d = split[_cl3d_vars]
+            split_3d = split_3d.reset_index()
              
             #trigger cells info is repeated across clusters in the same event
-            _tc_vars = [x for x in splittedClusters.columns.to_list() if 'cl3d' not in x]
-            splittedClusters_tc = splittedClusters.groupby("event").head(1)[_tc_vars] #first() instead of head(1) also works
+            _tc_vars = [x for x in split.columns.to_list() if 'cl3d' not in x]
+            split_tc = split.groupby('event').head(1)[_tc_vars]
             _tc_vars = [x for x in _tc_vars if 'tc_' in x]
-            splittedClusters_tc = splittedClusters_tc.explode( _tc_vars )
+            split_tc = split_tc.explode( _tc_vars )
              
             for v in _tc_vars:
-                splittedClusters_tc[v] = splittedClusters_tc[v].astype(np.float64)
+                split_tc[v] = split_tc[v].astype(np.float64)
              
-            splittedClusters_tc.tc_id = splittedClusters_tc.tc_id.astype('uint32')
-             
-            splittedClusters_tc['Rz'] = np.sqrt(splittedClusters_tc.tc_x*splittedClusters_tc.tc_x + splittedClusters_tc.tc_y*splittedClusters_tc.tc_y)  / abs(splittedClusters_tc.tc_z)
+            split_tc.tc_id = split_tc.tc_id.astype('uint32')
 
-            splittedClusters_tc = splittedClusters_tc.reset_index()
+            split_tc['R'] = np.sqrt(split_tc.tc_x**2 + split_tc.tc_y**2)
+            split_tc['Rz'] = split_tc.R / abs(split_tc.tc_z)
+
+            split_tc = split_tc.reset_index()
              
             #pd cut returns np.nan when value lies outside the binning
-            splittedClusters_tc['Rz_bin'] = pd.cut( splittedClusters_tc['Rz'],
-                                                   bins=kwargs['RzBinEdges'],
-                                                   labels=False )
-            nansel = pd.isna(splittedClusters_tc['Rz_bin']) 
-            splittedClusters_tc = splittedClusters_tc[~nansel]
+            split_tc['Rz_bin'] = pd.cut( split_tc['Rz'],
+                                         bins=kwargs['RzBinEdges'],
+                                         labels=False )
+            nansel = pd.isna(split_tc['Rz_bin']) 
+            split_tc = split_tc[~nansel]
              
             tc_map = tc_map.rename(columns={'id': 'tc_id'})
-            splittedClusters_tc = splittedClusters_tc.merge(tc_map,
-                                                            on='tc_id',
-                                                            how='right').dropna()
-            assert not np.count_nonzero(splittedClusters_tc.phi_old - splittedClusters_tc.tc_phi)
-            #splittedClusters_tc = splittedClusters_tc.drop(['phi_old', 'tc_phi'],
-            #                                               axis=1)
-             
-            #splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['tc_phi'],
-            #                                            bins=kwargs['PhiBinEdges'], labels=False )
-            splittedClusters_tc['tc_phi_bin'] = pd.cut( splittedClusters_tc['phi_new'],
-                                                       bins=kwargs['PhiBinEdges'], labels=False )
-             
-            nansel = pd.isna(splittedClusters_tc['tc_phi_bin']) 
-            splittedClusters_tc = splittedClusters_tc[~nansel]
 
-            store[fe + '_3d'] = splittedClusters_3d
-            store[fe + '_tc'] = splittedClusters_tc
+            split_tc = split_tc.merge(tc_map,
+                                      on='tc_id',
+                                      how='right').dropna()
+            assert not np.count_nonzero(split_tc.phi_old - split_tc.tc_phi)
 
-            simAlgoPlots[fe] = (splittedClusters_3d, splittedClusters_tc)
+            split_tc['tc_x_new'] = split_tc.R * np.cos(split_tc.phi_new)
+            split_tc['tc_y_new'] = split_tc.R * np.sin(split_tc.phi_new)
+
+            split_tc['tc_phi_bin'] = pd.cut( split_tc.phi_new,
+                                             bins=kwargs['PhiBinEdges'],
+                                             labels=False )
+            nansel = pd.isna(split_tc.tc_phi_bin) 
+            split_tc = split_tc[~nansel]
+
+            store[fe + '_3d'] = split_3d
+            store[fe + '_tc'] = split_tc
+            
+            simAlgoPlots[fe] = (split_3d, split_tc)
 
     ### Event Processing ######################################################
     outfilling = fill_path(kwargs['FillingOut'], param)
@@ -149,21 +156,29 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                     print(ev_3d.filter(items=branches))
 
                 _simCols_tc = ['tc_phi_bin', 'Rz_bin', 'tc_layer',
-                               'tc_x', 'tc_y', 'tc_z', 'tc_eta',
+                               'tc_x', 'tc_y',
+                               'tc_x_new', 'tc_y_new',
+                               'tc_z', 'tc_eta',
                                'tc_mipPt', 'tc_pt', 
                                'genpart_exeta', 'genpart_exphi']
                 ev_tc = ev_tc.filter(items=_simCols_tc)
-                ev_tc['weighted_x'] = ev_tc['tc_mipPt'] * ev_tc['tc_x'] / np.abs(ev_tc['tc_z'])
-                ev_tc['weighted_y'] = ev_tc['tc_mipPt'] * ev_tc['tc_y'] / np.abs(ev_tc['tc_z'])
+                wght_f = lambda pos: ev_tc.tc_mipPt*pos/np.abs(ev_tc.tc_z)
+                ev_tc['wght_x']     = wght_f(ev_tc.tc_x)
+                ev_tc['wght_y']     = wght_f(ev_tc.tc_y)
+                ev_tc['wght_x_new'] = wght_f(ev_tc.tc_x_new)
+                ev_tc['wght_y_new'] = wght_f(ev_tc.tc_y_new)
 
                 with SupressSettingWithCopyWarning():
-                    ev_3d.loc[:,'cl3d_Roverz'] = calcRzFromEta(ev_3d.loc[:,'cl3d_eta'])
-                    ev_3d.loc[:,'gen_Roverz']  = calcRzFromEta(ev_3d.loc[:,'genpart_exeta'])
+                    ev_3d['cl3d_Roverz'] = calcRzFromEta(ev_3d.loc[:,'cl3d_eta'])
+                    ev_3d['gen_Roverz']  = calcRzFromEta(ev_3d.loc[:,'genpart_exeta'])
 
                 cl3d_pos_rz  = ev_3d['cl3d_Roverz'].unique() 
                 cl3d_pos_phi = ev_3d['cl3d_phi'].unique()
                 cl3d_pos_eta = ev_3d['cl3d_eta'].unique()
                 cl3d_en      = ev_3d['cl3d_energy'].unique()
+                print(ev_3d)
+                print(ev_3d.columns)
+                quit()
 
                 store[str(_k) + '_' + str(ev) + '_clpos'] = (cl3d_pos_eta, cl3d_pos_phi,
                                                              cl3d_pos_rz, cl3d_en)
@@ -177,18 +192,23 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                 assert( len(gen_pos_rz) == 1 and len(gen_pos_phi) == 1 )
 
                 gb = ev_tc.groupby(['Rz_bin', 'tc_phi_bin'], as_index=False)
-                cols_to_keep = ['Rz_bin', 'tc_phi_bin', 'tc_mipPt', 'weighted_x', 'weighted_y']
+                cols_to_keep = ['Rz_bin', 'tc_phi_bin', 'tc_mipPt',
+                                'wght_x', 'wght_y',
+                                'wght_x_new', 'wght_y_new']
                 group = gb.sum()[cols_to_keep]
-
-                group['weighted_x'] /= group['tc_mipPt']
-                group['weighted_y'] /= group['tc_mipPt'] 
-
+                group.wght_x     /= group.tc_mipPt
+                group.wght_y     /= group.tc_mipPt 
+                group.wght_x_new /= group.tc_mipPt
+                group.wght_y_new /= group.tc_mipPt 
+                    
                 store[str(_k) + '_' + str(ev) + '_group'] = group.to_numpy()
                 store[str(_k) + '_' + str(ev) + '_group'].attrs['columns'] = cols_to_keep
                 store[str(_k) + '_' + str(ev) + '_group'].attrs['doc'] = 'R/z vs. Phi histo Info'
 
                 cols_to_keep = ['Rz_bin', 'tc_phi_bin',
-                                'tc_x', 'tc_y', 'tc_z',
+                                'tc_x', 'tc_y',
+                                'tc_x_new', 'tc_y_new',
+                                'tc_z',
                                 'tc_eta', 'tc_layer',
                                 'tc_mipPt', 'tc_pt']
                 ev_tc = ev_tc[cols_to_keep]
@@ -196,6 +216,13 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                 store[str(_k) + '_' + str(ev) + '_tc'] = ev_tc.to_numpy()
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['columns'] = cols_to_keep
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['doc'] = 'Trigger Cells Info'
+                
+                if ev == df_tc['event'].unique().astype('int')[0]:
+                    group_tot = group[:]
+                else:
+                    group_tot = pd.concat((group_tot,group[:]), axis=0)
+
+    return group_tot
 
 if __name__ == "__main__":
     from airflow.airflow_dag import filling_kwargs        

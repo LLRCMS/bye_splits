@@ -35,7 +35,7 @@ def seeding(param, debug=False, **kwargs):
             keys = [x for x in storeIn.keys() if falgo in x]
          
             for key in keys:
-                energies, weighted_x, weighted_y = storeIn[key]
+                energies, wght_x, wght_y, wght_x_new, wght_y_new = storeIn[key]
          
                 # if '187544' in key:
                 #      validation(energies, '187544',
@@ -71,7 +71,9 @@ def seeding(param, debug=False, **kwargs):
          
                 seeds_idx = np.nonzero(maxima)
          
-                res = (energies[seeds_idx], weighted_x[seeds_idx], weighted_y[seeds_idx])
+                res = ( energies[seeds_idx],
+                        wght_x[seeds_idx], wght_y[seeds_idx],
+                        wght_x_new[seeds_idx], wght_y_new[seeds_idx] )
          
                 assert(len(kwargs['FesAlgos'])==1)
                 search_str = '{}_([0-9]{{1,7}})_group'.format(kwargs['FesAlgos'][0])
@@ -81,12 +83,15 @@ def seeding(param, debug=False, **kwargs):
                 if debug:
                     print('Ev:{}'.format(event_number))
                     print('Seeds bins: {}'.format(seeds_idx))
-                    print('NSeeds={}\tMipPt={}\tX={}\tY={}\n'
-                          .format(len(res[0]), res[0], res[1], res[2]) )
+                    print('NSeeds={}\tMipPt={}\tX={}\tY={}\tXnew={}\tYnew={}'
+                          .format(len(res[0]),res[0],res[1],res[2],res[3],res[4])) 
          
                 storeOut[key] = res
-                storeOut[key].attrs['columns'] = ['seedEn', 'seedX', 'seedY']
-                storeOut[key].attrs['doc'] = 'Smoothed energies and projected bin positions of seeds'
+                storeOut[key].attrs['columns'] = ['seedEn',
+                                                  'seedX', 'seedY',
+                                                  'seedXnew', 'seedYnew']
+                doc = 'Smoothed energies and projected bin positions of seeds'
+                storeOut[key].attrs['doc'] = doc
 
 if __name__ == "__main__":
     from airflow.airflow_dag import seeding_kwargs        
