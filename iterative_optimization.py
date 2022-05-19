@@ -386,9 +386,12 @@ if __name__ == "__main__":
              ' Use `-r` to do so.' )
         print(m, flush=True)
 
-    outresen = fill_path(opt_kw['OptimizationEnResOut'], selection=FLAGS.selection)
-    outcsv = fill_path(opt_kw['OptimizationCSVOut'], selection=FLAGS.selection, extension='csv')
-    with open( os.path.join('data', 'stats.csv'), 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes:
+    out_opt = dict(selection=FLAGS.selection)
+    outresen  = fill_path(opt_kw['OptimizationEnResOut'],  **out_opt)
+    outrespos = fill_path(opt_kw['OptimizationPosResOut'], **out_opt)
+    outcsv    = fill_path(opt_kw['OptimizationCSVOut'],
+                          extension='csv', **out_opt)
+    with open( os.path.join('data', 'stats.csv'), 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outresen, mode='w') as storePosRes:
 
         fieldnames = ['hyperparameter', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
                       'locrat1', 'locrat2', 'remrat1', 'remrat2']
@@ -398,7 +401,7 @@ if __name__ == "__main__":
         sys.stderr.flush()
         for hp in tqdm(FLAGS.hyperparameters):
             tc_map = optimization( hyperparam=hp, **opt_kw )
-        
+
             out_filling = filling(hp, FLAGS.nevents, tc_map,
                                   FLAGS.selection, **filling_kwargs)
             print('filling done', flush=True)
@@ -423,15 +426,20 @@ if __name__ == "__main__":
             print('csv info written', flush=True)
             
             assert len(opt_kw['FesAlgos']) == 1
-
-            df_enres = pd.DataFrame({'enres_old': res[8], 'enres_new': res[9]})
+            
+            df_enres = pd.DataFrame({'enres_old': res[8],
+                                     'enres_new': res[9]})
+            df_posres = pd.DataFrame({'etares_old': res[10],
+                                      'etares_new': res[11],
+                                      'phires_old': res[12],  
+                                      'phires_new': res[13]})
             key = opt_kw['FesAlgos'][0] + '_data_' + str(hp).replace('.','p')
             storeEnRes [key] = df_enres
-            # storePosRes[key] = 
+            storePosRes[key] = df_posres
             if hp == FLAGS.hyperparameters[0]:
                 series = pd.Series(FLAGS.hyperparameters) 
                 storeEnRes [opt_kw['FesAlgos'][0]+'_meta'] = series
-                #storePosRes[opt_kw['FesAlgos'][0]+'_meta'] = series
+                storePosRes[opt_kw['FesAlgos'][0]+'_meta'] = series
          
             # validates whether the local clustering is equivalent to CMSSW's
             # unsuccessful when providing a custom trigger cell position mapping!

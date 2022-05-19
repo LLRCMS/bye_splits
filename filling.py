@@ -200,7 +200,8 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                     
                 store[str(_k) + '_' + str(ev) + '_group'] = group.to_numpy()
                 store[str(_k) + '_' + str(ev) + '_group'].attrs['columns'] = cols_to_keep
-                store[str(_k) + '_' + str(ev) + '_group'].attrs['doc'] = 'R/z vs. Phi histo Info'
+                doc_m = 'R/z vs. Phi histo Info'
+                store[str(_k) + '_' + str(ev) + '_group'].attrs['doc'] = doc_m
 
                 cols_to_keep = ['Rz_bin', 'tc_phi_bin',
                                 'tc_x', 'tc_y',

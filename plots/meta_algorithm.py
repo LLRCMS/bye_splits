@@ -55,47 +55,57 @@ def stats_plotter():
 
     return p1
 
-def energy_resolution_plotter():
+def resolution_plotter():
     assert len(opt_kw['FesAlgos']) == 1
     outooptimisationenres = fill_path(opt_kw['OptimizationEnResOut'], '')
     outooptimisationposres = fill_path(opt_kw['OptimizationPosResOut'], '')
     with pd.HDFStore(outooptimisationenres, mode='r') as storeEnRes, pd.HDFStore(outooptimisationposres, mode='r') as storePosRes:
 
         hyperparameters = storeEnRes[opt_kw['FesAlgos'][0] + '_meta' ].tolist()
-        en_old, en_new = ([] for x in range(2))
+        assert storePosRes[opt_kw['FesAlgos'][0] + '_meta' ].tolist() == hyperparameters
+
+        en_old, en_new   = ([] for x in range(2))
+        eta_old, eta_new = ([] for x in range(2))
+        phi_old, phi_new = ([] for x in range(2))
         #std_old, std_new, mean_new, mean_old = ([] for x in range(4))
         for hp in hyperparameters:
-            df = storeEnRes[ opt_kw['FesAlgos'][0] + '_data_' + str(hp).replace('.','p') ]
+            key = opt_kw['FesAlgos'][0]+'_data_'+str(hp).replace('.','p')
+            df_en  = storeEnRes[key]
+            df_pos = storePosRes[key]
 
-            en_old.append( np.sqrt(np.mean( df['enres_old']**2 )) / np.mean( df['enres_old'] ) )
-            en_new.append( np.sqrt(np.mean( df['enres_new']**2 )) / np.mean( df['enres_new'] ) )
-            # std_old.append( np.std( df['enres_old']) )
-            # mean_old.append( np.mean( df['enres_old'] ) )
-            # std_new.append( np.std( df['enres_new']) )
-            # mean_new.append( np.mean( df['enres_new'] ) )
+            en_old.append(  np.std(df_en.enres_old)  )
+            en_new.append(  np.std(df_en.enres_new)  )
+            eta_old.append( np.std(df_pos.etares_old))
+            eta_new.append( np.std(df_pos.etares_new) )
+            phi_old.append( np.std(df_pos.phires_old))
+            phi_new.append( np.std(df_pos.phires_new))
             
             hist_opt = dict(density=False, bins=50)
-            hold, edgold = np.histogram(df['enres_old'], **hist_opt)
-            hnew, edgnew = np.histogram(df['enres_new'], **hist_opt)
+            hold, edgold = [ np.histogram(df[x], **hist_opt)
+                            for x in ('enres_old', 'etares_old', 'phires_old') ]
+            hnew, edgnew = [ np.histogram(df[x], **hist_opt)
+                            for x in ('enres_new', 'etares_new', 'phires_new') ]
 
-            line_centers = edgnew[1:]-(edgnew[1]-edgnew[0])/2
-            repeated_parameter = [hp for _ in range(len(hnew))]
-            if hp == hyperparameters[0]:
-                enres_dict = dict(x=line_centers.tolist(),
-                                  y=hnew.tolist(),
-                                  hp=repeated_parameter)
-            else:
-                enres_dict['x'].extend(line_centers.tolist())
-                enres_dict['y'].extend(hnew.tolist())
-                enres_dict['hp'].extend(repeated_parameter)
+            res_dict = []
+            for it in range(3):
+                line_centers = edgnew[1:][it]-(edgnew[1][it]-edgnew[0][it])/2
+                repeated_parameter = [hp for _ in range(len(hnew[it]))]
+                if hp == hyperparameters[0]:
+                    res_dict.append( dict(x=line_centers.tolist(),
+                                          y=hnew[it].tolist(),
+                                          hp=repeated_parameter) )
+                else:
+                    res_dict[it]['x'].extend(line_centers.tolist())
+                    res_dict[it]['y'].extend(hnew[it].tolist())
+                    res_dict[it]['hp'].extend(repeated_parameter)
 
-
-        max_source = max( max(enres_dict['y']), max(hold) )
-        enres_source = ColumnDataSource(data=enres_dict)
         
-        callback = CustomJS(args=dict(s=enres_source), code="""
-s.change.emit();
-""")
+        max_sources = [ max( max(res_dict[q]['y']), max(hold[q]) ) for q in range(3) ]
+        sources = [ ColumnDataSource(data=res_dict[q]) for q in range(3) ]
+
+        callback_str = """s.change.emit();"""
+        callbacks  = [ CustomJS(args=dict(s=sources[q]),  code=callback_str)
+                       for q in range(3) ]
 
         slider_d = dict(zip(np.arange(len(hyperparameters)),hyperparameters))
         from bokeh.models.formatters import  FuncTickFormatter
@@ -104,20 +114,19 @@ var labels = {};
 return labels[tick];
 """.format(slider_d))
 
-        slider = Slider(start=min(slider_d.keys()),
-                        end=max(slider_d.keys()),
-                        step=1, value=0, 
-                        format=fmt)
-# add to CustomJS: var labels = {};
-# add to CustomJS: indices[i] = data[i] == labels[f];
-# add to CustomJS: .format(slider_d)
+        slider_opt = dict(start=min(slider_d.keys()),
+                          end=max(slider_d.keys()),
+                          step=1, value=0, 
+                          format=fmt)
+        sliders = [ Slider(**slider_opt) for q in range(3) ]
         # slider = Slider(start=hyperparameters[0],
         #                 end=hyperparameters[-1],
         #                 value=hyperparameters[0],
         #                 step=.1, title='Tunable Parameter')
-        slider.js_on_change('value', callback)
+        for it in range(3):
+            sliders[t].js_on_change('value', callbacks[it])
 
-        filt = CustomJSFilter(args=dict(slider=slider), code="""
+        filter_str = """
         var indices = new Array(source.get_length());
         var f = slider.value;
         var labels = {};
@@ -127,35 +136,36 @@ return labels[tick];
             indices[i] = data[i] == labels[f];
         }}
         return indices;
-        """.format(slider_d))
-        view = CDSView(source=enres_source, filters=[filt])
+        """.format(slider_d)
+        filt  = [ CustomJSFilter(args=dict(slider=slider[q]), code=filter_str)
+                  for q in range(3) ]
+        views  = [ CDSView(source=sources[q],  filters=[filt[q]])
+                   for q in range(3) ]
 
-        p = figure( width=600, height=300,
-                    title='Energy Resolution: RecoPt/GenPt',
-                    y_range=Range1d(-1, max_source+1),
-                    tools='save,box_zoom,reset', y_axis_type='linear' )
-        p.toolbar.logo = None
-        virtualmin = 1e-4 #avoid log scale issues
-
-        #quad_opt = dict(bottom=virtualmin, line_color='white', line_width=0)
         quad_opt = dict(line_width=3)
-        p.step(x=edgold[1:]-(edgold[1]-edgold[0])/2,
-               y=hold,
-               color='blue', legend_label='CMSSW', **quad_opt)
-        p.step(source=enres_source, view=view,
-               x='x',
-               y='y',
-               color='red', legend_label='Custom', **quad_opt)
-
-        p.legend.click_policy='hide'
-        p.legend.location = 'top_left'
+        cmssw_opt = dict(color='blue', legend_label='CMSSW', **quad_opt)
+        custom_opt = dict(x='x',
+                          y='y',
+                          color='red', legend_label='Custom', **quad_opt)
+        p = []
+        for it in range(3):
+            p.append( figure( width=600, height=300,
+                              title='Energy Resolution: RecoPt/GenPt',
+                              y_range=Range1d(-1, max_sources[it]+1),
+                              tools='save,box_zoom,reset', y_axis_type='linear' ) )
+            p[-1].toolbar.logo = None
+            p[-1].step(x=edgold[1:][it]-(edgold[1][it]-edgold[0][it])/2,
+                       y=hold[it], **cmssw_opt)
+            p[-1].step(source=sources[it], view=views[it], **custom_opt)
+            p[-1].legend.click_policy='hide'
+            p[-1].legend.location = 'top_left'
 
         if FLAGS.selection.startswith('above_eta_'):
             title_suf = ' (eta > ' + FLAGS.selection.split('above_eta_')[1] + ')'
         elif FLAGS.selection == 'splits_only':
             title_suf = '(split clusters only)'
         fig_summ = figure( width=600, height=300,
-                           title='RMS {}'.format(title_suf),
+                           title='Standard Deviations {}'.format(title_suf),
                            tools='save,box_zoom,reset',
                            y_axis_type='linear',
                            #x_range=Range1d(-0.1, 1.1),
@@ -164,10 +174,6 @@ return labels[tick];
         fig_summ.toolbar.logo = None
         fig_summ.xaxis.axis_label = 'Algorithm tunable parameter'
 
-        # std_old = np.array(std_old)
-        # std_new = np.array(std_new)
-        # mean_old = np.array(mean_old)
-        # mean_new = np.array(mean_new)
         points_opt = dict(x=hyperparameters)
         fig_summ.line(y=en_old, color='blue', legend_label='CMSSW',
                       line_width=3,
@@ -201,14 +207,10 @@ if __name__ == "__main__":
     output_file( os.path.join('out', this_file + suf + '.html') )
     
     stats_fig  = stats_plotter()
-    summ_fig, enres_fig, slider = energy_resolution_plotter()
+    summ_fig, res_figs, slider = resolution_plotter()
 
     ncols = 4
-    lay_list = [[stats_fig, summ_fig], [slider], [enres_fig]]
-    # for i,fig in enumerate(enres_figs):
-    #     if i%4==0:
-    #         lay_list.append([])
-    #     lay_list[-1].append( fig )
+    lay_list = [[stats_fig, summ_fig], [slider], res_figs]
 
     lay = layout(lay_list)
     save(lay) #if show_html else save(lay)

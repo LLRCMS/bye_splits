@@ -24,32 +24,32 @@ def validation(**kwargs):
                 locPhi = np.sort(local['phi'].to_numpy())
                 locRz  = np.sort(local['Rz'].to_numpy())
                 locEn  = np.sort(local['en'].to_numpy())
-                remEta = np.sort(cmssw[:][0])
-                remPhi = np.sort(cmssw[:][1])
-                remRz  = np.sort(cmssw[:][2])
-                remEn  = np.sort(cmssw[:][3])
+                cmsswEta = np.sort(cmssw[:][0])
+                cmsswPhi = np.sort(cmssw[:][1])
+                cmsswRz  = np.sort(cmssw[:][2])
+                cmsswEn  = np.sort(cmssw[:][3])
          
-                if (len(locEta) != len(remEta) or
-                    len(locPhi) != len(remPhi) or
-                    len(locRz)  != len(remRz)   or 
-                    len(locEn)  != len(remEn)):
+                if (len(locEtaOld) != len(cmsswEta) or
+                    len(locPhiOld) != len(cmsswPhi) or
+                    len(locRz)  != len(cmsswRz)   or 
+                    len(locEn)  != len(cmsswEn)):
                     print('Event Number: ', event_number)
                     print(local)
                     print(len(locEta))
                     print(cmssw)
-                    print(len(remEta))
+                    print(len(cmsswEta))
          
                 errorThreshold = .5E-3
                 for i in range(len(locEta)):
-                    if ( abs(locEta[i] - remEta[i]) > errorThreshold or
-                         abs(locPhi[i] - remPhi[i]) > errorThreshold or
-                         abs(locRz[i]  - remRz[i])  > errorThreshold  or
-                         abs(locEn[i]  - remEn[i])  > errorThreshold ):
+                    if ( abs(locEtaOld[i] - cmsswEta[i]) > errorThreshold or
+                         abs(locPhiOld[i] - cmsswPhi[i]) > errorThreshold or
+                         abs(locRz[i]  - cmsswRz[i])  > errorThreshold  or
+                         abs(locEn[i]  - cmsswEn[i])  > errorThreshold ):
                         print('Difference found in event {}!'.format(event_number))
-                        print('\tEta difference: {}'.format(locEta[i] - remEta[i]))
-                        print('\tPhi difference: {}'.format(locPhi[i] - remPhi[i]))
-                        print('\tRz difference: {}'.format(locRz[i] - remRz[i]))
-                        print('\tEn difference: {}'.format(locEn[i] - remEn[i]))
+                        print('\tEta difference: {}'.format(locEtaOld[i] - cmsswEta[i]))
+                        print('\tPhi difference: {}'.format(locPhiOld[i] - cmsswPhi[i]))
+                        print('\tRz difference: {}'.format(locRz[i] - cmsswRz[i]))
+                        print('\tEn difference: {}'.format(locEn[i] - cmsswEn[i]))
 
 def stats_collector(param, debug=False, **kwargs):
     outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param)
@@ -95,34 +95,58 @@ def stats_collector(param, debug=False, **kwargs):
                 local = storeInLocal[key1]
                 cmssw = storeInCMSSW[key2][:]
                 
-                locEta  = np.sort(local['eta'].to_numpy())
-                locPhi  = np.sort(local['phi'].to_numpy())
-                locRz   = np.sort(local['Rz'].to_numpy())
-                locEn   = np.sort(local['en'].to_numpy())
-                locX    = np.sort(local['x'].to_numpy())
-                locY    = np.sort(local['y'].to_numpy())
-                locXnew = np.sort(local['xnew'].to_numpy())
-                locYnew = np.sort(local['ynew'].to_numpy())
-                remEta  = np.sort(cmssw[:][0])
-                remPhi  = np.sort(cmssw[:][1])
-                remRz   = np.sort(cmssw[:][2])
-                remEn   = np.sort(cmssw[:][3])
+                locEtaOld = np.sort(local['eta'].to_numpy())
+                locPhiOld = np.sort(local['phi'].to_numpy())
+                locEtaNew = np.sort(local['eta_new'].to_numpy())
+                locPhiNew = np.sort(local['phi_new'].to_numpy())
+                locRz     = np.sort(local['Rz'].to_numpy())
+                locEn     = np.sort(local['en'].to_numpy())
+                locX      = np.sort(local['x'].to_numpy())
+                locY      = np.sort(local['y'].to_numpy())
+                cmsswEta  = np.sort(cmssw[:][0])
+                cmsswPhi  = np.sort(cmssw[:][1])
+                cmsswRz   = np.sort(cmssw[:][2])
+                cmsswEn   = np.sort(cmssw[:][3])
 
                 event_number = re.search(search_str, key1).group(1)
-                gen_en = df_gen.loc[ int(event_number) ]['genpart_energy']
-                if not isinstance(gen_en, float): #when the cluster is split we will have two rows
-                    gen_en = gen_en.iloc[0]
+                
+                gen_en  = df_gen.loc[ int(event_number) ]['genpart_energy']
+                gen_eta = df_gen.loc[ int(event_number) ]['genpart_exeta']
+                gen_phi = df_gen.loc[ int(event_number) ]['genpart_exphi']
 
+                #when the cluster is split we will have two rows
+                if not isinstance(gen_en, float):
+                    assert gen_en.iloc[1]  == gen_en.iloc[0]
+                    assert gen_eta.iloc[1] == gen_eta.iloc[0]
+                    assert gen_phi.iloc[1] == gen_phi.iloc[0]
+                    gen_en  = gen_en.iloc[0]
+                    gen_eta = gen_eta.iloc[0]
+                    gen_phi = gen_phi.iloc[0]
+                                        
                 # ignoring the lowest energy clusters when there is a splitting
                 # which give an even worse result
-                _enres_old = max(remEn)
+                _enres_old = max(cmsswEn)
+                index_max_energy_cmssw = np.where(cmsswEn==_enres_old)[0][0]
+                assert isinstance(index_max_energy_cmssw, int)
+                _etares_old = cmsswEta[index_max_energy_cmssw]
+                _phires_old = cmsswPhi[index_max_energy_cmssw]
+                
                 _enres_new = max(locEn)
-                enres_old.append( _enres_old / gen_en )
-                enres_new.append( _enres_new / gen_en )
+                index_max_energy_local = np.where(locEn==_enres_old)[0][0]
+                assert isinstance(index_max_energy_local, int)
+                _etares_new = locEtaNew[index_max_energy_local]
+                _phires_new = locPhiNew[index_max_energy_local]
 
-                if len(locEta) == 1:
+                enres_old.append ( _enres_old / gen_en )
+                enres_new.append ( _enres_new / gen_en )
+                etares_old.append( _etares_old / gen_eta )
+                etares_new.append( _etares_new / gen_eta )
+                phires_old.append( _phires_old / gen_phi )
+                phires_new.append( _phires_new / gen_phi )
+
+                if len(locEtaOld) == 1:
                     c_loc1 += 1
-                elif len(locEta) == 2:
+                elif len(locEtaOld) == 2:
                     c_loc2 += 1
                 else:
                     print('Suprise')
@@ -150,5 +174,7 @@ def stats_collector(param, debug=False, **kwargs):
 
             return ( c_loc1, c_loc2, c_rem1, c_rem2, 
                      locrat1, locrat2, remrat1, remrat2,
-                     enres_old, enres_new )
+                     enres_old, enres_new,
+                     etares_old, etares_new,
+                     phires_old, phires_new )
 

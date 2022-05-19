@@ -28,7 +28,6 @@ class DataProcessing:
         """Prepare the data to serve as input to the net in R/z slices"""
         # data variables' indexes
         cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
-        print(data.attrs['columns'].tolist())
         assert data.attrs['columns'].tolist() == cols
 
         idx_d = dotDict(dict(r      = 0,
