@@ -18,7 +18,7 @@ from bokeh.models import (
 )
 
 from airflow.airflow_dag import (
-    optimization_kwargs as opt_kw
+    optimization_kwargs as opt_kw,
     fill_path,
 )
 
@@ -193,7 +193,9 @@ if __name__ == "__main__":
     elif FLAGS.selection == 'splits_only':
         suf += FLAGS.selection
     else:
-        raise ValueError('Selection {} is not supported.'.format(FLAGS.selection))
+        m = 'Selection {} is not supported.\n'.format(FLAGS.selection)
+        m += 'Available options are: `splits_only` or `above_eta_ETAVALUE`'
+        raise ValueError(m)
 
     this_file = os.path.basename(__file__).split('.')[0]
     output_file( os.path.join('out', this_file + suf + '.html') )

@@ -431,7 +431,7 @@ if __name__ == "__main__":
             if hp == FLAGS.hyperparameters[0]:
                 series = pd.Series(FLAGS.hyperparameters) 
                 storeEnRes [opt_kw['FesAlgos'][0]+'_meta'] = series
-                storePosRes[opt_kw['FesAlgos'][0]+'_meta'] = series
+                #storePosRes[opt_kw['FesAlgos'][0]+'_meta'] = series
          
             # validates whether the local clustering is equivalent to CMSSW's
             # unsuccessful when providing a custom trigger cell position mapping!

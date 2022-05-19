@@ -24,14 +24,14 @@ def clustering(param, **kwargs):
                 tc = storeInTC[key1]
                 tc_cols = list(tc.attrs['columns'])
          
-                projx = tc[:,2]/tc[:,4] #tc_x / tc_z
-                projy = tc[:,3]/tc[:,4] #tc_y / tc_z
-         
+                projx = tc[:,2]/tc[:,6] #tc_x / tc_z
+                projy = tc[:,3]/tc[:,6] #tc_y / tc_z
+
                 # check columns via `tc.attrs['columns']`
                 radiusCoeffA = np.array( [kwargs['CoeffA'][int(xi)-1]
-                                          for xi in tc[:,6]] )
+                                          for xi in tc[:,8]] )
                 minDist = ( radiusCoeffA +
-                           radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:,5])) )
+                           radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:,7])) )
                 # print('minDist: ', minDist)
                 
                 seedEn, seedX, seedY, _, _ = storeInSeeds[key2]
@@ -81,7 +81,9 @@ def clustering(param, **kwargs):
                 df['cl3d_pos_x_new'] = df.tc_x_new * df.tc_mipPt
                 df['cl3d_pos_y_new'] = df.tc_y_new * df.tc_mipPt
 
-                cl3d_cols = ['cl3d_pos_x', 'cl3d_pos_y', 'cl3d_pos_z',
+                cl3d_cols = ['cl3d_pos_x', 'cl3d_pos_y',
+                             'cl3d_pos_x_new', 'cl3d_pos_y_new',
+                             'cl3d_pos_z',
                              'tc_mipPt', 'tc_pt']
                 cl3d = df.groupby(['seed_idx']).sum()[cl3d_cols]
                 cl3d = cl3d.rename(columns={'cl3d_pos_x'     : 'x',

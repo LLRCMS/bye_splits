@@ -176,9 +176,6 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                 cl3d_pos_phi = ev_3d['cl3d_phi'].unique()
                 cl3d_pos_eta = ev_3d['cl3d_eta'].unique()
                 cl3d_en      = ev_3d['cl3d_energy'].unique()
-                print(ev_3d)
-                print(ev_3d.columns)
-                quit()
 
                 store[str(_k) + '_' + str(ev) + '_clpos'] = (cl3d_pos_eta, cl3d_pos_phi,
                                                              cl3d_pos_rz, cl3d_en)
@@ -212,7 +209,7 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                                 'tc_eta', 'tc_layer',
                                 'tc_mipPt', 'tc_pt']
                 ev_tc = ev_tc[cols_to_keep]
-                
+
                 store[str(_k) + '_' + str(ev) + '_tc'] = ev_tc.to_numpy()
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['columns'] = cols_to_keep
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['doc'] = 'Trigger Cells Info'

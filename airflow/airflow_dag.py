@@ -80,6 +80,7 @@ optimization_kwargs = setDictionary(
       'WindowSize': 3,
       'OptimizationIn': 'triggergeom_condensed',
       'OptimizationEnResOut': 'opt_enres',
+      'OptimizationPosResOut': 'opt_enres',
       'OptimizationCSVOut': 'stats',
       'FillingOutPlot': filling_kwargs['FillingOutPlot'],
       'Pretrained': False,
