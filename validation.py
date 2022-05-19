@@ -85,20 +85,22 @@ def stats_collector(param, debug=False, **kwargs):
             
             df_gen = storeGen[falgo + '_gen']
 
-            enres_old, enres_new = ([] for _ in range(2))
+            enres_old, enres_new   = ([] for _ in range(2))
+            etares_old, etares_new = ([] for _ in range(2))
+            phires_old, phires_new = ([] for _ in range(2))
             ntotal = len(local_keys)
             assert ntotal == len(cmssw_keys)
 
             c_loc1, c_loc2 = 0, 0
-            c_rem1, c_rem2 = 0, 0
+            c_cmssw1, c_cmssw2 = 0, 0
             for key1, key2 in zip(local_keys, cmssw_keys):
                 local = storeInLocal[key1]
                 cmssw = storeInCMSSW[key2][:]
                 
                 locEtaOld = np.sort(local['eta'].to_numpy())
                 locPhiOld = np.sort(local['phi'].to_numpy())
-                locEtaNew = np.sort(local['eta_new'].to_numpy())
-                locPhiNew = np.sort(local['phi_new'].to_numpy())
+                locEtaNew = np.sort(local['etanew'].to_numpy())
+                locPhiNew = np.sort(local['phinew'].to_numpy())
                 locRz     = np.sort(local['Rz'].to_numpy())
                 locEn     = np.sort(local['en'].to_numpy())
                 locX      = np.sort(local['x'].to_numpy())
@@ -127,22 +129,24 @@ def stats_collector(param, debug=False, **kwargs):
                 # which give an even worse result
                 _enres_old = max(cmsswEn)
                 index_max_energy_cmssw = np.where(cmsswEn==_enres_old)[0][0]
-                assert isinstance(index_max_energy_cmssw, int)
+                assert ( type(index_max_energy_cmssw) == np.int64 or
+                         type(index_max_energy_cmssw) == np.int32 )
                 _etares_old = cmsswEta[index_max_energy_cmssw]
                 _phires_old = cmsswPhi[index_max_energy_cmssw]
                 
                 _enres_new = max(locEn)
-                index_max_energy_local = np.where(locEn==_enres_old)[0][0]
-                assert isinstance(index_max_energy_local, int)
+                index_max_energy_local = np.where(locEn==_enres_new)[0][0]
+                assert ( type(index_max_energy_local) == np.int64 or
+                         type(index_max_energy_local) == np.int32 )
                 _etares_new = locEtaNew[index_max_energy_local]
                 _phires_new = locPhiNew[index_max_energy_local]
 
                 enres_old.append ( _enres_old / gen_en )
                 enres_new.append ( _enres_new / gen_en )
-                etares_old.append( _etares_old / gen_eta )
-                etares_new.append( _etares_new / gen_eta )
-                phires_old.append( _phires_old / gen_phi )
-                phires_new.append( _phires_new / gen_phi )
+                etares_old.append( _etares_old - gen_eta )
+                etares_new.append( _etares_new - gen_eta )
+                phires_old.append( _phires_old - gen_phi )
+                phires_new.append( _phires_new - gen_phi )
 
                 if len(locEtaOld) == 1:
                     c_loc1 += 1
@@ -152,28 +156,28 @@ def stats_collector(param, debug=False, **kwargs):
                     print('Suprise')
                     raise ValueError()
 
-                if len(remEta) == 1:
-                    c_rem1 += 1
-                elif len(remEta) == 2:
-                    c_rem2 += 1
+                if len(cmsswEta) == 1:
+                    c_cmssw1 += 1
+                elif len(cmsswEta) == 2:
+                    c_cmssw2 += 1
                 else:
                     print('Suprise')
                     raise ValueError()
 
             locrat1 = float(c_loc1)/ntotal
             locrat2 = float(c_loc2)/ntotal
-            remrat1 = float(c_rem1)/ntotal
-            remrat2 = float(c_rem2)/ntotal
+            cmsswrat1 = float(c_cmssw1)/ntotal
+            cmsswrat2 = float(c_cmssw2)/ntotal
 
             if debug:
                 print()
-                print('Rem Ratio 1: {} ({})'.format(remrat1, c_rem1))
-                print('Rem Ratio 2: {} ({})'.format(remrat2, c_rem2))
+                print('CMMSW Ratio 1: {} ({})'.format(cmsswrat1, c_cmssw1))
+                print('CMSSW Ratio 2: {} ({})'.format(cmsswrat2, c_cmssw2))
                 print('Loc Ratio 1: {} ({})'.format(locrat1, c_loc1))
                 print('Loc Ratio 2: {} ({})'.format(locrat2, c_loc2))
 
-            return ( c_loc1, c_loc2, c_rem1, c_rem2, 
-                     locrat1, locrat2, remrat1, remrat2,
+            return ( c_loc1, c_loc2, c_cmssw1, c_cmssw2, 
+                     locrat1, locrat2, cmsswrat1, cmsswrat2,
                      enres_old, enres_new,
                      etares_old, etares_new,
                      phires_old, phires_new )

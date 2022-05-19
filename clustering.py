@@ -8,6 +8,7 @@ from random_utils import (
 from airflow.airflow_dag import fill_path
 
 def clustering(param, **kwargs):
+    get_idx = lambda colname: tc_cols.index(colname)
     inclusteringseeds = fill_path(kwargs['ClusteringInSeeds'], param=param)
     inclusteringtc = fill_path(kwargs['ClusteringInTC'], param=param)
     outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param=param)
@@ -24,17 +25,17 @@ def clustering(param, **kwargs):
                 tc = storeInTC[key1]
                 tc_cols = list(tc.attrs['columns'])
          
-                projx = tc[:,2]/tc[:,6] #tc_x / tc_z
-                projy = tc[:,3]/tc[:,6] #tc_y / tc_z
+                projx = tc[:, get_idx('tc_x')]/tc[:, get_idx('tc_z')]
+                projy = tc[:, get_idx('tc_y')]/tc[:, get_idx('tc_z')]
 
                 # check columns via `tc.attrs['columns']`
                 radiusCoeffA = np.array( [kwargs['CoeffA'][int(xi)-1]
-                                          for xi in tc[:,8]] )
+                                          for xi in tc[:, get_idx('tc_layer')]] )
                 minDist = ( radiusCoeffA +
-                           radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:,7])) )
+                           radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:, get_idx('tc_eta')])) )
                 # print('minDist: ', minDist)
                 
-                seedEn, seedX, seedY, _, _ = storeInSeeds[key2]
+                seedEn, seedX, seedY = storeInSeeds[key2]
          
                 dRs = np.array([])
                 for iseed, (en, sx, sy) in enumerate(zip(seedEn, seedX, seedY)):
@@ -78,29 +79,29 @@ def clustering(param, **kwargs):
                 df['cl3d_pos_x'] = df.tc_x * df.tc_mipPt
                 df['cl3d_pos_y'] = df.tc_y * df.tc_mipPt
                 df['cl3d_pos_z'] = df.tc_z * df.tc_mipPt
-                df['cl3d_pos_x_new'] = df.tc_x_new * df.tc_mipPt
-                df['cl3d_pos_y_new'] = df.tc_y_new * df.tc_mipPt
+                df['cl3d_pos_eta_new'] = df.tc_eta_new * df.tc_mipPt
+                df['cl3d_pos_phi_new'] = df.phi_new * df.tc_mipPt
 
                 cl3d_cols = ['cl3d_pos_x', 'cl3d_pos_y',
-                             'cl3d_pos_x_new', 'cl3d_pos_y_new',
+                             'cl3d_pos_eta_new', 'cl3d_pos_phi_new',
                              'cl3d_pos_z',
                              'tc_mipPt', 'tc_pt']
                 cl3d = df.groupby(['seed_idx']).sum()[cl3d_cols]
-                cl3d = cl3d.rename(columns={'cl3d_pos_x'     : 'x',
-                                            'cl3d_pos_y'     : 'y',
-                                            'cl3d_pos_z'     : 'z',
-                                            'cl3d_pos_x_new' : 'xnew',
-                                            'cl3d_pos_y_new' : 'ynew',
-                                            'tc_mipPt'       : 'mipPt',
-                                            'tc_pt'          : 'pt'})
+                cl3d = cl3d.rename(columns={'cl3d_pos_x'       : 'x',
+                                            'cl3d_pos_y'       : 'y',
+                                            'cl3d_pos_z'       : 'z',
+                                            'cl3d_pos_eta_new' : 'etanew',
+                                            'cl3d_pos_phi_new' : 'phinew',
+                                            'tc_mipPt'         : 'mipPt',
+                                            'tc_pt'            : 'pt'})
          
                 cl3d = cl3d[ cl3d.pt > kwargs['PtC3dThreshold'] ]
                 
                 cl3d.x /= cl3d.mipPt
                 cl3d.y /= cl3d.mipPt
                 cl3d.z /= cl3d.mipPt
-                cl3d.xnew /= cl3d.mipPt
-                cl3d.ynew /= cl3d.mipPt
+                cl3d.etanew /= cl3d.mipPt
+                cl3d.phinew /= cl3d.mipPt
          
                 cl3d['x2']   = cl3d.x*cl3d.x
                 cl3d['y2']   = cl3d.y*cl3d.y
@@ -118,7 +119,8 @@ def clustering(param, **kwargs):
                     raise ValueError('The event number was not extracted!')
                 
                 cl3d['event'] = event_number.group(1)
-                cl3d_cols = ['en', 'x', 'y', 'z', 'xnew', 'ynew', 'eta', 'phi', 'Rz']
+                cl3d_cols = ['en', 'x', 'y', 'z', 'Rz',
+                             'eta', 'phi', 'etanew', 'phinew']
                 storeOut[key] = cl3d[cl3d_cols]
                 if key1 == tc_keys[0] and key2 == seed_keys[0]:
                     dfout = cl3d[cl3d_cols+['event']]

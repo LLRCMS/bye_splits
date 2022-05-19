@@ -391,7 +391,7 @@ if __name__ == "__main__":
     outrespos = fill_path(opt_kw['OptimizationPosResOut'], **out_opt)
     outcsv    = fill_path(opt_kw['OptimizationCSVOut'],
                           extension='csv', **out_opt)
-    with open( os.path.join('data', 'stats.csv'), 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outresen, mode='w') as storePosRes:
+    with open( os.path.join('data', 'stats.csv'), 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
 
         fieldnames = ['hyperparameter', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
                       'locrat1', 'locrat2', 'remrat1', 'remrat2']

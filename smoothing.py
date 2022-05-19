@@ -126,8 +126,8 @@ def smoothing(param, **kwargs):
                 energies   = createHistogram( storeIn[key][:,[0,1,2]], *opts)
                 wght_x     = createHistogram( storeIn[key][:,[0,1,3]], *opts)
                 wght_y     = createHistogram( storeIn[key][:,[0,1,4]], *opts)
-                wght_x_new = createHistogram( storeIn[key][:,[0,1,5]], *opts)
-                wght_y_new = createHistogram( storeIn[key][:,[0,1,6]], *opts)
+                # wght_x_new = createHistogram( storeIn[key][:,[0,1,5]], *opts)
+                # wght_y_new = createHistogram( storeIn[key][:,[0,1,6]], *opts)
          
                 # if '187544' in key:
                 #     valid1(energies,
@@ -162,10 +162,13 @@ def smoothing(param, **kwargs):
          
                 #printHistogram(ev)
                 
-                storeOut[key] = (energies, wght_x, wght_y, wght_x_new, wght_y_new)
+                storeOut[key] = (energies, wght_x, wght_y,
+                                 # wght_x_new, wght_y_new
+                                 )
                 storeOut[key].attrs['columns'] = [ 'energies',
                                                    'wght_x', 'wght_y',
-                                                   'wght_x_new', 'wght_y_new' ]
+                                                   # 'wght_x_new', 'wght_y_new'
+                                                   ]
                 doc_message = 'Smoothed energies and projected bin positions'
                 storeOut[key].attrs['doc'] = doc_message
 
