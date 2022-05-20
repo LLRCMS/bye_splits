@@ -165,13 +165,13 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                                'tc_eta_new',
                                'phi_old',
                                'phi_new',
-                               'tc_z', 'tc_eta',
+                               'tc_z', 'tc_eta', 'tc_phi',
                                'tc_mipPt', 'tc_pt', 
                                'genpart_exeta', 'genpart_exphi']
                 ev_tc = ev_tc.filter(items=_simCols_tc)
                 wght_f = lambda pos: ev_tc.tc_mipPt*pos/np.abs(ev_tc.tc_z)
-                ev_tc['wght_x']     = wght_f(ev_tc.tc_x)
-                ev_tc['wght_y']     = wght_f(ev_tc.tc_y)
+                ev_tc['wght_x'] = wght_f(ev_tc.tc_x)
+                ev_tc['wght_y'] = wght_f(ev_tc.tc_y)
                 
                 with SupressSettingWithCopyWarning():
                     ev_3d['cl3d_Roverz'] = calcRzFromEta(ev_3d.loc[:,'cl3d_eta'])
@@ -213,7 +213,8 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                                 'phi_new',
                                 'tc_eta_new',
                                 'tc_z',
-                                'tc_eta', 'tc_layer',
+                                'tc_eta', 'tc_phi',
+                                'tc_layer',
                                 'tc_mipPt', 'tc_pt']
                 ev_tc = ev_tc[cols_to_keep]
 

@@ -87,13 +87,13 @@ def resolution_plotter():
                          1: eta_new,
                          2: phi_new}
 
-            mins = {0: min(min(df_en['enres_old']),  min(df_en['enres_new'])),
-                    1: min(min(df_pos['etares_old']),min(df_pos['etares_new'])),
-                    2: min(min(df_pos['phires_old']),min(df_pos['phires_new']))
+            mins = {0: min(min(df_en['enres_old']),  min(df_en['enres_new']))  -max(df_en['enres_old'])/15.,
+                    1: min(min(df_pos['etares_old']),min(df_pos['etares_new']))-max(df_pos['etares_old'])/15.,
+                    2: min(min(df_pos['phires_old']),min(df_pos['phires_new']))-max(df_pos['phires_old'])/15. 
                     }
-            maxs = {0: max(max(df_en['enres_old']),  max(df_en['enres_new'])),
-                    1: max(max(df_pos['etares_old']),max(df_pos['etares_new'])),
-                    2: max(max(df_pos['phires_old']),max(df_pos['phires_new']))
+            maxs = {0: max(max(df_en['enres_old']),  max(df_en['enres_new']))  +max(df_en['enres_new'])/15., 
+                    1: max(max(df_pos['etares_old']),max(df_pos['etares_new']))+max(df_pos['etares_new'])/15.,  
+                    2: max(max(df_pos['phires_old']),max(df_pos['phires_new']))+max(df_pos['phires_new'])/15.,  
                     }
             
             hist_opt = dict(density=False)
@@ -144,7 +144,7 @@ return labels[tick];
 """.format(slider_d))
 
         slider_opt = dict(start=min(slider_d.keys()),
-                          end=max(slider_d.keys()),
+                          end=max(slider_d.keys())+1,
                           step=1, value=0, 
                           format=fmt,
                           title='Iterative algorithm tunable parameter')
