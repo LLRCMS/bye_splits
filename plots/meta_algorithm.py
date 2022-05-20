@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from bokeh.plotting import figure
 from bokeh.layouts import layout
-from bokeh.io import output_file, show, save
+from bokeh.io import output_file, show, save, export_svg
 from bokeh.models import (
     Range1d,
     ColumnDataSource,
@@ -23,7 +23,7 @@ from airflow.airflow_dag import (
 )
 
 def stats_plotter():
-    outcsv = fill_path(opt_kw['OptimizationCSVOut'], extension='csv')
+    outcsv = fill_path(opt_kw['OptimizationCSVOut'], selection=FLAGS.selection, extension='csv')
     df = pd.read_csv(outcsv, sep=',', header=0)
 
     fig_opt = dict(width=600,
@@ -38,7 +38,7 @@ def stats_plotter():
     base_circle_opt = dict(x=df.hyperparameter,
                            size=4, line_width=4)
     base_line_opt = dict(x=df.hyperparameter,
-                         line_width=3)
+                         line_width=2)
     cmssw_line_opt = dict(y=df.remrat2,
                             color='blue',
                             legend_label='CMSSW',
@@ -57,8 +57,8 @@ def stats_plotter():
 
 def resolution_plotter():
     assert len(opt_kw['FesAlgos']) == 1
-    outooptimisationenres = fill_path(opt_kw['OptimizationEnResOut'], '')
-    outooptimisationposres = fill_path(opt_kw['OptimizationPosResOut'], '')
+    outooptimisationenres = fill_path(opt_kw['OptimizationEnResOut'], selection=FLAGS.selection)
+    outooptimisationposres = fill_path(opt_kw['OptimizationPosResOut'], selection=FLAGS.selection)
     with pd.HDFStore(outooptimisationenres, mode='r') as storeEnRes, pd.HDFStore(outooptimisationposres, mode='r') as storePosRes:
 
         hyperparameters = storeEnRes[opt_kw['FesAlgos'][0] + '_meta' ].tolist()
@@ -86,22 +86,33 @@ def resolution_plotter():
             adict_new = {0: en_new,
                          1: eta_new,
                          2: phi_new}
+
+            mins = {0: min(min(df_en['enres_old']),  min(df_en['enres_new'])),
+                    1: min(min(df_pos['etares_old']),min(df_pos['etares_new'])),
+                    2: min(min(df_pos['phires_old']),min(df_pos['phires_new']))
+                    }
+            maxs = {0: max(max(df_en['enres_old']),  max(df_en['enres_new'])),
+                    1: max(max(df_pos['etares_old']),max(df_pos['etares_new'])),
+                    2: max(max(df_pos['phires_old']),max(df_pos['phires_new']))
+                    }
             
             hist_opt = dict(density=False)
             hold, edgold = ([] for x in range(2))
-            _tmp = np.histogram(df_en['enres_old'], bins=50, **hist_opt)
+            _tmp = np.histogram(df_en['enres_old'], bins=50, range=(mins[0],maxs[0]), **hist_opt)
             hold.append( _tmp[0] )
             edgold.append( _tmp[1] )
-            for x in ('etares_old', 'phires_old'):
-                _tmp = np.histogram(df_pos[x], bins=50 if 'eta' in x else 150, **hist_opt)
+            for ii,x in enumerate(('etares_old', 'phires_old')):
+                _tmp = np.histogram(df_pos[x], bins=50 if 'eta' in x else 150,
+                                    range=(mins[ii+1],maxs[ii+1]), **hist_opt)
                 hold.append( _tmp[0] )
                 edgold.append( _tmp[1] )
             hnew, edgnew = ([] for x in range(2))
-            _tmp = np.histogram(df_en['enres_new'], bins=50, **hist_opt)
+            _tmp = np.histogram(df_en['enres_new'], bins=50, range=(mins[0],maxs[0]), **hist_opt)
             hnew.append( _tmp[0] )
             edgnew.append( _tmp[1] )
-            for x in ('etares_new', 'phires_new'):
-                _tmp = np.histogram(df_pos[x], bins=50 if 'eta' in x else 150, **hist_opt)
+            for ii,x in enumerate(('etares_new', 'phires_new')):
+                _tmp = np.histogram(df_pos[x], bins=50 if 'eta' in x else 150,
+                                    range=(mins[ii+1],maxs[ii+1]), **hist_opt)
                 hnew.append( _tmp[0] )
                 edgnew.append( _tmp[1] )
 
@@ -126,7 +137,7 @@ def resolution_plotter():
                        for q in range(3) ]
 
         slider_d = dict(zip(np.arange(len(hyperparameters)),hyperparameters))
-        from bokeh.models.formatters import  FuncTickFormatter
+        from bokeh.models.formatters import FuncTickFormatter
         fmt = FuncTickFormatter(code="""
 var labels = {};
 return labels[tick];
@@ -135,14 +146,15 @@ return labels[tick];
         slider_opt = dict(start=min(slider_d.keys()),
                           end=max(slider_d.keys()),
                           step=1, value=0, 
-                          format=fmt)
-        sliders = [ Slider(**slider_opt) for q in range(3) ]
+                          format=fmt,
+                          title='Iterative algorithm tunable parameter')
+        slider = Slider(**slider_opt)
         # slider = Slider(start=hyperparameters[0],
         #                 end=hyperparameters[-1],
         #                 value=hyperparameters[0],
         #                 step=.1, title='Tunable Parameter')
         for it in range(3):
-            sliders[it].js_on_change('value', callbacks[it])
+            slider.js_on_change('value', callbacks[it])
 
         filter_str = """
         var indices = new Array(source.get_length());
@@ -155,12 +167,12 @@ return labels[tick];
         }}
         return indices;
         """.format(slider_d)
-        filt  = [ CustomJSFilter(args=dict(slider=sliders[q]), code=filter_str)
+        filt  = [ CustomJSFilter(args=dict(slider=slider), code=filter_str)
                   for q in range(3) ]
         views  = [ CDSView(source=sources[q],  filters=[filt[q]])
                    for q in range(3) ]
 
-        quad_opt = dict(line_width=2)
+        quad_opt = dict(line_width=1)
         cmssw_opt = dict(color='blue', legend_label='CMSSW', **quad_opt)
         custom_opt = dict(x='x',
                           y='y',
@@ -169,6 +181,9 @@ return labels[tick];
         title_d = {0: 'Energy Resolution: RecoPt/GenPt',
                    1: 'Eta Resolution: RecoEta - GenEta',
                    2: 'Phi Resolution: RecoPhi - GenPhi', }
+        axis_label_d = {0: r'$$p_{T,\text{Reco}} / p_{T,\text{Gen}}$$',
+                        1: r'$$\eta_{\text{Reco}} - \eta_{\text{Gen}}$$',
+                        2: r'$$\phi_{\text{Reco}} - \phi_{\text{Gen}}$$', }
         for it in range(3):
             p.append( figure( width=600, height=300,
                               title=title_d[it],
@@ -181,20 +196,21 @@ return labels[tick];
             p[-1].step(source=sources[it], view=views[it], **custom_opt)
             p[-1].legend.click_policy='hide'
             p[-1].legend.location = 'top_left'
-
+            p[-1].xaxis.axis_label = axis_label_d[it]
+            
         if FLAGS.selection.startswith('above_eta_'):
             title_suf = ' (eta > ' + FLAGS.selection.split('above_eta_')[1] + ')'
         elif FLAGS.selection == 'splits_only':
             title_suf = '(split clusters only)'
 
         figs_summ = []
-        title_d = {0: 'Energy Resolution: standard deviations {}'.format(title_suf),
-                   1: 'Eta Resolution: standard deviations {}'.format(title_suf),
-                   2: 'Phi Resolution: standard deviations {}'.format(title_suf), }
+        title_d = {0: 'Cluster Energy Resolution: standard deviations {}'.format(title_suf),
+                   1: 'Cluster Eta Resolution: standard deviations {}'.format(title_suf),
+                   2: 'Cluster Phi Resolution: standard deviations {}'.format(title_suf), }
         for it in range(3):
             figs_summ.append( figure( width=600, height=300,
                                       title=title_d[it],
-                                      tools='save,box_zoom,reset',
+                                      tools='save',
                                       y_axis_type='linear',
                                       #x_range=Range1d(-0.1, 1.1),
                                       #y_range=Range1d(-0.05, 1.05),
@@ -204,15 +220,20 @@ return labels[tick];
 
             points_opt = dict(x=hyperparameters)
             figs_summ[-1].line(y=adict_old[it], color='blue', legend_label='CMSSW',
-                               line_width=2,
-                               **points_opt) 
+                               line_width=1, **points_opt) 
             figs_summ[-1].circle(y=adict_new[it], color='red', legend_label='Custom',
                                  size=8,
                                  **points_opt) 
             figs_summ[-1].legend.click_policy='hide'
-            figs_summ[-1].legend.location = 'top_right'
-        
-        return figs_summ, p, sliders
+            figs_summ[-1].legend.location = 'top_right' if it==0 else 'bottom_right'
+            figs_summ[-1].xaxis.axis_label = 'Algorithm tunable parameter'
+
+            # figs_summ[-1].output_backend = "svg"
+            # export_svg(figs_summ[-1], filename="plot.svg")
+            # export_png(figs_summ[-1], filename="plot.png", height=300, width=300)
+
+            
+        return figs_summ, p, slider
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
@@ -235,10 +256,10 @@ if __name__ == "__main__":
     output_file( os.path.join('out', this_file + suf + '.html') )
     
     stats_fig  = stats_plotter()
-    summ_fig, res_figs, sliders = resolution_plotter()
+    summ_fig, res_figs, slider = resolution_plotter()
 
     ncols = 4
-    lay_list = [[stats_fig], summ_fig, sliders, res_figs]
+    lay_list = [[stats_fig], [slider], res_figs, summ_fig ]
 
     lay = layout(lay_list)
     save(lay) #if show_html else save(lay)

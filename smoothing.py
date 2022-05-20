@@ -112,9 +112,9 @@ def createHistogram(event, nbinsRz, nbinsPhi):
     return arr
 
 # Event by event smoothing
-def smoothing(param, **kwargs):
-    insmoothing = fill_path(kwargs['SmoothingIn'], param=param)
-    outsmoothing = fill_path(kwargs['SmoothingOut'], param=param) 
+def smoothing(param, selection, **kwargs):
+    insmoothing = fill_path(kwargs['SmoothingIn'], param=param, selection=selection)
+    outsmoothing = fill_path(kwargs['SmoothingOut'], param=param, selection=selection) 
 
     with h5py.File(insmoothing,  mode='r') as storeIn, h5py.File(outsmoothing, mode='w') as storeOut :
 

@@ -16,7 +16,7 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
     """    
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
     for fe in kwargs['FesAlgos']:
-        infilling = fill_path(kwargs['FillingIn'], '')
+        infilling = fill_path(kwargs['FillingIn'])
         simAlgoFiles[fe] = [ infilling ]
 
     for fe,files in simAlgoFiles.items():
@@ -33,8 +33,8 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
         print(simAlgoNames)
 
     ### Data Processing ######################################################
-    outfillingplot = fill_path(kwargs['FillingOutPlot'], param)
-    outfillingcomp = fill_path(kwargs['FillingOutComp'], param)
+    outfillingplot = fill_path(kwargs['FillingOutPlot'], param=param, selection=selection)
+    outfillingcomp = fill_path(kwargs['FillingOutComp'], param=param, selection=selection)
     with pd.HDFStore(outfillingplot, mode='w') as store, pd.HDFStore(outfillingcomp, mode='w') as storeComp:
 
         for i,fe in enumerate(kwargs['FesAlgos']):
@@ -126,12 +126,14 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
             split_tc = split_tc.merge(tc_map,
                                       on='tc_id',
                                       how='right').dropna()
+
             assert not np.count_nonzero(split_tc.phi_old - split_tc.tc_phi)
 
             split_tc['tc_x_new'] = split_tc.R * np.cos(split_tc.phi_new)
             split_tc['tc_y_new'] = split_tc.R * np.sin(split_tc.phi_new)
+
             split_tc['tc_eta_new'] = np.arcsinh( split_tc.tc_z /
-                                              np.sqrt(split_tc.tc_x_new**2 + split_tc.tc_y_new**2) )
+                                                 np.sqrt(split_tc.tc_x_new**2 + split_tc.tc_y_new**2) )
 
             split_tc['tc_phi_bin'] = pd.cut( split_tc.phi_new,
                                              bins=kwargs['PhiBinEdges'],
@@ -141,11 +143,11 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
 
             store[fe + '_3d'] = split_3d
             store[fe + '_tc'] = split_tc
-            
+
             simAlgoPlots[fe] = (split_3d, split_tc)
 
     ### Event Processing ######################################################
-    outfilling = fill_path(kwargs['FillingOut'], param)
+    outfilling = fill_path(kwargs['FillingOut'], param=param, selection=selection)
     with h5py.File(outfilling, mode='w') as store:
 
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
@@ -161,6 +163,7 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                                'tc_x', 'tc_y',
                                'tc_x_new', 'tc_y_new',
                                'tc_eta_new',
+                               'phi_old',
                                'phi_new',
                                'tc_z', 'tc_eta',
                                'tc_mipPt', 'tc_pt', 
@@ -169,10 +172,6 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                 wght_f = lambda pos: ev_tc.tc_mipPt*pos/np.abs(ev_tc.tc_z)
                 ev_tc['wght_x']     = wght_f(ev_tc.tc_x)
                 ev_tc['wght_y']     = wght_f(ev_tc.tc_y)
-                # ev_tc['wght_x_new'] = wght_f(ev_tc.tc_x_new)
-                # ev_tc['wght_y_new'] = wght_f(ev_tc.tc_y_new)
-                # ev_tc['wght_phi_new'] = ev_tc.tc_mipPt * ev_tc.phi_new
-                # ev_tc['wght_eta_new'] = ev_tc.tc_mipPt * ev_tc.eta_new
                 
                 with SupressSettingWithCopyWarning():
                     ev_3d['cl3d_Roverz'] = calcRzFromEta(ev_3d.loc[:,'cl3d_eta'])
@@ -202,10 +201,6 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                 group = gb.sum()[cols_to_keep]
                 group.wght_x       /= group.tc_mipPt
                 group.wght_y       /= group.tc_mipPt 
-                # group.wght_x_new   /= group.tc_mipPt
-                # group.wght_y_new   /= group.tc_mipPt
-                # group.wght_eta_new /= group.tc_mipPt
-                # group.wght_phi_new /= group.tc_mipPt 
                     
                 store[str(_k) + '_' + str(ev) + '_group'] = group.to_numpy()
                 store[str(_k) + '_' + str(ev) + '_group'].attrs['columns'] = cols_to_keep

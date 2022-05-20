@@ -26,9 +26,9 @@ def validation(mipPts, event, infile, outfile,
             for bin2 in range(nbinsPhi):
                 flocal.write('{}\t{}\t{}\n'.format(bin1, bin2, np.around(mipPts[bin1,bin2], 6)))
             
-def seeding(param, debug=False, **kwargs):
-    inseeding = fill_path(kwargs['SeedingIn'], param=param)
-    outseeding = fill_path(kwargs['SeedingOut'], param=param) 
+def seeding(param, selection, debug=False, **kwargs):
+    inseeding = fill_path(kwargs['SeedingIn'], param=param, selection=selection)
+    outseeding = fill_path(kwargs['SeedingOut'], param=param, selection=selection) 
     with h5py.File(inseeding,  mode='r') as storeIn, h5py.File(outseeding, mode='w') as storeOut:
 
         for falgo in kwargs['FesAlgos']:

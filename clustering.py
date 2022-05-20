@@ -7,11 +7,11 @@ from random_utils import (
 )
 from airflow.airflow_dag import fill_path
 
-def clustering(param, **kwargs):
+def clustering(param, selection, **kwargs):
     get_idx = lambda colname: tc_cols.index(colname)
-    inclusteringseeds = fill_path(kwargs['ClusteringInSeeds'], param=param)
-    inclusteringtc = fill_path(kwargs['ClusteringInTC'], param=param)
-    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param=param)
+    inclusteringseeds = fill_path(kwargs['ClusteringInSeeds'], param=param, selection=selection)
+    inclusteringtc = fill_path(kwargs['ClusteringInTC'], param=param, selection=selection)
+    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param=param, selection=selection)
     with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:
@@ -33,7 +33,6 @@ def clustering(param, **kwargs):
                                           for xi in tc[:, get_idx('tc_layer')]] )
                 minDist = ( radiusCoeffA +
                            radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:, get_idx('tc_eta')])) )
-                # print('minDist: ', minDist)
                 
                 seedEn, seedX, seedY = storeInSeeds[key2]
          
@@ -63,9 +62,9 @@ def clustering(param, **kwargs):
                 assert(tc[:].shape[0] == seeds_energies.shape[0])
          
                 seeds_indexes  = np.expand_dims( seeds_indexes[pass_threshold],
-                                                axis=-1 )
+                                                 axis=-1 )
                 seeds_energies = np.expand_dims( seeds_energies[pass_threshold],
-                                                axis=-1 )
+                                                 axis=-1 )
          
                 tc = tc[:][pass_threshold]
          
@@ -129,7 +128,7 @@ def clustering(param, **kwargs):
 
             print('There were {} events without seeds.'.format(empty_seeds))
 
-    outclustering = fill_path(kwargs['ClusteringOutPlot'], param=param) 
+    outclustering = fill_path(kwargs['ClusteringOutPlot'], param=param, selection=selection) 
     with pd.HDFStore(outclustering, mode='w') as sout:
         dfout.event = dfout.event.astype(int)
         sout['data'] = dfout

@@ -106,7 +106,7 @@ def plot_trigger_cells_occupancy(param,
     #########################################################################
     ######### INPUTS: CLUSTERING AFTER CUSTOM ITERATIVE ALGORITHM ###########
     #########################################################################
-    outclusteringplot = fill_path(cl_kw['ClusteringOutPlot'], param)
+    outclusteringplot = fill_path(cl_kw['ClusteringOutPlot'], param=param, selection=FLAGS.selection)
     with pd.HDFStore(outclusteringplot, mode='r') as store:
         splittedClusters_3d_local = store['data']
 
@@ -179,7 +179,7 @@ def plot_trigger_cells_occupancy(param,
     #########################################################################
     for i,fe in enumerate(kw['FesAlgos']):
 
-        outfillingplot = fill_path(kw['FillingOutPlot'], param)
+        outfillingplot = fill_path(kw['FillingOutPlot'], param=param, selection=FLAGS.selection)
         with pd.HDFStore(outfillingplot, mode='r') as store:
             splittedClusters_3d_cmssw = store[fe + '_3d']
             splittedClusters_tc = store[fe + '_tc']

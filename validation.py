@@ -51,10 +51,10 @@ def validation(**kwargs):
                         print('\tRz difference: {}'.format(locRz[i] - cmsswRz[i]))
                         print('\tEn difference: {}'.format(locEn[i] - cmsswEn[i]))
 
-def stats_collector(param, debug=False, **kwargs):
-    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param)
-    outfilling = fill_path(kwargs['FillingOut'], param)
-    outfillingcomp = fill_path(kwargs['FillingOutComp'], param)
+def stats_collector(param, selection, debug=False, **kwargs):
+    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param=param, selection=selection)
+    outfilling = fill_path(kwargs['FillingOut'], param=param, selection=selection)
+    outfillingcomp = fill_path(kwargs['FillingOutComp'], param=param, selection=selection)
     with pd.HDFStore(outclusteringvalidation, mode='r') as storeInLocal, h5py.File(outfilling, mode='r') as storeInCMSSW, pd.HDFStore(outfillingcomp, mode='r') as storeGen:
         
         for falgo in kwargs['FesAlgos']:
@@ -147,6 +147,7 @@ def stats_collector(param, debug=False, **kwargs):
                 etares_new.append( _etares_new - gen_eta )
                 phires_old.append( _phires_old - gen_phi )
                 phires_new.append( _phires_new - gen_phi )
+                breakpoint()
 
                 if len(locEtaOld) == 1:
                     c_loc1 += 1
