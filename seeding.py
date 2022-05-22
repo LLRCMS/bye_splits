@@ -51,26 +51,41 @@ def seeding(param, selection, debug=False, **kwargs):
          
                 #remove padding
                 slc = slice(1,energies.shape[0]-1)
-         
-                south = np.roll(energies, shift=1,  axis=0)[slc]
-                north = np.roll(energies, shift=-1, axis=0)[slc]
-                east  = np.roll(energies, shift=-1, axis=1)[slc]
-                west  = np.roll(energies, shift=1,  axis=1)[slc]
-                northeast = np.roll(energies, shift=(-1,-1), axis=(0,1))[slc]
-                northwest = np.roll(energies, shift=(-1,1),  axis=(0,1))[slc]
-                southeast = np.roll(energies, shift=(1,-1),  axis=(0,1))[slc]
-                southwest = np.roll(energies, shift=(1,1),   axis=(0,1))[slc]
+
+                window_size = kwargs['WindowDim']
+                surroundings = []
+
+                # note: energies is by definition larger or equal to itself
+                for iphi in range(-window_size, window_size+1):
+                    for iRz in range(-window_size, window_size + 1):
+                        surroundings.append( np.roll(energies, shift=(iphi,iRz),
+                                                     axis=(0,1))[slc] )
+
+                        
+                # south = np.roll(energies, shift=1,  axis=0)[slc]
+                # north = np.roll(energies, shift=-1, axis=0)[slc]
+                # east  = np.roll(energies, shift=-1, axis=1)[slc]
+                # west  = np.roll(energies, shift=1,  axis=1)[slc]
+                # northeast = np.roll(energies, shift=(-1,-1), axis=(0,1))[slc]
+                # northwest = np.roll(energies, shift=(-1,1),  axis=(0,1))[slc]
+                # southeast = np.roll(energies, shift=(1,-1),  axis=(0,1))[slc]
+                # southwest = np.roll(energies, shift=(1,1),   axis=(0,1))[slc]
          
                 energies = energies[slc]
                 # if '44317' in key:
                 #     print(key)
                 #     print(energies)
                 #     breakpoint()
-                maxima = ( (energies > kwargs['histoThreshold'] ) &
-                           (energies >= south) & (energies > north) &
-                           (energies >= east) & (energies > west) &
-                           (energies >= northeast) & (energies > northwest) &
-                           (energies >= southeast) & (energies > southwest) )
+
+                # maxima = ( (energies > kwargs['histoThreshold'] ) &
+                #            (energies >= south) & (energies > north) &
+                #            (energies >= east) & (energies > west) &
+                #            (energies >= northeast) & (energies > northwest) &
+                #            (energies >= southeast) & (energies > southwest) )
+                # TO DO: UPDATE THE >= WITH SOME >
+                maxima = (energies > kwargs['histoThreshold'] )
+                for surr in surroundings:
+                    maxima = maxima & (energies >= surr)
          
                 seeds_idx = np.nonzero(maxima)
          

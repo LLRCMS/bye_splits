@@ -393,7 +393,8 @@ if __name__ == "__main__":
     out_opt = dict(selection=FLAGS.selection)
     outresen  = fill_path(opt_kw['OptimizationEnResOut'],  **out_opt)
     outrespos = fill_path(opt_kw['OptimizationPosResOut'], **out_opt)
-    outcsv    = fill_path(opt_kw['OptimizationCSVOut'], extension='csv', **out_opt)
+    outcsv    = fill_path(opt_kw['OptimizationCSVOut'],
+                          extension='csv', **out_opt)
 
     with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
 
@@ -452,18 +453,12 @@ if __name__ == "__main__":
         
             if FLAGS.plot:
 
-                suf = '_SEL_'
-                if FLAGS.selection.startswith('above_eta_'):
-                    suf += float(s.split('above_eta_')[1])
-                elif FLAGS.selection == 'splits_only':
-                    suf += FLAGS.selection
-                else:
-                    raise ValueError('Selection {} is not supported.'.format(FLAGS.selection))
-
-                suf += '_PARAM_' + str(hp).replace('.','p')
-
                 this_file = os.path.basename(__file__).split('.')[0]
-                plot_name = os.path.join('out', this_file + suf + '.html')
+                plot_name = fill_path(this_file,
+                                      param=hp,
+                                      selection=FLAGS.selection,
+                                      extension='html')
+                
                 plot_tc_occ(param=hp,
                             selection=FLAGS.selection,
                             trigger_cell_map=tc_map,

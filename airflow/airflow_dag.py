@@ -44,6 +44,7 @@ base_kwargs = {
     'DataFolder': DataFolder,
     'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
     'BasePath': os.path.join(os.environ['PWD'], DataFolder),
+    'OutPath': os.path.join(os.environ['PWD'], 'out'),
 
     'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
     'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
@@ -62,8 +63,15 @@ def fill_path(x, param='', selection='', extension='hdf5'):
         param = '_PARAM_' + str(param).replace('.','p')
     if selection != '':
         selection = '_SEL_' + selection
-    name = x + selection + param + '.' + extension
-    return os.path.join( base_kwargs['BasePath'], name)
+    sw = ''
+    if selection != '':
+        sw = '_SeedingWindow' + str(seeding_kwargs['WindowDim'])
+    name = x + selection + param + sw + '.' + extension
+    if extension == 'html':
+        final = os.path.join( base_kwargs['OutPath'], name)
+    else:
+        final = os.path.join( base_kwargs['BasePath'], name)
+    return final
 
 # filling task
 filling_kwargs = setDictionary(
@@ -108,7 +116,8 @@ smoothing_kwargs = setDictionary(
 seeding_kwargs = setDictionary(
     { 'SeedingIn': smoothing_kwargs['SmoothingOut'],
       'SeedingOut': 'seeding',
-      'histoThreshold': 20. }
+      'histoThreshold': 20.,
+      'WindowDim': 2}
     )
 
 # clustering task

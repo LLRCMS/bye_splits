@@ -25,6 +25,7 @@ from airflow.airflow_dag import (
     filling_kwargs as kw,
     clustering_kwargs as cl_kw,
     smoothing_kwargs as smooth_kw,
+    seeding_kwargs as seed_kw,
     fill_path,
 )
 
@@ -378,13 +379,21 @@ def plot_trigger_cells_occupancy(param,
                              width_units='data', height_units='data',
                              line_color='black' )
 
+            seed_window = ( 'seeding window = {}'
+                           .format(seed_kw['WindowDim']) )
             figs = []
-            t_d = {0: 'Energy Density (before smoothing, before algo)',
-                   1: 'Energy Density (before smoothing, after algo)',
-                   2: 'Energy Density (after smoothing, before algo)',
-                   3: 'Energy Density (after smoothing, after algo)',
-                   4: 'Hit Density (before smoothing, before algo)',
-                   5: 'Hit Density (before smoothing, after algo)' }
+            t_d = {0: ( 'Energy Density (before smoothing, ' +
+                        'before algo, {})'.format(seed_window) ),
+                   1: ( 'Energy Density (before smoothing, ' +
+                        'after algo, , {})'.format(seed_window) ),
+                   2: ( 'Energy Density (after smoothing, ' +
+                        'before alg, {})'.format(seed_window) ),
+                   3: ( 'Energy Density (after smoothing, ' +
+                        'after algo, {})'.format(seed_window) ),
+                   4: ( 'Hit Density (before smoothing, ' +
+                        'before algo, {})'.format(seed_window) ),
+                   5: ( 'Hit Density (before smoothing, ' +
+                        'after algo, {})'.format(seed_window) ) }
             group_d = {0: group_old,
                        1: group_new,
                        2: df_smooth_old,
@@ -460,6 +469,11 @@ def plot_trigger_cells_occupancy(param,
 
                 figs[-1].rect( fill_color=transform(hvar_d[it], mapper),
                               **rec_opt_d[it] )
+
+                figs[-1].hover.tooltips = [ toolvar_d[it],
+                                           ("min(eta)", "@{min_eta}"),
+                                           ("max(eta)", "@{max_eta}") ]
+
                 figs[-1].cross(**gen_cross_opt)
 
                 if it==1 or it==3 or it==5:
@@ -468,9 +482,6 @@ def plot_trigger_cells_occupancy(param,
                     figs[-1].cross(**cmssw_cross_opt)
 
                 set_figure_props(figs[-1], phiBinCenters, rzBinCenters)
-                figs[-1].hover.tooltips = [ toolvar_d[it],
-                                            ("min(eta)", "@{min_eta}"),
-                                            ("max(eta)", "@{max_eta}") ]
 
             for bkg in tc_backgrounds:
                 bkg.cross(x=gen_pos_phi, y=gen_pos_rz,
@@ -479,7 +490,7 @@ def plot_trigger_cells_occupancy(param,
                           color=colors[1], **base_cross_opt)
 
             #pics.append( (p,ev) )
-            _lay = layout( [[figs[0], figs[1]], [figs[4],figs[5]], [figs[2],figs[3]]] )
+            _lay = layout( [[figs[4], figs[5]], [figs[0],figs[1]], [figs[2],figs[3]]] )
             ev_panels.append( Panel(child=_lay,
                                     title='{}'.format(ev)) )
 

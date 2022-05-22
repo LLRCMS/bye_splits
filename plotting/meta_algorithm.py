@@ -144,7 +144,7 @@ return labels[tick];
 """.format(slider_d))
 
         slider_opt = dict(start=min(slider_d.keys()),
-                          end=max(slider_d.keys())+1,
+                          end=max(slider_d.keys()),
                           step=1, value=0, 
                           format=fmt,
                           title='Iterative algorithm tunable parameter')
@@ -242,18 +242,12 @@ if __name__ == "__main__":
                         default='splits_only', type=str)
     FLAGS = parser.parse_args()
 
-    suf = '_SEL_'
-    if FLAGS.selection.startswith('above_eta_'):
-        suf += FLAGS.selection
-    elif FLAGS.selection == 'splits_only':
-        suf += FLAGS.selection
-    else:
-        m = 'Selection {} is not supported.\n'.format(FLAGS.selection)
-        m += 'Available options are: `splits_only` or `above_eta_ETAVALUE`'
-        raise ValueError(m)
-
     this_file = os.path.basename(__file__).split('.')[0]
-    output_file( os.path.join('out', this_file + suf + '.html') )
+    plot_name = fill_path(this_file,
+                          selection=FLAGS.selection,
+                          extension='html')
+
+    output_file( plot_name )
     
     stats_fig  = stats_plotter()
     summ_fig, res_figs, slider = resolution_plotter()
