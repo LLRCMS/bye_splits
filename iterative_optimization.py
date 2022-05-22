@@ -8,7 +8,8 @@ import numpy as np
 import pandas as pd
 import uproot as up
 import h5py
-import sys; np.set_printoptions(threshold=sys.maxsize, linewidth=170)
+import sys
+#np.set_printoptions(threshold=sys.maxsize, linewidth=170)
 
 from random_utils import get_html_name
 from data_processing import DataProcessing
@@ -28,7 +29,9 @@ from smoothing import smoothing
 from seeding import seeding
 from clustering import clustering
 from validation import validation, stats_collector
-from plots.trigger_cells_occupancy import plot_trigger_cells_occupancy
+from plotting.trigger_cells_occupancy import (
+    plot_trigger_cells_occupancy as plot_tc_occ
+    )
 
 def is_sorted(arr, nbinsphi):
     diff = arr[:-1] - arr[1:]
@@ -404,8 +407,8 @@ if __name__ == "__main__":
             opt = dict(param=hp, selection=FLAGS.selection)
             tc_map = optimization( hyperparam=hp, **opt_kw )
 
-            out_filling = filling(hp, FLAGS.nevents, tc_map,
-                                  FLAGS.selection, **filling_kwargs)
+            filling(hp, FLAGS.nevents, tc_map,
+                    FLAGS.selection, **filling_kwargs)
             print('filling done', flush=True)
             smoothing(**opt, **smoothing_kwargs)
             print('smoothing done', flush=True)
@@ -461,13 +464,13 @@ if __name__ == "__main__":
 
                 this_file = os.path.basename(__file__).split('.')[0]
                 plot_name = os.path.join('out', this_file + suf + '.html')
-                plot_trigger_cells_occupancy(param=hp,
-                                             selection=FLAGS.selection,
-                                             trigger_cell_map=tc_map,
-                                             plot_name=plot_name,
-                                             pos_endcap=True,
-                                             nevents=16,
-                                             min_rz=opt_kw['MinROverZ'],
-                                             max_rz=opt_kw['MaxROverZ'],
-                                             layer_edges=[0,28],
-                                             **opt_kw)
+                plot_tc_occ(param=hp,
+                            selection=FLAGS.selection,
+                            trigger_cell_map=tc_map,
+                            plot_name=plot_name,
+                            pos_endcap=True,
+                            nevents=16,
+                            min_rz=opt_kw['MinROverZ'],
+                            max_rz=opt_kw['MaxROverZ'],
+                            layer_edges=[0,28],
+                            **opt_kw)

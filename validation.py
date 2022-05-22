@@ -22,8 +22,8 @@ def validation(**kwargs):
                 search_str = '{}_([0-9]{{1,7}})_cl'.format(kwargs['FesAlgos'][0])
                 event_number = re.search(search_str, key1).group(1)
          
-                locEta = np.sort(local['eta'].to_numpy())
-                locPhi = np.sort(local['phi'].to_numpy())
+                locEtaOld = np.sort(local['eta'].to_numpy())
+                locPhiOld = np.sort(local['phi'].to_numpy())
                 locRz  = np.sort(local['Rz'].to_numpy())
                 locEn  = np.sort(local['en'].to_numpy())
                 cmsswEta = np.sort(cmssw[:][get_column_idx(cmssw_cols, 'cl3d_eta')])
@@ -37,12 +37,12 @@ def validation(**kwargs):
                     len(locEn)  != len(cmsswEn)):
                     print('Event Number: ', event_number)
                     print(local)
-                    print(len(locEta))
+                    print(len(locEtaOld))
                     print(cmssw)
                     print(len(cmsswEta))
          
                 errorThreshold = .5E-3
-                for i in range(len(locEta)):
+                for i in range(len(locEtaOld)):
                     if ( abs(locEtaOld[i] - cmsswEta[i]) > errorThreshold or
                          abs(locPhiOld[i] - cmsswPhi[i]) > errorThreshold or
                          abs(locRz[i]  - cmsswRz[i])  > errorThreshold  or
@@ -100,14 +100,12 @@ def stats_collector(param, selection, debug=False, **kwargs):
                 cmssw = storeInCMSSW[key2]
                 cmssw_cols = list(cmssw.attrs['columns'])
                 
-                locEtaOld = np.sort(local['eta'].to_numpy())
-                locPhiOld = np.sort(local['phi'].to_numpy())
                 locEtaNew = np.sort(local['etanew'].to_numpy())
                 locPhiNew = np.sort(local['phinew'].to_numpy())
-                locRz     = np.sort(local['Rz'].to_numpy())
-                locEn     = np.sort(local['en'].to_numpy())
-                locX      = np.sort(local['x'].to_numpy())
-                locY      = np.sort(local['y'].to_numpy())
+                locRz  = np.sort(local['Rz'].to_numpy())
+                locEn  = np.sort(local['en'].to_numpy())
+                # locXNew   = np.sort(local['xnew'].to_numpy())
+                # locYNew   = np.sort(local['ynew'].to_numpy())
 
                 cmsswEta  = np.sort(cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_eta') ])
                 cmsswPhi  = np.sort(cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_phi') ])
@@ -146,15 +144,6 @@ def stats_collector(param, selection, debug=False, **kwargs):
                 _etares_new = locEtaNew[index_max_energy_local]
                 _phires_new = locPhiNew[index_max_energy_local]
 
-                # try:
-                #     assert np.abs(cmsswEta[0] - locEtaOld[0]) < 1e-4
-                #     assert np.abs(cmsswEta[0] - locEtaNew[0]) < 1e-4
-                # except AssertionError:
-                #     print(cmsswEta[0], locEtaOld[0], locEtaNew[0])
-                #     print(np.abs(cmsswEta[0] - locEtaOld[0]))
-                #     print(np.abs(cmsswEta[0] - locEtaNew[0]))
-                #     breakpoint()
-
                 enres_old.append ( _enres_old / gen_en )
                 enres_new.append ( _enres_new / gen_en )
                 etares_old.append( _etares_old - gen_eta )
@@ -162,9 +151,9 @@ def stats_collector(param, selection, debug=False, **kwargs):
                 phires_old.append( _phires_old - gen_phi )
                 phires_new.append( _phires_new - gen_phi )
 
-                if len(locEtaOld) == 1:
+                if len(locEtaNew) == 1:
                     c_loc1 += 1
-                elif len(locEtaOld) == 2:
+                elif len(locEtaNew) == 2:
                     c_loc2 += 1
                 else:
                     print('Suprise')

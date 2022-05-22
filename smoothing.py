@@ -1,6 +1,7 @@
 import numpy as np
 import h5py
 from airflow.airflow_dag import fill_path
+from copy import copy
 
 def valid1(energies, infile, outfile, nbinsRz, nbinsPhi):
     """
@@ -92,7 +93,7 @@ def printHistogram(arr):
                 print('X', end='|')
         print()
 
-def createHistogram(event, nbinsRz, nbinsPhi):
+def createHistogram(bins, nbinsRz, nbinsPhi):
     """
     Creates a 2D histogram with fixed (R/z vs Phi) size.
     The input event must be a 2D array where the inner axis encodes, in order:
@@ -102,12 +103,12 @@ def createHistogram(event, nbinsRz, nbinsPhi):
     """
     arr = np.zeros((nbinsRz, nbinsPhi))
 
-    for ev in event[:]:
-        assert(ev[0] >= 0)
-        assert(ev[1] >= 0)
-        rzbin = int(ev[0])
-        phibin = int(ev[1])
-        arr[rzbin,phibin] = ev[2]
+    for bin in bins[:]:
+        assert(bin[0] >= 0)
+        assert(bin[1] >= 0)
+        rzbin = int(bin[0])
+        phibin = int(bin[1])
+        arr[rzbin,phibin] = bin[2]
 
     return arr
 
@@ -119,58 +120,92 @@ def smoothing(param, selection, **kwargs):
     with h5py.File(insmoothing,  mode='r') as storeIn, h5py.File(outsmoothing, mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:
-            keys = [x for x in storeIn.keys() if falgo in x and '_group' in x]
+            keys_old = [x for x in storeIn.keys()
+                        if falgo in x and '_group_old' in x]
+            keys_new = [x for x in storeIn.keys()
+                        if falgo in x and '_group_new' in x]
             
-            for key in keys:
+            for kold,knew in zip(keys_old,keys_new):
                 opts = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
-                energies   = createHistogram( storeIn[key][:,[0,1,2]], *opts)
-                wght_x     = createHistogram( storeIn[key][:,[0,1,3]], *opts)
-                wght_y     = createHistogram( storeIn[key][:,[0,1,4]], *opts)
-                # wght_x_new = createHistogram( storeIn[key][:,[0,1,5]], *opts)
-                # wght_y_new = createHistogram( storeIn[key][:,[0,1,6]], *opts)
-         
+                energies_old = createHistogram(storeIn[kold][:,[0,1,2]],
+                                               *opts)
+                energies_new = createHistogram(storeIn[knew][:,[0,1,2]],
+                                               *opts)
+                wght_x_old = createHistogram(storeIn[kold][:,[0,1,3]],
+                                             *opts)
+                wght_y_old = createHistogram(storeIn[kold][:,[0,1,4]],
+                                             *opts)
+                wght_x_new = createHistogram(storeIn[knew][:,[0,1,3]],
+                                             *opts)
+                wght_y_new = createHistogram(storeIn[knew][:,[0,1,4]],
+                                             *opts)
+
+                # if '44317' in key:
+                #     print(key)
+                #     print(energies)
+                #     breakpoint()
+
                 # if '187544' in key:
                 #     valid1(energies,
                 #            infile='outLocalBeforeSmoothing.txt',
                 #            outfile='outCMSSWBeforeSmoothing.txt')
          
                 #printHistogram(ev)
-         
-                energies = smoothAlongPhi(
-                    energies,
-                    kwargs['BinSums'],
-                    kwargs['NbinsRz'],
-                    kwargs['NbinsPhi'],
-                    kwargs['SeedsNormByArea'],
-                    kwargs['MinROverZ'],
-                    kwargs['MaxROverZ'],
-                    kwargs['AreaPerTriggerCell']
-                )
-         
+
+                phi_opt = (kwargs['BinSums'],
+                           kwargs['NbinsRz'],
+                           kwargs['NbinsPhi'],
+                           kwargs['SeedsNormByArea'],
+                           kwargs['MinROverZ'],
+                           kwargs['MaxROverZ'],
+                           kwargs['AreaPerTriggerCell'])
+
+                energies_old = smoothAlongPhi(
+                    energies_old,
+                    *phi_opt
+                    )
+                energies_new = smoothAlongPhi(
+                    energies_new,
+                    *phi_opt,
+                    )
+            
                 # if '187544' in key:
                 #     valid1(energies, '187544',
                 #            infile='outLocalHalfSmoothing.txt',
                 #            outfile='outCMSSWHalfSmoothing.txt')
          
                 #printHistogram(ev)
-                
-                energies = smoothAlongRz(
-                    energies,
-                    kwargs['NbinsRz'],
-                    kwargs['NbinsPhi'],
+
+                rz_opt = (kwargs['NbinsRz'],
+                          kwargs['NbinsPhi'],)
+                energies_old = smoothAlongRz(
+                    energies_old,
+                    *rz_opt,
                 )
+                energies_new = smoothAlongRz(
+                    energies_new,
+                    *rz_opt,
+                    )
          
                 #printHistogram(ev)
+                # 'wght_x_new', 'wght_y_new'
+                cols_old = [ 'energies_old',
+                             'wght_x_old', 'wght_y_old' ] 
+                cols_new = [ 'energies_new',
+                             'wght_x_new', 'wght_y_new' ] 
+
+                storeOut[kold] = (energies_old,
+                                 wght_x_old, wght_y_old )
+                storeOut[knew] = (energies_new,
+                                 wght_x_new, wght_y_new )
                 
-                storeOut[key] = (energies, wght_x, wght_y,
-                                 # wght_x_new, wght_y_new
-                                 )
-                storeOut[key].attrs['columns'] = [ 'energies',
-                                                   'wght_x', 'wght_y',
-                                                   # 'wght_x_new', 'wght_y_new'
-                                                   ]
-                doc_message = 'Smoothed energies and projected bin positions'
-                storeOut[key].attrs['doc'] = doc_message
+                storeOut[kold].attrs['columns'] = cols_old
+                storeOut[knew].attrs['columns'] = cols_new                
+                doc_m = ( 'Energies (post-smoothing) ' +
+                          'and projected bin positions' )
+                doc_message = doc_m
+                storeOut[kold].attrs['doc'] = doc_message
+                storeOut[knew].attrs['doc'] = doc_message
 
 if __name__ == "__main__":
     from airflow.airflow_dag import smoothing_kwargs

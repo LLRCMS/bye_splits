@@ -15,7 +15,7 @@ def clustering(param, selection, **kwargs):
     with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:
-            seed_keys = [x for x in storeInSeeds.keys() if falgo in x ]
+            seed_keys = [x for x in storeInSeeds.keys() if falgo in x  and '_group_new' in x ]
             tc_keys  = [x for x in storeInTC.keys() if falgo in x and '_tc' in x]
             assert(len(seed_keys) == len(tc_keys))
          
@@ -25,14 +25,14 @@ def clustering(param, selection, **kwargs):
                 tc = storeInTC[key1]
                 tc_cols = list(tc.attrs['columns'])
 
-                projx = tc[:, get_column_idx(tc_cols, 'tc_x')]/tc[:, get_column_idx(tc_cols, 'tc_z')]
-                projy = tc[:, get_column_idx(tc_cols, 'tc_y')]/tc[:, get_column_idx(tc_cols, 'tc_z')]
+                projx = tc[:, get_column_idx(tc_cols, 'tc_x_new')]/tc[:, get_column_idx(tc_cols, 'tc_z')]
+                projy = tc[:, get_column_idx(tc_cols, 'tc_y_new')]/tc[:, get_column_idx(tc_cols, 'tc_z')]
 
                 # check columns via `tc.attrs['columns']`
                 radiusCoeffA = np.array( [kwargs['CoeffA'][int(xi)-1]
                                           for xi in tc[:, get_column_idx(tc_cols, 'tc_layer')]] )
                 minDist = ( radiusCoeffA +
-                           radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:, get_column_idx(tc_cols, 'tc_eta')])) )
+                           radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:, get_column_idx(tc_cols, 'tc_eta_new')])) )
                 
                 seedEn, seedX, seedY = storeInSeeds[key2]
          
@@ -75,19 +75,19 @@ def clustering(param, selection, **kwargs):
                 assert(len(cols)==res.shape[1])
                 df = pd.DataFrame(res, columns=cols)
          
-                df['cl3d_pos_x'] = df.tc_x * df.tc_mipPt
-                df['cl3d_pos_y'] = df.tc_y * df.tc_mipPt
+                # df['cl3d_pos_x'] = df.tc_x * df.tc_mipPt
+                # df['cl3d_pos_y'] = df.tc_y * df.tc_mipPt
                 df['cl3d_pos_z'] = df.tc_z * df.tc_mipPt
                 df['cl3d_pos_x_new'] = df.tc_x_new * df.tc_mipPt
                 df['cl3d_pos_y_new'] = df.tc_y_new * df.tc_mipPt
                 
-                cl3d_cols = ['cl3d_pos_x', 'cl3d_pos_y',
+                cl3d_cols = [#'cl3d_pos_x', 'cl3d_pos_y',
                              'cl3d_pos_x_new', 'cl3d_pos_y_new',
                              'cl3d_pos_z',
                              'tc_mipPt', 'tc_pt']
                 cl3d = df.groupby(['seed_idx']).sum()[cl3d_cols]
-                cl3d = cl3d.rename(columns={'cl3d_pos_x'       : 'x',
-                                            'cl3d_pos_y'       : 'y',
+                cl3d = cl3d.rename(columns={#'cl3d_pos_x'       : 'x',
+                                            #'cl3d_pos_y'       : 'y',
                                             'cl3d_pos_x_new'   : 'xnew',
                                             'cl3d_pos_y_new'   : 'ynew',
                                             'cl3d_pos_z'       : 'z',
@@ -96,40 +96,29 @@ def clustering(param, selection, **kwargs):
          
                 cl3d = cl3d[ cl3d.pt > kwargs['PtC3dThreshold'] ]
                 
-                cl3d.x    /= cl3d.mipPt
-                cl3d.y    /= cl3d.mipPt
                 cl3d.z    /= cl3d.mipPt
                 cl3d.xnew /= cl3d.mipPt
                 cl3d.ynew /= cl3d.mipPt
-         
-                cl3d['x2']    = cl3d.x**2
+                
                 cl3d['x2new'] = cl3d.xnew**2
-                                
-                cl3d['y2']    = cl3d.y**2
                 cl3d['y2new'] = cl3d.ynew**2
-
-                cl3d['dist']    = np.sqrt(cl3d.x2 + cl3d.y2)
                 cl3d['distnew'] = np.sqrt(cl3d.x2new + cl3d.y2new)
-                
-                cl3d['phi']    = np.arctan2(cl3d.y, cl3d.x)
                 cl3d['phinew'] = np.arctan2(cl3d.ynew, cl3d.xnew)
-                
-                cl3d['eta']    = np.arcsinh(cl3d.z / cl3d.dist)
                 cl3d['etanew'] = np.arcsinh(cl3d.z / cl3d.distnew)
                 
-                cl3d['Rz']   = calcRzFromEta(cl3d.eta)
-                # cl3d['Rz']   = cl3d.dist / np.abs(cl3d.z)
-                cl3d['en']   = cl3d.pt*np.cosh(cl3d.eta)
+                cl3d['Rz']   = calcRzFromEta(cl3d.etanew)
+                cl3d['en']   = cl3d.pt*np.cosh(cl3d.etanew)
 
-                search_str = '{}_([0-9]{{1,7}})_tc'.format(kwargs['FesAlgos'][0])
+                search_str = '{}_([0-9]{{1,7}})_tc'
+                search_str = search_str.format(kwargs['FesAlgos'][0])
                 event_number = re.search(search_str, key1)
-         
                 if not event_number:
-                    raise ValueError('The event number was not extracted!')
+                    m = 'The event number was not extracted!'
+                    raise ValueError(m)
                 
                 cl3d['event'] = event_number.group(1)
-                cl3d_cols = ['en', 'x', 'y', 'z', 'Rz',
-                             'eta', 'phi', 'etanew', 'phinew']
+                cl3d_cols = ['en', 'xnew', 'ynew', 'z', 'Rz',
+                             'etanew', 'phinew']
                 storeOut[key] = cl3d[cl3d_cols]
                 if key1 == tc_keys[0] and key2 == seed_keys[0]:
                     dfout = cl3d[cl3d_cols+['event']]

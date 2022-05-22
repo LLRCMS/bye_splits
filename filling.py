@@ -135,10 +135,14 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
             split_tc['tc_eta_new'] = np.arcsinh( split_tc.tc_z /
                                                  np.sqrt(split_tc.tc_x_new**2 + split_tc.tc_y_new**2) )
 
-            split_tc['tc_phi_bin'] = pd.cut( split_tc.phi_new,
-                                             bins=kwargs['PhiBinEdges'],
+            split_tc['tc_phi_bin_old'] = pd.cut( split_tc.phi_old,
+                                                bins=kwargs['PhiBinEdges'],
+                                                labels=False )
+            split_tc['tc_phi_bin_new'] = pd.cut( split_tc.phi_new,
+                                                bins=kwargs['PhiBinEdges'],
                                              labels=False )
-            nansel = pd.isna(split_tc.tc_phi_bin) 
+
+            nansel = pd.isna(split_tc.tc_phi_bin_new) 
             split_tc = split_tc[~nansel]
 
             store[fe + '_3d'] = split_3d
@@ -159,7 +163,8 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                 if debug:
                     print(ev_3d.filter(items=branches))
 
-                _simCols_tc = ['tc_phi_bin', 'Rz_bin', 'tc_layer',
+                _simCols_tc = ['tc_phi_bin_old', 'tc_phi_bin_new',
+                               'Rz_bin', 'tc_layer',
                                'tc_x', 'tc_y',
                                'tc_x_new', 'tc_y_new',
                                'tc_eta_new',
@@ -193,25 +198,36 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                 ev_3d = ev_3d.drop(['cl3d_Roverz', 'cl3d_eta', 'cl3d_phi'], axis=1)
                 assert( len(gen_pos_rz) == 1 and len(gen_pos_phi) == 1 )
 
-                gb = ev_tc.groupby(['Rz_bin', 'tc_phi_bin'], as_index=False)
-                cols_to_keep = ['Rz_bin', 'tc_phi_bin', 'tc_mipPt',
-                                'wght_x', 'wght_y',
-                                # 'wght_x_new', 'wght_y_new'
-                                ]
-                group = gb.sum()[cols_to_keep]
-                group.wght_x       /= group.tc_mipPt
-                group.wght_y       /= group.tc_mipPt 
-                    
-                store[str(_k) + '_' + str(ev) + '_group'] = group.to_numpy()
-                store[str(_k) + '_' + str(ev) + '_group'].attrs['columns'] = cols_to_keep
-                doc_m = 'R/z vs. Phi histo Info'
-                store[str(_k) + '_' + str(ev) + '_group'].attrs['doc'] = doc_m
+                gb_old = ev_tc.groupby(['Rz_bin', 'tc_phi_bin_old'],
+                                       as_index=False)
+                gb_new = ev_tc.groupby(['Rz_bin', 'tc_phi_bin_new'],
+                                       as_index=False)
+                _cols_keep = ['tc_mipPt', 'wght_x', 'wght_y']
+                cols_keep_old = ['Rz_bin', 'tc_phi_bin_old'] + _cols_keep
+                cols_keep_new = ['Rz_bin', 'tc_phi_bin_new'] + _cols_keep
 
-                cols_to_keep = ['Rz_bin', 'tc_phi_bin',
+                group_old = gb_old.sum()[cols_keep_old]
+                group_new = gb_new.sum()[cols_keep_new]                
+                group_old.wght_x /= group_old.tc_mipPt
+                group_old.wght_y /= group_old.tc_mipPt 
+                group_new.wght_x /= group_new.tc_mipPt
+                group_new.wght_y /= group_new.tc_mipPt 
+
+                key_old = str(_k) + '_' + str(ev) + '_group_old'
+                key_new = str(_k) + '_' + str(ev) + '_group_new'
+                store[key_old] = group_old.to_numpy()
+                store[key_old].attrs['columns'] = cols_keep_old
+                store[key_new] = group_new.to_numpy()
+                store[key_new].attrs['columns'] = cols_keep_new
+                doc_m = 'R/z vs. Phi histo Info'
+                store[key_old].attrs['doc'] = doc_m
+                store[key_new].attrs['doc'] = doc_m
+
+                cols_to_keep = ['Rz_bin',
+                                'tc_phi_bin_old', 'tc_phi_bin_new',
                                 'tc_x', 'tc_y',
                                 'tc_x_new', 'tc_y_new',
-                                'phi_new',
-                                'tc_eta_new',
+                                'phi_new', 'tc_eta_new',
                                 'tc_z',
                                 'tc_eta', 'tc_phi',
                                 'tc_layer',
@@ -223,11 +239,15 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['doc'] = 'Trigger Cells Info'
                 
                 if ev == df_tc['event'].unique().astype('int')[0]:
-                    group_tot = group[:]
+                    group_tot_old = group_old[:]
+                    group_tot_new = group_new[:]
                 else:
-                    group_tot = pd.concat((group_tot,group[:]), axis=0)
+                    group_tot_old = pd.concat((group_tot_old,
+                                               group_old[:]), axis=0)
+                    group_tot_new = pd.concat((group_tot_new,
+                                               group_new[:]), axis=0)
 
-    return group_tot
+    return group_tot_old, group_tot_new
 
 if __name__ == "__main__":
     from airflow.airflow_dag import filling_kwargs        
