@@ -102,7 +102,7 @@ def resolution_plotter():
             hold.append( _tmp[0] )
             edgold.append( _tmp[1] )
             for ii,x in enumerate(('etares_old', 'phires_old')):
-                _tmp = np.histogram(df_pos[x], bins=50 if 'eta' in x else 150,
+                _tmp = np.histogram(df_pos[x], bins=50 if 'eta' in x else 500,
                                     range=(mins[ii+1],maxs[ii+1]), **hist_opt)
                 hold.append( _tmp[0] )
                 edgold.append( _tmp[1] )
@@ -111,7 +111,7 @@ def resolution_plotter():
             hnew.append( _tmp[0] )
             edgnew.append( _tmp[1] )
             for ii,x in enumerate(('etares_new', 'phires_new')):
-                _tmp = np.histogram(df_pos[x], bins=50 if 'eta' in x else 150,
+                _tmp = np.histogram(df_pos[x], bins=50 if 'eta' in x else 500,
                                     range=(mins[ii+1],maxs[ii+1]), **hist_opt)
                 hnew.append( _tmp[0] )
                 edgnew.append( _tmp[1] )
@@ -195,7 +195,7 @@ return labels[tick];
                        y=hold[it], **cmssw_opt)
             p[-1].step(source=sources[it], view=views[it], **custom_opt)
             p[-1].legend.click_policy='hide'
-            p[-1].legend.location = 'top_left'
+            p[-1].legend.location = 'top_right' if it==2 else 'top_left'
             p[-1].xaxis.axis_label = axis_label_d[it]
             
         if FLAGS.selection.startswith('above_eta_'):
@@ -257,3 +257,10 @@ if __name__ == "__main__":
 
     lay = layout(lay_list)
     save(lay) #if show_html else save(lay)
+
+
+
+##Latex equations
+# \Delta R \equiv  \sqrt{(\Delta \phi)^2+(\Delta \eta)^2}, \: \Delta \phi  \equiv \phi_{\text{Cluster}}-\phi_{\text{Gen}},  \: \Delta \eta  \equiv \eta_{\text{Cluster}}-\eta_{\text{Gen}}
+
+#  \frac{E_{\text{Cluster}} - E_{\text{Gen}}}{E_{\text{Gen}}} < -0.35

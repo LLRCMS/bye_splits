@@ -501,8 +501,8 @@ def plot_trigger_cells_occupancy(param,
         tc_panels.append( Panel(child=bkg, title='Selection {}'.format(i)) )
 
     #lay = layout([[enresgrid[0], Tabs(tabs=tabs)], [Tabs(tabs=tc_panels)]])
-    #lay = layout([[Tabs(tabs=ev_panels)], [Tabs(tabs=tc_panels)]])
-    lay = layout([Tabs(tabs=ev_panels)])
+    lay = layout([[Tabs(tabs=ev_panels)], [Tabs(tabs=tc_panels)]])
+    #lay = layout([Tabs(tabs=ev_panels)])
     show(lay) if show_html else save(lay)
     # for pic,ev in pics:
     #     export_png(pic, filename=outname+'_event{}.png'.format(ev))

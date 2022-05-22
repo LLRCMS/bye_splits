@@ -362,12 +362,13 @@ class Plotter:
     def plot_iterative(self, plot_name, tab_names, show_html):
         assert len(self.bin_tabs)==len(self.dist_tabs['phi'])
         self.tabs = []
-        for name, phitab, xtab, ytab, bt in zip(tab_names,
-                                                self.dist_tabs['phi'],
-                                                self.dist_tabs['eucl'],
-                                                self.dist_tabs['arc'],
-                                                self.bin_tabs):
-            l = column(phitab, xtab, ytab, bt)
+        for name, phitab, _, arctab, bt in zip(tab_names,
+                                               self.dist_tabs['phi'],
+                                               self.dist_tabs['eucl'],
+                                               self.dist_tabs['arc'],
+                                               self.bin_tabs):
+            #l = column(phitab, eucltab, arctab, bt)
+            l = column(phitab, arctab, bt)
             tb = Panel(child=l, title=name)
             self.tabs.append( tb )
         
