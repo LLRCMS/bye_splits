@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import h5py
 from airflow.airflow_dag import fill_path
+from random_utils import get_column_idx
 
 def validation(**kwargs):
     with pd.HDFStore(kwargs['ClusteringOutValidation'], mode='r') as storeInLocal, h5py.File(kwargs['FillingOut'], mode='r') as storeInCMSSW :
@@ -16,6 +17,7 @@ def validation(**kwargs):
             for key1, key2 in zip(local_keys, cmssw_keys):
                 local = storeInLocal[key1]
                 cmssw = storeInCMSSW[key2][:]
+                cmssw_cols = list(cmssw.attrs['columns'])
          
                 search_str = '{}_([0-9]{{1,7}})_cl'.format(kwargs['FesAlgos'][0])
                 event_number = re.search(search_str, key1).group(1)
@@ -24,10 +26,10 @@ def validation(**kwargs):
                 locPhi = np.sort(local['phi'].to_numpy())
                 locRz  = np.sort(local['Rz'].to_numpy())
                 locEn  = np.sort(local['en'].to_numpy())
-                cmsswEta = np.sort(cmssw[:][0])
-                cmsswPhi = np.sort(cmssw[:][1])
-                cmsswRz  = np.sort(cmssw[:][2])
-                cmsswEn  = np.sort(cmssw[:][3])
+                cmsswEta = np.sort(cmssw[:][get_column_idx(cmssw_cols, 'cl3d_eta')])
+                cmsswPhi = np.sort(cmssw[:][get_column_idx(cmssw_cols, 'cl3d_phi')])
+                cmsswRz  = np.sort(cmssw[:][get_column_idx(cmssw_cols, 'cl3d_Roverz')])
+                cmsswEn  = np.sort(cmssw[:][get_column_idx(cmssw_cols, 'cl3d_energy')])
          
                 if (len(locEtaOld) != len(cmsswEta) or
                     len(locPhiOld) != len(cmsswPhi) or
@@ -51,10 +53,10 @@ def validation(**kwargs):
                         print('\tRz difference: {}'.format(locRz[i] - cmsswRz[i]))
                         print('\tEn difference: {}'.format(locEn[i] - cmsswEn[i]))
 
-def stats_collector(param, debug=False, **kwargs):
-    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param)
-    outfilling = fill_path(kwargs['FillingOut'], param)
-    outfillingcomp = fill_path(kwargs['FillingOutComp'], param)
+def stats_collector(param, selection, debug=False, **kwargs):
+    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param=param, selection=selection)
+    outfilling = fill_path(kwargs['FillingOut'], param=param, selection=selection)
+    outfillingcomp = fill_path(kwargs['FillingOutComp'], param=param, selection=selection)
     with pd.HDFStore(outclusteringvalidation, mode='r') as storeInLocal, h5py.File(outfilling, mode='r') as storeInCMSSW, pd.HDFStore(outfillingcomp, mode='r') as storeGen:
         
         for falgo in kwargs['FesAlgos']:
@@ -95,7 +97,8 @@ def stats_collector(param, debug=False, **kwargs):
             c_cmssw1, c_cmssw2 = 0, 0
             for key1, key2 in zip(local_keys, cmssw_keys):
                 local = storeInLocal[key1]
-                cmssw = storeInCMSSW[key2][:]
+                cmssw = storeInCMSSW[key2]
+                cmssw_cols = list(cmssw.attrs['columns'])
                 
                 locEtaOld = np.sort(local['eta'].to_numpy())
                 locPhiOld = np.sort(local['phi'].to_numpy())
@@ -105,10 +108,11 @@ def stats_collector(param, debug=False, **kwargs):
                 locEn     = np.sort(local['en'].to_numpy())
                 locX      = np.sort(local['x'].to_numpy())
                 locY      = np.sort(local['y'].to_numpy())
-                cmsswEta  = np.sort(cmssw[:][0])
-                cmsswPhi  = np.sort(cmssw[:][1])
-                cmsswRz   = np.sort(cmssw[:][2])
-                cmsswEn   = np.sort(cmssw[:][3])
+
+                cmsswEta  = np.sort(cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_eta') ])
+                cmsswPhi  = np.sort(cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_phi') ])
+                cmsswRz   = np.sort(cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_rz')  ])
+                cmsswEn   = np.sort(cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_en')  ])
 
                 event_number = re.search(search_str, key1).group(1)
                 
@@ -131,6 +135,7 @@ def stats_collector(param, debug=False, **kwargs):
                 index_max_energy_cmssw = np.where(cmsswEn==_enres_old)[0][0]
                 assert ( type(index_max_energy_cmssw) == np.int64 or
                          type(index_max_energy_cmssw) == np.int32 )
+
                 _etares_old = cmsswEta[index_max_energy_cmssw]
                 _phires_old = cmsswPhi[index_max_energy_cmssw]
                 
@@ -140,6 +145,15 @@ def stats_collector(param, debug=False, **kwargs):
                          type(index_max_energy_local) == np.int32 )
                 _etares_new = locEtaNew[index_max_energy_local]
                 _phires_new = locPhiNew[index_max_energy_local]
+
+                # try:
+                #     assert np.abs(cmsswEta[0] - locEtaOld[0]) < 1e-4
+                #     assert np.abs(cmsswEta[0] - locEtaNew[0]) < 1e-4
+                # except AssertionError:
+                #     print(cmsswEta[0], locEtaOld[0], locEtaNew[0])
+                #     print(np.abs(cmsswEta[0] - locEtaOld[0]))
+                #     print(np.abs(cmsswEta[0] - locEtaNew[0]))
+                #     breakpoint()
 
                 enres_old.append ( _enres_old / gen_en )
                 enres_new.append ( _enres_new / gen_en )
@@ -181,4 +195,3 @@ def stats_collector(param, debug=False, **kwargs):
                      enres_old, enres_new,
                      etares_old, etares_new,
                      phires_old, phires_new )
-

@@ -39,6 +39,9 @@ class dotDict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
+def get_column_idx(columns, col):
+    return columns.index(col)
+
 def get_html_name(script_name, extra=''):
     f = os.path.basename(script_name)
     f = f.split('.')

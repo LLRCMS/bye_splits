@@ -96,7 +96,7 @@ def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, *
         store['data'].attrs['doc'] = doc
 
 def optimization(hyperparam, **kw):
-    outresen = fill_path(kw['OptimizationIn'], selection=FLAGS.selection)
+    outresen = fill_path(kw['OptimizationIn'])
 
     store_in  = h5py.File(outresen,  mode='r')
     plotter = Plotter(**opt_kw)
@@ -187,6 +187,7 @@ def optimization(hyperparam, **kw):
                     # must be satisfied for all triplets
                     if gsum <= stop[id2]:
                         continue
+
                     at_least_one = True
                     
                     # weights for random draw
@@ -389,9 +390,9 @@ if __name__ == "__main__":
     out_opt = dict(selection=FLAGS.selection)
     outresen  = fill_path(opt_kw['OptimizationEnResOut'],  **out_opt)
     outrespos = fill_path(opt_kw['OptimizationPosResOut'], **out_opt)
-    outcsv    = fill_path(opt_kw['OptimizationCSVOut'],
-                          extension='csv', **out_opt)
-    with open( os.path.join('data', 'stats.csv'), 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
+    outcsv    = fill_path(opt_kw['OptimizationCSVOut'], extension='csv', **out_opt)
+
+    with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
 
         fieldnames = ['hyperparameter', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
                       'locrat1', 'locrat2', 'remrat1', 'remrat2']
@@ -400,18 +401,19 @@ if __name__ == "__main__":
 
         sys.stderr.flush()
         for hp in tqdm(FLAGS.hyperparameters):
+            opt = dict(param=hp, selection=FLAGS.selection)
             tc_map = optimization( hyperparam=hp, **opt_kw )
 
             out_filling = filling(hp, FLAGS.nevents, tc_map,
                                   FLAGS.selection, **filling_kwargs)
             print('filling done', flush=True)
-            smoothing(hp, **smoothing_kwargs)
+            smoothing(**opt, **smoothing_kwargs)
             print('smoothing done', flush=True)
-            seeding(hp, **seeding_kwargs)
+            seeding(**opt, **seeding_kwargs)
             print('seeding done', flush=True)
-            clustering(hp, **clustering_kwargs)
+            clustering(**opt, **clustering_kwargs)
             print('clustering done', flush=True)
-            res = stats_collector(hp, **validation_kwargs)
+            res = stats_collector(**opt, **validation_kwargs)
             print('statistics collection done', flush=True)
 
             writer.writerow({'hyperparameter' : hp,

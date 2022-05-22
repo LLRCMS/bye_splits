@@ -61,8 +61,8 @@ def fill_path(x, param='', selection='', extension='hdf5'):
     if param != '':
         param = '_PARAM_' + str(param).replace('.','p')
     if selection != '':
-        suf = '_SEL_' + selection
-    name = x + param + '.' + extension
+        selection = '_SEL_' + selection
+    name = x + selection + param + '.' + extension
     return os.path.join( base_kwargs['BasePath'], name)
 
 # filling task

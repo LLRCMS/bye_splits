@@ -4,14 +4,14 @@ import pandas as pd
 import h5py
 from random_utils import (
     calcRzFromEta,
+    get_column_idx,
 )
 from airflow.airflow_dag import fill_path
 
-def clustering(param, **kwargs):
-    get_idx = lambda colname: tc_cols.index(colname)
-    inclusteringseeds = fill_path(kwargs['ClusteringInSeeds'], param=param)
-    inclusteringtc = fill_path(kwargs['ClusteringInTC'], param=param)
-    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param=param)
+def clustering(param, selection, **kwargs):
+    inclusteringseeds = fill_path(kwargs['ClusteringInSeeds'], param=param, selection=selection)
+    inclusteringtc = fill_path(kwargs['ClusteringInTC'], param=param, selection=selection)
+    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param=param, selection=selection)
     with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:
@@ -24,16 +24,15 @@ def clustering(param, **kwargs):
             for key1, key2 in zip(tc_keys, seed_keys):
                 tc = storeInTC[key1]
                 tc_cols = list(tc.attrs['columns'])
-         
-                projx = tc[:, get_idx('tc_x')]/tc[:, get_idx('tc_z')]
-                projy = tc[:, get_idx('tc_y')]/tc[:, get_idx('tc_z')]
+
+                projx = tc[:, get_column_idx(tc_cols, 'tc_x')]/tc[:, get_column_idx(tc_cols, 'tc_z')]
+                projy = tc[:, get_column_idx(tc_cols, 'tc_y')]/tc[:, get_column_idx(tc_cols, 'tc_z')]
 
                 # check columns via `tc.attrs['columns']`
                 radiusCoeffA = np.array( [kwargs['CoeffA'][int(xi)-1]
-                                          for xi in tc[:, get_idx('tc_layer')]] )
+                                          for xi in tc[:, get_column_idx(tc_cols, 'tc_layer')]] )
                 minDist = ( radiusCoeffA +
-                           radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:, get_idx('tc_eta')])) )
-                # print('minDist: ', minDist)
+                           radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:, get_column_idx(tc_cols, 'tc_eta')])) )
                 
                 seedEn, seedX, seedY = storeInSeeds[key2]
          
@@ -63,9 +62,9 @@ def clustering(param, **kwargs):
                 assert(tc[:].shape[0] == seeds_energies.shape[0])
          
                 seeds_indexes  = np.expand_dims( seeds_indexes[pass_threshold],
-                                                axis=-1 )
+                                                 axis=-1 )
                 seeds_energies = np.expand_dims( seeds_energies[pass_threshold],
-                                                axis=-1 )
+                                                 axis=-1 )
          
                 tc = tc[:][pass_threshold]
          
@@ -79,37 +78,47 @@ def clustering(param, **kwargs):
                 df['cl3d_pos_x'] = df.tc_x * df.tc_mipPt
                 df['cl3d_pos_y'] = df.tc_y * df.tc_mipPt
                 df['cl3d_pos_z'] = df.tc_z * df.tc_mipPt
-                df['cl3d_pos_eta_new'] = df.tc_eta_new * df.tc_mipPt
-                df['cl3d_pos_phi_new'] = df.phi_new * df.tc_mipPt
-
+                df['cl3d_pos_x_new'] = df.tc_x_new * df.tc_mipPt
+                df['cl3d_pos_y_new'] = df.tc_y_new * df.tc_mipPt
+                
                 cl3d_cols = ['cl3d_pos_x', 'cl3d_pos_y',
-                             'cl3d_pos_eta_new', 'cl3d_pos_phi_new',
+                             'cl3d_pos_x_new', 'cl3d_pos_y_new',
                              'cl3d_pos_z',
                              'tc_mipPt', 'tc_pt']
                 cl3d = df.groupby(['seed_idx']).sum()[cl3d_cols]
                 cl3d = cl3d.rename(columns={'cl3d_pos_x'       : 'x',
                                             'cl3d_pos_y'       : 'y',
+                                            'cl3d_pos_x_new'   : 'xnew',
+                                            'cl3d_pos_y_new'   : 'ynew',
                                             'cl3d_pos_z'       : 'z',
-                                            'cl3d_pos_eta_new' : 'etanew',
-                                            'cl3d_pos_phi_new' : 'phinew',
                                             'tc_mipPt'         : 'mipPt',
                                             'tc_pt'            : 'pt'})
          
                 cl3d = cl3d[ cl3d.pt > kwargs['PtC3dThreshold'] ]
                 
-                cl3d.x /= cl3d.mipPt
-                cl3d.y /= cl3d.mipPt
-                cl3d.z /= cl3d.mipPt
-                cl3d.etanew /= cl3d.mipPt
-                cl3d.phinew /= cl3d.mipPt
+                cl3d.x    /= cl3d.mipPt
+                cl3d.y    /= cl3d.mipPt
+                cl3d.z    /= cl3d.mipPt
+                cl3d.xnew /= cl3d.mipPt
+                cl3d.ynew /= cl3d.mipPt
          
-                cl3d['x2']   = cl3d.x*cl3d.x
-                cl3d['y2']   = cl3d.y*cl3d.y
-                cl3d['dist'] = np.sqrt(cl3d.x2 + cl3d.y2)
-                cl3d['eta']  = np.arcsinh(cl3d.z / cl3d.dist)
+                cl3d['x2']    = cl3d.x**2
+                cl3d['x2new'] = cl3d.xnew**2
+                                
+                cl3d['y2']    = cl3d.y**2
+                cl3d['y2new'] = cl3d.ynew**2
+
+                cl3d['dist']    = np.sqrt(cl3d.x2 + cl3d.y2)
+                cl3d['distnew'] = np.sqrt(cl3d.x2new + cl3d.y2new)
+                
+                cl3d['phi']    = np.arctan2(cl3d.y, cl3d.x)
+                cl3d['phinew'] = np.arctan2(cl3d.ynew, cl3d.xnew)
+                
+                cl3d['eta']    = np.arcsinh(cl3d.z / cl3d.dist)
+                cl3d['etanew'] = np.arcsinh(cl3d.z / cl3d.distnew)
+                
                 cl3d['Rz']   = calcRzFromEta(cl3d.eta)
                 # cl3d['Rz']   = cl3d.dist / np.abs(cl3d.z)
-                cl3d['phi']  = np.arctan2(cl3d.y, cl3d.x)
                 cl3d['en']   = cl3d.pt*np.cosh(cl3d.eta)
 
                 search_str = '{}_([0-9]{{1,7}})_tc'.format(kwargs['FesAlgos'][0])
@@ -129,7 +138,7 @@ def clustering(param, **kwargs):
 
             print('There were {} events without seeds.'.format(empty_seeds))
 
-    outclustering = fill_path(kwargs['ClusteringOutPlot'], param=param) 
+    outclustering = fill_path(kwargs['ClusteringOutPlot'], param=param, selection=selection) 
     with pd.HDFStore(outclustering, mode='w') as sout:
         dfout.event = dfout.event.astype(int)
         sout['data'] = dfout
