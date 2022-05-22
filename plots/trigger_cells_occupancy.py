@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import uproot as up
+from random import random
 #from bokeh.io import export_png
 
 from bokeh.io import output_file, show, save
@@ -43,10 +44,12 @@ def set_figure_props(p, xbincenters, ybincenters, hide_legend=True):
         p.legend.click_policy='hide'
     
 def plot_trigger_cells_occupancy(param,
+                                 selection,
                                  trigger_cell_map,
                                  plot_name,
                                  pos_endcap,
                                  layer_edges,
+                                 nevents,
                                  log_scale=False,
 								 show_html=False,
                                  **kw):
@@ -142,13 +145,15 @@ def plot_trigger_cells_occupancy(param,
 
     # to check the effect of NOT applying the tc mapping
     # replace `phi_new` by `phi_old`
-    tcData['phi_bin'] = pd.cut( tcData.phi_new, bins=kw['PhiBinEdges'], **copt )
+    tcData['phi_bin_old'] = pd.cut( tcData.phi_old, bins=kw['PhiBinEdges'], **copt )
+    tcData['phi_bin_new'] = pd.cut( tcData.phi_new, bins=kw['PhiBinEdges'], **copt )
     
     # Convert bin ids back to values (central values in each bin)
     tcData['Rz_center'] = binConv(tcData.Rz_bin, binDistRz, kw['MinROverZ'])
-    tcData['phi_center'] = binConv(tcData.phi_bin, binDistPhi, kw['MinPhi'])
+    tcData['phi_center_old'] = binConv(tcData.phi_bin_old, binDistPhi, kw['MinPhi'])
+    tcData['phi_center_new'] = binConv(tcData.phi_bin_new, binDistPhi, kw['MinPhi'])
     
-    tcData = tcData.drop(['Rz_bin', 'phi_bin', 'Rz', 'phi'], axis=1)
+    tcData = tcData.drop(['Rz_bin', 'phi_bin_old', 'phi_bin_new', 'Rz', 'phi'], axis=1)
 
     # if `-1` is included in layer_edges, the full selection is also drawn
     try:
@@ -164,7 +169,7 @@ def plot_trigger_cells_occupancy(param,
     groups = []
     for lmin,lmax in ledgeszip:
         groups.append( tcData[ (tcData.layer>lmin) & (tcData.layer<=lmax) ] )
-        groupby = groups[-1].groupby(['Rz_center', 'phi_center'], as_index=False)
+        groupby = groups[-1].groupby(['Rz_center', 'phi_center_old'], as_index=False)
         groups[-1] = groupby.count()
 
         eta_mins = groupby.min()['eta']
@@ -172,7 +177,7 @@ def plot_trigger_cells_occupancy(param,
         groups[-1].insert(0, 'min_eta', eta_mins)
         groups[-1].insert(0, 'max_eta', eta_maxs)
         groups[-1] = groups[-1].rename(columns={'z': 'ntc'})
-        groups[-1] = groups[-1][['phi_center', 'ntc', 'Rz_center', 'min_eta', 'max_eta']]
+        groups[-1] = groups[-1][['phi_center_old', 'ntc', 'Rz_center', 'min_eta', 'max_eta']]
 
     #########################################################################
     ################### DATA ANALYSIS: SIMULATION ###########################
@@ -204,8 +209,8 @@ def plot_trigger_cells_occupancy(param,
         p = figure(title=title,
                    width=1800,
                    height=600,
-                   x_range=Range1d(tcData['phi_center'].min()-SHIFTH,
-                                   tcData['phi_center'].max()+SHIFTH),
+                   x_range=Range1d(tcData['phi_center_old'].min()-SHIFTH,
+                                   tcData['phi_center_old'].max()+SHIFTH),
                    y_range=Range1d(tcData['Rz_center'].min()-SHIFTV,
                                    tcData['Rz_center'].max().max()+SHIFTV),
                    tools="hover,box_select,box_zoom,reset,save",
@@ -214,7 +219,7 @@ def plot_trigger_cells_occupancy(param,
                    y_axis_type='linear')
         p.toolbar.logo = None
 
-        p.rect( x='phi_center', y='Rz_center',
+        p.rect( x='phi_center_old', y='Rz_center',
                 source=source,
                 width=binDistPhi, height=binDistRz,
                 width_units='data', height_units='data',
@@ -247,8 +252,9 @@ def plot_trigger_cells_occupancy(param,
 
     for _k,(df_3d_cmssw,df_tc,df_3d_local) in simAlgoPlots.items():
 
-        for ev in df_tc['event'].unique().astype('int'):
-
+        event_sample = random.sample(df_tc['event'].unique().astype('int'),
+                                     nevents)
+        for ev in event_sample:
             fig_opt = dict(width=900,
                            height=300,
                            x_range=Range1d(kw['PhiBinEdges'][0]-2*SHIFTH,
@@ -270,6 +276,7 @@ def plot_trigger_cells_occupancy(param,
 
             tc_cols = [ 'tc_mipPt', 'tc_z', 'Rz',
                         'tc_eta', 'tc_id',
+                        'phi_old',
                         'phi_new',
                         'genpart_exeta', 'genpart_exphi' ]
             ev_tc = ev_tc.filter(items=tc_cols)
@@ -277,13 +284,16 @@ def plot_trigger_cells_occupancy(param,
             copt = dict(labels=False)
             ev_tc['Rz_bin']  = pd.cut(ev_tc.Rz,
                                       bins=kw['RzBinEdges'], **copt )
-            ev_tc['phi_bin'] = pd.cut(ev_tc.phi_new,
+            ev_tc['phi_bin_old'] = pd.cut(ev_tc.phi_old,
+                                      bins=kw['PhiBinEdges'], **copt )
+            ev_tc['phi_bin_new'] = pd.cut(ev_tc.phi_new,
                                       bins=kw['PhiBinEdges'], **copt )
     
             # Convert bin ids back to values (central values in each bin)
             ev_tc['Rz_center'] = binConv(ev_tc.Rz_bin, binDistRz, kw['MinROverZ'])
-            ev_tc['phi_center'] = binConv(ev_tc.phi_bin, binDistPhi, kw['MinPhi'])
-            ev_tc = ev_tc.drop(['Rz_bin', 'phi_bin', 'Rz', 'phi_new'], axis=1)
+            ev_tc['phi_center_old'] = binConv(ev_tc.phi_bin_old, binDistPhi, kw['MinPhi'])
+            ev_tc['phi_center_new'] = binConv(ev_tc.phi_bin_new, binDistPhi, kw['MinPhi'])
+            ev_tc = ev_tc.drop(['Rz_bin', 'phi_bin_old', 'phi_bin_new', 'Rz', 'phi_new'], axis=1)
 
             with SupressSettingWithCopyWarning():
                 ev_3d_cmssw['cl3d_Roverz']=calcRzFromEta(ev_3d_cmssw.cl3d_eta)
@@ -297,22 +307,23 @@ def plot_trigger_cells_occupancy(param,
             ev_3d_cmssw = ev_3d_cmssw.drop(drop_cols, axis=1)
             assert( len(gen_pos_rz) == 1 and len(gen_pos_phi) == 1 )
 
-            groupby = ev_tc.groupby(['Rz_center', 'phi_center'], as_index=False)
-            group = groupby.count()
+            groupby_old = ev_tc.groupby(['Rz_center', 'phi_center_old'], as_index=False)
+            groupby_new = ev_tc.groupby(['Rz_center', 'phi_center_new'], as_index=False)
+            group_old = groupby_old.count()
 
-            energy_sum = groupby.sum()['tc_mipPt']
-            eta_mins   = groupby.min()['tc_eta']
-            eta_maxs   = groupby.max()['tc_eta']
+            energy_sum = groupby_old.sum()['tc_mipPt']
+            eta_mins   = groupby_old.min()['tc_eta']
+            eta_maxs   = groupby_old.max()['tc_eta']
 
-            group = group.rename(columns={'tc_z': 'nhits'}, errors='raise')
-            group.insert(0, 'min_eta', eta_mins)
-            group.insert(0, 'max_eta', eta_maxs)
-            group.insert(0, 'sum_en', energy_sum)
+            group_old = group_old.rename(columns={'tc_z': 'nhits'}, errors='raise')
+            group_old.insert(0, 'min_eta', eta_mins)
+            group_old.insert(0, 'max_eta', eta_maxs)
+            group_old.insert(0, 'sum_en', energy_sum)
 
-            map_opt1 = dict( low=group['sum_en'].min(),
-                             high=group['sum_en'].max() )
-            map_opt2 = dict( low=group['nhits'].min(),
-                             high=group['nhits'].max() )
+            map_opt1 = dict( low=group_old['sum_en'].min(),
+                             high=group_old['sum_en'].max() )
+            map_opt2 = dict( low=group_old['nhits'].min(),
+                             high=group_old['nhits'].max() )
             mapper_class = LogColorMapper if log_scale else LinearColorMapper
             mapper1 = mapper_class(palette=mypalette, **map_opt1)
             mapper2 = mapper_class(palette=mypalette, **map_opt2)
@@ -331,9 +342,9 @@ def plot_trigger_cells_occupancy(param,
             p1.add_layout(bar1, 'right')
             p2.add_layout(bar2, 'right')
 
-            source = ColumnDataSource(group)
-            plot_opt = dict(x='phi_center', y='Rz_center',
-                            source=source,
+            source_old = ColumnDataSource(group_old)
+            plot_opt = dict(x='phi_center_old', y='Rz_center',
+                            source=source_old,
                             width=binDistPhi, height=binDistRz,
                             width_units='data', height_units='data',
                             line_color='black')

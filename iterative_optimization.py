@@ -459,10 +459,12 @@ if __name__ == "__main__":
 
                 this_file = os.path.basename(__file__).split('.')[0]
                 plot_name = os.path.join('out', this_file + suf + '.html')
-                plot_trigger_cells_occupancy(hp,
+                plot_trigger_cells_occupancy(param=hp,
+                                             selection=FLAGS.selection,
                                              trigger_cell_map=tc_map,
                                              plot_name=plot_name,
                                              pos_endcap=True,
+                                             nevents=16,
                                              min_rz=opt_kw['MinROverZ'],
                                              max_rz=opt_kw['MaxROverZ'],
                                              layer_edges=[0,28],
