@@ -379,8 +379,8 @@ def plot_trigger_cells_occupancy(param,
                              width_units='data', height_units='data',
                              line_color='black' )
 
-            seed_window = ( 'seeding window = {}'
-                           .format(seed_kw['WindowDim']) )
+            seed_window = ( 'phi seeding window = {}'
+                           .format(seed_kw['WindowPhiDim']) )
             figs = []
             t_d = {0: ( 'Energy Density (before smoothing, ' +
                         'before algo, {})'.format(seed_window) ),

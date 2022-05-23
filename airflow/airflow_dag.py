@@ -65,7 +65,7 @@ def fill_path(x, param='', selection='', extension='hdf5'):
         selection = '_SEL_' + selection.replace('.', 'p')
     sw = ''
     if selection != '':
-        sw = '_SeedingWindow' + str(seeding_kwargs['WindowDim'])
+        sw = '_SeedingWindow' + str(seeding_kwargs['WindowPhiDim'])
     name = x + selection + param + sw + '.' + extension
     if extension == 'html':
         final = os.path.join( base_kwargs['OutPath'], name)
@@ -117,7 +117,7 @@ seeding_kwargs = setDictionary(
     { 'SeedingIn': smoothing_kwargs['SmoothingOut'],
       'SeedingOut': 'seeding',
       'histoThreshold': 20.,
-      'WindowDim': 1}
+      'WindowPhiDim': 2}
     )
 
 # clustering task

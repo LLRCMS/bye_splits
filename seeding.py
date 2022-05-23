@@ -52,16 +52,16 @@ def seeding(param, selection, debug=False, **kwargs):
                 #remove padding
                 slc = slice(1,energies.shape[0]-1)
 
-                window_size = kwargs['WindowDim']
+                window_size_phi = kwargs['WindowPhiDim']
+                window_size_Rz  = 1
                 surroundings = []
 
                 # note: energies is by definition larger or equal to itself
-                for iphi in range(-window_size, window_size+1):
-                    for iRz in range(-window_size, window_size + 1):
-                        surroundings.append( np.roll(energies, shift=(iphi,iRz),
+                for iRz in range(-window_size_Rz, window_size_Rz+1):
+                    for iphi in range(-window_size_phi, window_size_phi+1):
+                        surroundings.append( np.roll(energies, shift=(iRz,iphi),
                                                      axis=(0,1))[slc] )
-
-                        
+                
                 # south = np.roll(energies, shift=1,  axis=0)[slc]
                 # north = np.roll(energies, shift=-1, axis=0)[slc]
                 # east  = np.roll(energies, shift=-1, axis=1)[slc]
