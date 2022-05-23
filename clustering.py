@@ -125,7 +125,8 @@ def clustering(param, selection, **kwargs):
                 else:
                     dfout = pd.concat((dfout,cl3d[cl3d_cols+['event']]), axis=0)
 
-            print('There were {} events without seeds.'.format(empty_seeds))
+            print('[clustering step with param={}] There were {} events without seeds.'
+                  .format(param, empty_seeds))
 
     outclustering = fill_path(kwargs['ClusteringOutPlot'], param=param, selection=selection) 
     with pd.HDFStore(outclustering, mode='w') as sout:

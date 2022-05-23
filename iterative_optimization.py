@@ -98,7 +98,7 @@ def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, *
         doc = 'Trigger cell phi vs. R/z positions for optimization.'
         store['data'].attrs['doc'] = doc
 
-def optimization(hyperparam, **kw):
+def optimization(iter_par, **kw):
     outresen = fill_path(kw['OptimizationIn'])
 
     store_in  = h5py.File(outresen,  mode='r')
@@ -159,7 +159,7 @@ def optimization(hyperparam, **kw):
              
             gl_orig = lb_orig2 - lb_orig1
             gr_orig = lb_orig3 - lb_orig2
-            stop = hyperparam * (abs(gl_orig) + abs(gr_orig))
+            stop = iter_par * (abs(gl_orig) + abs(gr_orig))
             stop[stop<1] = 1 # algorithm stabilisation
              
             idxs = [ np.arange(kw['NbinsPhi']) ]
@@ -354,7 +354,7 @@ def optimization(hyperparam, **kw):
 
         # end loop over the layers
     plot_name = os.path.join( 'out',
-                              get_html_name(__file__, extra='_'+str(hyperparam).replace('.','p')) )
+                              get_html_name(__file__, extra='_'+str(FLAGS.iter_par).replace('.','p')) )
     plotter.plot_iterative( plot_name=plot_name,
                             tab_names = [''+str(x) for x in range(len(ldata))],
                             show_html=False )
@@ -370,9 +370,14 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot',
                         help='plot shifted trigger cells instead of originals',
                         action='store_true')
-    parser.add_argument('-m', '--hyperparameters',
-                        help='iterative algorithm tunable parameter', nargs='+',
-                        default=[0.5], type=float)
+    fill_help = ( 'Whether to filling the datasets or reuse the existing ones.' +
+                  ' This step is by far the sowest in the chain.' )
+    parser.add_argument('-f', '--do_filling',
+                        help=fill_help,
+                        action='store_false')
+    parser.add_argument('-m', '--iter_par',
+                        help='iterative algorithm tunable parameter',
+                        default=0.5, type=float)
     parser.add_argument('-s', '--selection',
                         help='selection used to select cluster under study',
                         default='splits_only', type=str)
@@ -384,88 +389,86 @@ if __name__ == "__main__":
 
     if FLAGS.reprocess:
         process_trigger_cell_geometry_data( **opt_kw )
-        print('Trigger cell geometry data reprocessed.', flush=True)
-    else:
-        m = ( 'Trigger cell geometry was NOT reprocessed.' +
-             ' Use `-r` to do so.' )
-        print(m, flush=True)
 
-    out_opt = dict(selection=FLAGS.selection)
+    out_opt = dict(param=FLAGS.iter_par, selection=FLAGS.selection)
     outresen  = fill_path(opt_kw['OptimizationEnResOut'],  **out_opt)
     outrespos = fill_path(opt_kw['OptimizationPosResOut'], **out_opt)
-    outcsv    = fill_path(opt_kw['OptimizationCSVOut'],
-                          extension='csv', **out_opt)
+    outcsv    = fill_path(opt_kw['OptimizationCSVOut'], extension='csv', **out_opt)
 
+    print('Starting iterative parameter {}.'.format(FLAGS.iter_par))
+    
     with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
 
-        fieldnames = ['hyperparameter', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
+        fieldnames = ['iter_par', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
                       'locrat1', 'locrat2', 'remrat1', 'remrat2']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
 
         sys.stderr.flush()
-        for hp in tqdm(FLAGS.hyperparameters):
-            opt = dict(param=hp, selection=FLAGS.selection)
-            tc_map = optimization( hyperparam=hp, **opt_kw )
 
-            filling(hp, FLAGS.nevents, tc_map,
+        opt = dict(param=FLAGS.iter_par, selection=FLAGS.selection)
+        tc_map = optimization( iter_par=FLAGS.iter_par, **opt_kw )
+
+        if FLAGS.do_filling:
+            filling(FLAGS.iter_par, FLAGS.nevents, tc_map,
                     FLAGS.selection, **filling_kwargs)
-            print('filling done', flush=True)
-            smoothing(**opt, **smoothing_kwargs)
-            print('smoothing done', flush=True)
-            seeding(**opt, **seeding_kwargs)
-            print('seeding done', flush=True)
-            clustering(**opt, **clustering_kwargs)
-            print('clustering done', flush=True)
-            res = stats_collector(**opt, **validation_kwargs)
-            print('statistics collection done', flush=True)
 
-            writer.writerow({'hyperparameter' : hp,
-                             'c_loc1'         : res[0],
-                             'c_loc2'         : res[1],
-                             'c_rem1'         : res[2],
-                             'c_rem2'         : res[3],
-                             'locrat1'        : res[4],
-                             'locrat2'        : res[5],
-                             'remrat1'        : res[6],
-                             'remrat2'        : res[7]})
-            print('csv info written', flush=True)
+        smoothing(**opt, **smoothing_kwargs)
+
+        seeding(**opt, **seeding_kwargs)
+
+        clustering(**opt, **clustering_kwargs)
+
+        res = stats_collector(**opt, **validation_kwargs)
+
+        writer.writerow({fieldnames[0] : FLAGS.iter_par,
+                         fieldnames[1] : res[0],
+                         fieldnames[2] : res[1],
+                         fieldnames[3] : res[2],
+                         fieldnames[4] : res[3],
+                         fieldnames[5] : res[4],
+                         fieldnames[6] : res[5],
+                         fieldnames[7] : res[6],
+                         fieldnames[8] : res[7]})
             
-            assert len(opt_kw['FesAlgos']) == 1
+        assert len(opt_kw['FesAlgos']) == 1
             
-            df_enres = pd.DataFrame({'enres_old': res[8],
-                                     'enres_new': res[9]})
-            df_posres = pd.DataFrame({'etares_old': res[10],
-                                      'etares_new': res[11],
-                                      'phires_old': res[12],  
-                                      'phires_new': res[13]})
-            key = opt_kw['FesAlgos'][0] + '_data_' + str(hp).replace('.','p')
-            storeEnRes [key] = df_enres
-            storePosRes[key] = df_posres
-            if hp == FLAGS.hyperparameters[0]:
-                series = pd.Series(FLAGS.hyperparameters) 
-                storeEnRes [opt_kw['FesAlgos'][0]+'_meta'] = series
-                storePosRes[opt_kw['FesAlgos'][0]+'_meta'] = series
+        df_enres = pd.DataFrame({'enres_old': res[8],
+                                 'enres_new': res[9]})
+        df_posres = pd.DataFrame({'etares_old': res[10],
+                                  'etares_new': res[11],
+                                  'phires_old': res[12],  
+                                  'phires_new': res[13]})
+        key = opt_kw['FesAlgos'][0] + '_data'
+
+        storeEnRes [key] = df_enres
+        storePosRes[key] = df_posres
+
+        # series = pd.Series(FLAGS.hyperparameters) 
+        # storeEnRes [opt_kw['FesAlgos'][0]+'_meta'] = series
+        # storePosRes[opt_kw['FesAlgos'][0]+'_meta'] = series
          
-            # validates whether the local clustering is equivalent to CMSSW's
-            # unsuccessful when providing a custom trigger cell position mapping!
-            # validation(**validation_kwargs)
+        # validates whether the local clustering is equivalent to CMSSW's
+        # unsuccessful when providing a custom trigger cell position mapping!
+        # validation(**validation_kwargs)
         
-            if FLAGS.plot:
+        if FLAGS.plot:
 
-                this_file = os.path.basename(__file__).split('.')[0]
-                plot_name = fill_path(this_file,
-                                      param=hp,
-                                      selection=FLAGS.selection,
-                                      extension='html')
+            this_file = os.path.basename(__file__).split('.')[0]
+            plot_name = fill_path(this_file,
+                                  param=FLAGS.iter_par,
+                                  selection=FLAGS.selection,
+                                  extension='html')
                 
-                plot_tc_occ(param=hp,
-                            selection=FLAGS.selection,
-                            trigger_cell_map=tc_map,
-                            plot_name=plot_name,
-                            pos_endcap=True,
-                            nevents=16,
-                            min_rz=opt_kw['MinROverZ'],
-                            max_rz=opt_kw['MaxROverZ'],
-                            layer_edges=[0,28],
-                            **opt_kw)
+            plot_tc_occ(param=FLAGS.iter_par,
+                        selection=FLAGS.selection,
+                        trigger_cell_map=tc_map,
+                        plot_name=plot_name,
+                        pos_endcap=True,
+                        nevents=16,
+                        min_rz=opt_kw['MinROverZ'],
+                        max_rz=opt_kw['MaxROverZ'],
+                        layer_edges=[0,28],
+                        **opt_kw)
+
+    print('Finished for iterative parameter {}.'.format(FLAGS.iter_par))
