@@ -58,15 +58,20 @@ def setDictionary(adict):
     adict.update(base_kwargs)
     return adict
     
-def fill_path(x, param='', selection='', extension='hdf5'):
-    if param != '':
-        param = '_PARAM_' + str(param).replace('.','p')
+def fill_path(x, iter_par='', selection='', region='', extension='hdf5'):
+    if iter_par != '':
+        iter_par = '_PAR_' + str(iter_par).replace('.','p')
     if selection != '':
         selection = '_SEL_' + selection.replace('.', 'p')
-    sw = ''
-    if selection != '':
-        sw = '_SeedingWindow' + str(seeding_kwargs['WindowPhiDim'])
-    name = x + selection + param + sw + '.' + extension
+    if region != '':
+        region = '_REG_' + region
+
+    if iter_par == '' and selection == '' and region == '':
+        sw = ''
+    else:
+        sw = '_SeedingPhiWindow' + str(seeding_kwargs['WindowPhiDim'])
+        
+    name = x + selection + iter_par + region + sw + '.' + extension
     if extension == 'html':
         final = os.path.join( base_kwargs['OutPath'], name)
     else:
@@ -117,7 +122,7 @@ seeding_kwargs = setDictionary(
     { 'SeedingIn': smoothing_kwargs['SmoothingOut'],
       'SeedingOut': 'seeding',
       'histoThreshold': 20.,
-      'WindowPhiDim': 2}
+      'WindowPhiDim': 1}
     )
 
 # clustering task

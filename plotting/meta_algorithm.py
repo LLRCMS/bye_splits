@@ -22,10 +22,10 @@ from airflow.airflow_dag import (
     fill_path,
 )
 
-def stats_plotter(params):
+def stats_plotter(params, names_d):
     for par in params:
         incsv = fill_path(opt_kw['OptimizationCSVOut'],
-                          param=par, selection=FLAGS.selection, extension='csv')
+                          iter_par=par, extension='csv', **names_d)
         df_tmp = pd.read_csv(incsv, sep=',', header=0)
         if par == params[0]:
             df = df_tmp[:]
@@ -61,7 +61,7 @@ def stats_plotter(params):
 
     return p1
 
-def resolution_plotter(params):
+def resolution_plotter(params, names_d):
     assert len(opt_kw['FesAlgos']) == 1
 
     # aggregating data produced with different values of the iterative algo parameter
@@ -88,10 +88,9 @@ def resolution_plotter(params):
     phi_old, phi_new = ([] for x in range(2))
 
     for par in params:
-        in_en  = fill_path(opt_kw['OptimizationEnResOut'],
-                        param=par, selection=FLAGS.selection)                                  
-        in_pos = fill_path(opt_kw['OptimizationPosResOut'],                                       
-                        param=par, selection=FLAGS.selection)                                  
+        pars = dict(iter_par=par, **names_d)
+        in_en  = fill_path(opt_kw['OptimizationEnResOut'], **pars)
+        in_pos = fill_path(opt_kw['OptimizationPosResOut'], **pars)                               
 
         with pd.HDFStore(in_en, mode='r') as tmpEnRes, pd.HDFStore(in_pos, mode='r') as tmpPosRes:            
             #key = opt_kw['FesAlgos'][0]+'_data_'+str(hp).replace('.','p')
@@ -263,20 +262,27 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--selection',
                         help='selection used to select cluster under study',
                         default='splits_only', type=str)
-    parser.add_argument('-p', '--params',
+    parser.add_argument('-m', '--params',
                         help='Iterative parameters.',
                         default=[0.0,1.0], nargs='+', type=float)
+    region_help = 'Z region in the detector considered for the trigger cell geometry.'
+    parser.add_argument('--region',
+                        help=region_help,
+                        choices=('Si', 'ECAL', 'MaxShower'),
+                        default='ECAL', type=str)
+
     FLAGS = parser.parse_args()
 
     this_file = os.path.basename(__file__).split('.')[0]
+    names_d = dict(selection=FLAGS.selection, region=FLAGS.region)
     plot_name = fill_path(this_file,
-                          selection=FLAGS.selection,
-                          extension='html')
+                          extension='html',
+                          **names_d)
 
     output_file( plot_name )
     
-    stats_fig  = stats_plotter(params=FLAGS.params)
-    summ_fig, res_figs, slider = resolution_plotter(params=FLAGS.params)
+    stats_fig  = stats_plotter(params=FLAGS.params, names_d=names_d)
+    summ_fig, res_figs, slider = resolution_plotter(params=FLAGS.params, names_d=names_d)
 
     ncols = 4
     lay_list = [[stats_fig], [slider], res_figs, summ_fig ]

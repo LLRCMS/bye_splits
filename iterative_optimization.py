@@ -35,9 +35,10 @@ from plotting.trigger_cells_occupancy import (
 
 def is_sorted(arr, nbinsphi):
     diff = arr[:-1] - arr[1:]
-    return np.all( (diff==0) | (diff==-1) | (diff==-2) | (diff==nbinsphi-1))
+    return np.all( (diff<=0) | (diff==nbinsphi-1))
 
-def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, **kw):
+def process_trigger_cell_geometry_data(region, selection,
+                                       positive_endcap_only=True, debug=False, **kw):
     """Prepare trigger cell geometry data to be used as
     input to the iterative algorithm."""
     tcDataPath = os.path.join(os.environ['PWD'], 'data', 'test_triggergeom.root')
@@ -71,7 +72,13 @@ def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, *
         tcVariables.remove('zside')
 
     # ECAL (1), HCAL silicon (2) and HCAL scintillator (10, here ignored)
-    subdetCond = (tcData.subdet == 1) | (tcData.subdet == 2)
+    if region == 'Si':
+        subdetCond = (tcData.subdet == 1) | (tcData.subdet == 2)
+    elif region == 'ECAL':
+        subdetCond = (tcData.subdet == 1)
+    elif region == 'MaxShower':
+        subdetCond = (tcData.subdet == 1) & (tcData.layer >= 8) & (tcData.layer<=15)
+
     tcData = tcData[ subdetCond ]
     tcData = tcData.drop(['subdet'], axis=1)
     tcVariables.remove('subdet')
@@ -86,7 +93,9 @@ def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, *
     tcData['phi_bin'] = pd.cut( tcData['phi'], bins=kw['PhiBinEdges'], **copt )
 
     # save data for optimization task
-    inoptfile = fill_path(kw['OptimizationIn'], selection=FLAGS.selection)
+    inoptfile = fill_path(kw['OptimizationIn'],
+                          selection=selection, region=region)
+
     with h5py.File(inoptfile, mode='w') as store:
         save_cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
         saveData = ( tcData[save_cols]
@@ -98,8 +107,10 @@ def process_trigger_cell_geometry_data(positive_endcap_only=True, debug=False, *
         doc = 'Trigger cell phi vs. R/z positions for optimization.'
         store['data'].attrs['doc'] = doc
 
-def optimization(iter_par, **kw):
-    outresen = fill_path(kw['OptimizationIn'])
+def optimization(pars, **kw):
+    outresen = fill_path(kw['OptimizationIn'],
+                         selection=pars['selection'],
+                         region=pars['region'])
 
     store_in  = h5py.File(outresen,  mode='r')
     plotter = Plotter(**opt_kw)
@@ -159,7 +170,7 @@ def optimization(iter_par, **kw):
              
             gl_orig = lb_orig2 - lb_orig1
             gr_orig = lb_orig3 - lb_orig2
-            stop = iter_par * (abs(gl_orig) + abs(gr_orig))
+            stop = pars['iter_par'] * (abs(gl_orig) + abs(gr_orig))
             stop[stop<1] = 1 # algorithm stabilisation
              
             idxs = [ np.arange(kw['NbinsPhi']) ]
@@ -229,7 +240,7 @@ def optimization(iter_par, **kw):
                         ld[edge,idx_d.phibin] = id2
                         if id2==lastidx:
                             misalign += 1
-             
+                
                     elif side == 'left' and region in ('mountain', 'ascent'):
                         edge = get_edge(id2, misalign, ncellstot)
                         lb[id1] += 1
@@ -253,7 +264,7 @@ def optimization(iter_par, **kw):
                             misalign -= 1
                     else:
                         raise RuntimeError('Impossible 2!')                    
-             
+
                     if not is_sorted(ld[:,idx_d.phibin], kw['NbinsPhi']):
                         print('Not Sorted!!!!!')
                         quit()
@@ -354,7 +365,7 @@ def optimization(iter_par, **kw):
 
         # end loop over the layers
     plot_name = os.path.join( 'out',
-                              get_html_name(__file__, extra='_'+str(FLAGS.iter_par).replace('.','p')) )
+                              get_html_name(__file__, extra='_'+str(pars['iter_par']).replace('.','p')) )
     plotter.plot_iterative( plot_name=plot_name,
                             tab_names = [''+str(x) for x in range(len(ldata))],
                             show_html=False )
@@ -362,7 +373,6 @@ def optimization(iter_par, **kw):
     return df_total
 
 if __name__ == "__main__":
-    # parallel --dry-run -j $(nproc) --header : copython iterative_optimization.py -m {v1} -p ::: v1 0. .1 .2 .3 .4 .5 .6 .7 .8 .9 1.
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-r', '--reprocess',
                         help='reprocess trigger cell geometry data',
@@ -384,18 +394,26 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--nevents',
                         help='selection used to select cluster under study',
                         default=-1, type=int)
-
+    region_help = 'Z region in the detector considered for the trigger cell geometry.'
+    parser.add_argument('--region',
+                        help=region_help,
+                        choices=('Si', 'ECAL', 'MaxShower'),
+                        default='ECAL', type=str)
     FLAGS = parser.parse_args()
 
     if FLAGS.reprocess:
-        process_trigger_cell_geometry_data( **opt_kw )
+        process_trigger_cell_geometry_data(region=FLAGS.region,
+                                           selection=FLAGS.selection, **opt_kw )
 
-    out_opt = dict(param=FLAGS.iter_par, selection=FLAGS.selection)
-    outresen  = fill_path(opt_kw['OptimizationEnResOut'],  **out_opt)
-    outrespos = fill_path(opt_kw['OptimizationPosResOut'], **out_opt)
-    outcsv    = fill_path(opt_kw['OptimizationCSVOut'], extension='csv', **out_opt)
+    pars_d = {'iter_par': FLAGS.iter_par,
+              'selection': FLAGS.selection,
+              'region': FLAGS.region }
+    outresen  = fill_path(opt_kw['OptimizationEnResOut'],  **pars_d)
+    outrespos = fill_path(opt_kw['OptimizationPosResOut'], **pars_d)
+    outcsv    = fill_path(opt_kw['OptimizationCSVOut'],    extension='csv', **pars_d)
 
-    print('Starting iterative parameter {}.'.format(FLAGS.iter_par))
+    print('Starting iterative parameter {}.'.format(FLAGS.iter_par),
+          flush=True)
     
     with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
 
@@ -406,20 +424,18 @@ if __name__ == "__main__":
 
         sys.stderr.flush()
 
-        opt = dict(param=FLAGS.iter_par, selection=FLAGS.selection)
-        tc_map = optimization( iter_par=FLAGS.iter_par, **opt_kw )
+        tc_map = optimization(pars_d, **opt_kw )
 
         if FLAGS.do_filling:
-            filling(FLAGS.iter_par, FLAGS.nevents, tc_map,
-                    FLAGS.selection, **filling_kwargs)
+            filling(pars_d, FLAGS.nevents, tc_map, **filling_kwargs)
 
-        smoothing(**opt, **smoothing_kwargs)
+        smoothing(pars_d, **smoothing_kwargs)
 
-        seeding(**opt, **seeding_kwargs)
+        seeding(pars_d, **seeding_kwargs)
 
-        clustering(**opt, **clustering_kwargs)
+        clustering(pars_d, **clustering_kwargs)
 
-        res = stats_collector(**opt, **validation_kwargs)
+        res = stats_collector(pars_d, **validation_kwargs)
 
         writer.writerow({fieldnames[0] : FLAGS.iter_par,
                          fieldnames[1] : res[0],
@@ -443,25 +459,16 @@ if __name__ == "__main__":
 
         storeEnRes [key] = df_enres
         storePosRes[key] = df_posres
-
-        # series = pd.Series(FLAGS.hyperparameters) 
-        # storeEnRes [opt_kw['FesAlgos'][0]+'_meta'] = series
-        # storePosRes[opt_kw['FesAlgos'][0]+'_meta'] = series
-         
-        # validates whether the local clustering is equivalent to CMSSW's
-        # unsuccessful when providing a custom trigger cell position mapping!
-        # validation(**validation_kwargs)
         
         if FLAGS.plot:
-
             this_file = os.path.basename(__file__).split('.')[0]
             plot_name = fill_path(this_file,
-                                  param=FLAGS.iter_par,
-                                  selection=FLAGS.selection,
-                                  extension='html')
+                                  extension='html',
+                                  **pars)
                 
             plot_tc_occ(param=FLAGS.iter_par,
                         selection=FLAGS.selection,
+                        region=pars_d['region'],
                         trigger_cell_map=tc_map,
                         plot_name=plot_name,
                         pos_endcap=True,
@@ -471,4 +478,4 @@ if __name__ == "__main__":
                         layer_edges=[0,28],
                         **opt_kw)
 
-    print('Finished for iterative parameter {}.'.format(FLAGS.iter_par))
+    print('Finished for iterative parameter {}.'.format(FLAGS.iter_par), flush=True)

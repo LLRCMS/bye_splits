@@ -8,18 +8,18 @@ from random_utils import (
 )
 from airflow.airflow_dag import fill_path
 
-def clustering(param, selection, **kwargs):
-    inclusteringseeds = fill_path(kwargs['ClusteringInSeeds'], param=param, selection=selection)
-    inclusteringtc = fill_path(kwargs['ClusteringInTC'], param=param, selection=selection)
-    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param=param, selection=selection)
+def clustering(pars, **kw):
+    inclusteringseeds = fill_path(kw['ClusteringInSeeds'], **pars)
+    inclusteringtc = fill_path(kw['ClusteringInTC'], **pars)
+    outclusteringvalidation = fill_path(kw['ClusteringOutValidation'], **pars)
     with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut :
 
-        for falgo in kwargs['FesAlgos']:
+        for falgo in kw['FesAlgos']:
             seed_keys = [x for x in storeInSeeds.keys() if falgo in x  and '_group_new' in x ]
             tc_keys  = [x for x in storeInTC.keys() if falgo in x and '_tc' in x]
             assert(len(seed_keys) == len(tc_keys))
          
-            radiusCoeffB = kwargs['CoeffB']
+            radiusCoeffB = kw['CoeffB']
             empty_seeds = 0
             for key1, key2 in zip(tc_keys, seed_keys):
                 tc = storeInTC[key1]
@@ -29,10 +29,10 @@ def clustering(param, selection, **kwargs):
                 projy = tc[:, get_column_idx(tc_cols, 'tc_y_new')]/tc[:, get_column_idx(tc_cols, 'tc_z')]
 
                 # check columns via `tc.attrs['columns']`
-                radiusCoeffA = np.array( [kwargs['CoeffA'][int(xi)-1]
+                radiusCoeffA = np.array( [kw['CoeffA'][int(xi)-1]
                                           for xi in tc[:, get_column_idx(tc_cols, 'tc_layer')]] )
                 minDist = ( radiusCoeffA +
-                           radiusCoeffB * (kwargs['MidRadius'] - np.abs(tc[:, get_column_idx(tc_cols, 'tc_eta_new')])) )
+                           radiusCoeffB * (kw['MidRadius'] - np.abs(tc[:, get_column_idx(tc_cols, 'tc_eta_new')])) )
                 
                 seedEn, seedX, seedY = storeInSeeds[key2]
          
@@ -94,7 +94,7 @@ def clustering(param, selection, **kwargs):
                                             'tc_mipPt'         : 'mipPt',
                                             'tc_pt'            : 'pt'})
          
-                cl3d = cl3d[ cl3d.pt > kwargs['PtC3dThreshold'] ]
+                cl3d = cl3d[ cl3d.pt > kw['PtC3dThreshold'] ]
                 
                 cl3d.z    /= cl3d.mipPt
                 cl3d.xnew /= cl3d.mipPt
@@ -110,7 +110,7 @@ def clustering(param, selection, **kwargs):
                 cl3d['en']   = cl3d.pt*np.cosh(cl3d.etanew)
 
                 search_str = '{}_([0-9]{{1,7}})_tc'
-                search_str = search_str.format(kwargs['FesAlgos'][0])
+                search_str = search_str.format(kw['FesAlgos'][0])
                 event_number = re.search(search_str, key1)
                 if not event_number:
                     m = 'The event number was not extracted!'
@@ -126,13 +126,12 @@ def clustering(param, selection, **kwargs):
                     dfout = pd.concat((dfout,cl3d[cl3d_cols+['event']]), axis=0)
 
             print('[clustering step with param={}] There were {} events without seeds.'
-                  .format(param, empty_seeds))
+                  .format(pars['iter_par'], empty_seeds))
 
-    outclustering = fill_path(kwargs['ClusteringOutPlot'], param=param, selection=selection) 
+    outclustering = fill_path(kw['ClusteringOutPlot'], **pars) 
     with pd.HDFStore(outclustering, mode='w') as sout:
         dfout.event = dfout.event.astype(int)
         sout['data'] = dfout
-
         
 if __name__ == "__main__":
     from airflow.airflow_dag import clustering_kwargs        

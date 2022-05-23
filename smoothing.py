@@ -113,10 +113,9 @@ def createHistogram(bins, nbinsRz, nbinsPhi):
     return arr
 
 # Event by event smoothing
-def smoothing(param, selection, **kwargs):
-    insmoothing = fill_path(kwargs['SmoothingIn'], param=param, selection=selection)
-    outsmoothing = fill_path(kwargs['SmoothingOut'], param=param, selection=selection) 
-
+def smoothing(pars, **kwargs):
+    insmoothing = fill_path(kwargs['SmoothingIn'], **pars)
+    outsmoothing = fill_path(kwargs['SmoothingOut'], **pars)
     with h5py.File(insmoothing,  mode='r') as storeIn, h5py.File(outsmoothing, mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:

@@ -46,8 +46,7 @@ def set_figure_props(p, xbincenters, ybincenters, hide_legend=True):
     if hide_legend:
         p.legend.click_policy='hide'
     
-def plot_trigger_cells_occupancy(param,
-                                 selection,
+def plot_trigger_cells_occupancy(pars,
                                  trigger_cell_map,
                                  plot_name,
                                  pos_endcap,
@@ -105,8 +104,7 @@ def plot_trigger_cells_occupancy(param,
     simAlgoNames = sorted(simAlgoDFs.keys())
 
     # Inputs: Clustering After Custom Iterative Algorithm
-    outclusteringplot = fill_path(cl_kw['ClusteringOutPlot'],
-                                  param=param, selection=selection)
+    outclusteringplot = fill_path(cl_kw['ClusteringOutPlot'], **pars)
     with pd.HDFStore(outclusteringplot, mode='r') as store:
         splittedClusters_3d_local = store['data']
 
@@ -181,7 +179,7 @@ def plot_trigger_cells_occupancy(param,
     #########################################################################
     for i,fe in enumerate(kw['FesAlgos']):
 
-        outfillingplot = fill_path(kw['FillingOutPlot'], param=param, selection=selection)
+        outfillingplot = fill_path(kw['FillingOutPlot'], **pars)
         with pd.HDFStore(outfillingplot, mode='r') as store:
             splittedClusters_3d_cmssw = store[fe + '_3d']
             splittedClusters_tc = store[fe + '_tc']
@@ -256,8 +254,7 @@ def plot_trigger_cells_occupancy(param,
                         )
         for ev in event_sample:
             # Inputs: Energy 2D histogram after smoothing but before clustering
-            outsmoothing = fill_path(smooth_kw['SmoothingOut'],
-                                     param=param, selection=selection)
+            outsmoothing = fill_path(smooth_kw['SmoothingOut'], **pars)
             with h5py.File(outsmoothing, mode='r') as storeSmoothIn:
 
                 kold = kw['FesAlgos'][0]+'_'+str(ev)+'_group_old'

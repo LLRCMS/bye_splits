@@ -5,10 +5,10 @@ import h5py
 from airflow.airflow_dag import fill_path
 from random_utils import get_column_idx
 
-def validation(**kwargs):
-    with pd.HDFStore(kwargs['ClusteringOutValidation'], mode='r') as storeInLocal, h5py.File(kwargs['FillingOut'], mode='r') as storeInCMSSW :
+def validation(**kw):
+    with pd.HDFStore(kw['ClusteringOutValidation'], mode='r') as storeInLocal, h5py.File(kw['FillingOut'], mode='r') as storeInCMSSW :
 
-        for falgo in kwargs['FesAlgos']:
+        for falgo in kw['FesAlgos']:
             local_keys = [x for x in storeInLocal.keys() if falgo in x]
             cmssw_keys = ( [x for x in storeInCMSSW.keys()
                             if falgo in x and '_clpos' in x] )
@@ -19,7 +19,7 @@ def validation(**kwargs):
                 cmssw = storeInCMSSW[key2][:]
                 cmssw_cols = list(cmssw.attrs['columns'])
          
-                search_str = '{}_([0-9]{{1,7}})_cl'.format(kwargs['FesAlgos'][0])
+                search_str = '{}_([0-9]{{1,7}})_cl'.format(kw['FesAlgos'][0])
                 event_number = re.search(search_str, key1).group(1)
          
                 locEtaOld = np.sort(local['eta'].to_numpy())
@@ -53,13 +53,13 @@ def validation(**kwargs):
                         print('\tRz difference: {}'.format(locRz[i] - cmsswRz[i]))
                         print('\tEn difference: {}'.format(locEn[i] - cmsswEn[i]))
 
-def stats_collector(param, selection, debug=False, **kwargs):
-    outclusteringvalidation = fill_path(kwargs['ClusteringOutValidation'], param=param, selection=selection)
-    outfilling = fill_path(kwargs['FillingOut'], param=param, selection=selection)
-    outfillingcomp = fill_path(kwargs['FillingOutComp'], param=param, selection=selection)
+def stats_collector(pars, debug=False, **kw):
+    outclusteringvalidation = fill_path(kw['ClusteringOutValidation'], **pars)
+    outfilling = fill_path(kw['FillingOut'], **pars)
+    outfillingcomp = fill_path(kw['FillingOutComp'], **pars)
     with pd.HDFStore(outclusteringvalidation, mode='r') as storeInLocal, h5py.File(outfilling, mode='r') as storeInCMSSW, pd.HDFStore(outfillingcomp, mode='r') as storeGen:
         
-        for falgo in kwargs['FesAlgos']:
+        for falgo in kw['FesAlgos']:
             local_keys = [x for x in storeInLocal.keys() if falgo in x]
             cmssw_keys = ( [x for x in storeInCMSSW.keys()
                             if falgo in x and '_clpos' in x] )
@@ -68,7 +68,7 @@ def stats_collector(param, selection, debug=False, **kwargs):
             # (check clustering.py where the np.AxisError is catched)
             # it was introduced to fix one single event (out of 5k) which for some reason had no seeds
             del1, del2 = ([] for _ in range(2))
-            search_str = '{}_([0-9]{{1,7}})_cl'.format(kwargs['FesAlgos'][0])
+            search_str = '{}_([0-9]{{1,7}})_cl'.format(kw['FesAlgos'][0])
             nev1 = [ re.search(search_str, k).group(1) for k in local_keys ]
             nev2 = [ re.search(search_str, k).group(1) for k in cmssw_keys ]
             diff1 = list(set(nev1) - set(nev2))

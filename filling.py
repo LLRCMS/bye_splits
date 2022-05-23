@@ -10,7 +10,7 @@ from random_utils import (
 )
 from airflow.airflow_dag import fill_path
 
-def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwargs):
+def filling(pars, nevents, tc_map, debug=False, **kwargs):
     """
     Fills split clusters information according to the Stage2 FPGA fixed binning.
     """    
@@ -33,8 +33,8 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
         print(simAlgoNames)
 
     ### Data Processing ######################################################
-    outfillingplot = fill_path(kwargs['FillingOutPlot'], param=param, selection=selection)
-    outfillingcomp = fill_path(kwargs['FillingOutComp'], param=param, selection=selection)
+    outfillingplot = fill_path(kwargs['FillingOutPlot'], **pars)
+    outfillingcomp = fill_path(kwargs['FillingOutComp'], **pars)
     with pd.HDFStore(outfillingplot, mode='w') as store, pd.HDFStore(outfillingcomp, mode='w') as storeComp:
 
         for i,fe in enumerate(kwargs['FesAlgos']):
@@ -53,11 +53,11 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
             df = df[~nansel]
             df = pd.concat([df,nandf], sort=False)
 
-            if selection.startswith('above_eta_'):
+            if pars['selection'].startswith('above_eta_'):
                 #1332 events survive
                 df = df[ df['genpart_exeta']
-                        > float(selection.split('above_eta_')[1]) ]
-            elif selection == 'splits_only':
+                        > float(pars['selection'].split('above_eta_')[1]) ]
+            elif pars['selection'] == 'splits_only':
                 # select events with splitted clusters (enres < energy cut)
                 # if an event has at least one cluster satisfying the enres condition,
                 # all of its clusters are kept (this eases comparison with CMSSW)
@@ -68,7 +68,7 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
                 df = df[ df['atLeastOne'] ] #214 events survive
                 df = df.drop(['atLeastOne'], axis=1)
             else:
-                m = 'Selection {} is not supported.'.format(selection)
+                m = 'Selection {} is not supported.'.format(pars['selection'])
                 raise ValueError(m)
 
             #_events_all = list(df.index.unique())
@@ -151,7 +151,8 @@ def filling(param, nevents, tc_map, selection='splits_only', debug=False, **kwar
             simAlgoPlots[fe] = (split_3d, split_tc)
 
     ### Event Processing ######################################################
-    outfilling = fill_path(kwargs['FillingOut'], param=param, selection=selection)
+    outfilling = fill_path(kwargs['FillingOut'], **pars)
+
     with h5py.File(outfilling, mode='w') as store:
 
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
