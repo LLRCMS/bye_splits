@@ -12,7 +12,7 @@ SELECTION="splits_only"
 REGION="ECAL"
 
 ######################################
-##Agument parsing#####################
+## Argument parsing ##################
 ######################################
 ARGS=$(getopt -o drpf: --long dry_run,reprocess,plot_tc,no_fill,selection:,region:,iter_par:,nevents: -n "getopts_${0}" -- "$@")
 

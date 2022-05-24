@@ -128,7 +128,7 @@ def resolution_plotter(params, names_d):
             hold.append( _tmp[0] )
             edgold.append( _tmp[1] )
             for ii,x in enumerate(('etares_old', 'phires_old')):
-                _tmp = np.histogram(df_pos[x], bins=50 if 'eta' in x else 500,
+                _tmp = np.histogram(df_pos[x], bins=50,
                                     range=(mins[ii+1],maxs[ii+1]), **hist_opt)
                 hold.append( _tmp[0] )
                 edgold.append( _tmp[1] )
@@ -137,7 +137,7 @@ def resolution_plotter(params, names_d):
             hnew.append( _tmp[0] )
             edgnew.append( _tmp[1] )
             for ii,x in enumerate(('etares_new', 'phires_new')):
-                _tmp = np.histogram(df_pos[x], bins=50 if 'eta' in x else 500,
+                _tmp = np.histogram(df_pos[x], bins=50,
                                     range=(mins[ii+1],maxs[ii+1]), **hist_opt)
                 hnew.append( _tmp[0] )
                 edgnew.append( _tmp[1] )
@@ -253,8 +253,6 @@ def resolution_plotter(params, names_d):
         # figs_summ[-1].output_backend = "svg"
         # export_svg(figs_summ[-1], filename="plot.svg")
         # export_png(figs_summ[-1], filename="plot.png", height=300, width=300)
-
-            
     return figs_summ, p, slider
     
 if __name__ == "__main__":

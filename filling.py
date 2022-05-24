@@ -90,6 +90,13 @@ def filling(pars, nevents, tc_map, debug=False, **kwargs):
             #split = df.loc[_events_all]
             #split = df.loc[_events_sample + _events_sample_all]
             split = df.loc[_events_sample]
+
+            #debug: events with large eta split and good resolution
+            # split = split.loc[ (split.index == 115441) |
+            #                    (split.index == 130968) |
+            #                    (split.index == 77678) |
+            #                    (split.index == 8580) |
+            #                    (split.index == 88782) ]
              
             #splitting remaining data into cluster and tc to avoid tc data duplication
             _cl3d_vars = [x for x in split.columns.to_list()

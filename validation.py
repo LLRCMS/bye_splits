@@ -22,14 +22,14 @@ def validation(**kw):
                 search_str = '{}_([0-9]{{1,7}})_cl'.format(kw['FesAlgos'][0])
                 event_number = re.search(search_str, key1).group(1)
          
-                locEtaOld = np.sort(local['eta'].to_numpy())
-                locPhiOld = np.sort(local['phi'].to_numpy())
-                locRz  = np.sort(local['Rz'].to_numpy())
-                locEn  = np.sort(local['en'].to_numpy())
-                cmsswEta = np.sort(cmssw[:][get_column_idx(cmssw_cols, 'cl3d_eta')])
-                cmsswPhi = np.sort(cmssw[:][get_column_idx(cmssw_cols, 'cl3d_phi')])
-                cmsswRz  = np.sort(cmssw[:][get_column_idx(cmssw_cols, 'cl3d_Roverz')])
-                cmsswEn  = np.sort(cmssw[:][get_column_idx(cmssw_cols, 'cl3d_energy')])
+                locEtaOld = local['eta'].to_numpy()
+                locPhiOld = local['phi'].to_numpy()
+                locRz  = local['Rz'].to_numpy()
+                locEn  = local['en'].to_numpy()
+                cmsswEta = cmssw[:][get_column_idx(cmssw_cols, 'cl3d_eta')]
+                cmsswPhi = cmssw[:][get_column_idx(cmssw_cols, 'cl3d_phi')]
+                cmsswRz  = cmssw[:][get_column_idx(cmssw_cols, 'cl3d_Roverz')]
+                cmsswEn  = cmssw[:][get_column_idx(cmssw_cols, 'cl3d_energy')]
          
                 if (len(locEtaOld) != len(cmsswEta) or
                     len(locPhiOld) != len(cmsswPhi) or
@@ -100,17 +100,15 @@ def stats_collector(pars, debug=False, **kw):
                 cmssw = storeInCMSSW[key2]
                 cmssw_cols = list(cmssw.attrs['columns'])
                 
-                locEtaNew = np.sort(local['etanew'].to_numpy())
-                locPhiNew = np.sort(local['phinew'].to_numpy())
-                locRz  = np.sort(local['Rz'].to_numpy())
-                locEn  = np.sort(local['en'].to_numpy())
-                # locXNew   = np.sort(local['xnew'].to_numpy())
-                # locYNew   = np.sort(local['ynew'].to_numpy())
+                locEtaNew = local['etanew'].to_numpy()
+                locPhiNew = local['phinew'].to_numpy()
+                locRz  = local['Rz'].to_numpy()
+                locEn  = local['en'].to_numpy()
 
-                cmsswEta  = np.sort(cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_eta') ])
-                cmsswPhi  = np.sort(cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_phi') ])
-                cmsswRz   = np.sort(cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_rz')  ])
-                cmsswEn   = np.sort(cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_en')  ])
+                cmsswEta  = cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_eta') ]
+                cmsswPhi  = cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_phi') ]
+                cmsswRz   = cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_rz')  ]
+                cmsswEn   = cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_en')  ]
 
                 event_number = re.search(search_str, key1).group(1)
                 
@@ -139,26 +137,11 @@ def stats_collector(pars, debug=False, **kw):
                 
                 _enres_new = max(locEn)
                 index_max_energy_local = np.where(locEn==_enres_new)[0][0]
+
                 assert ( type(index_max_energy_local) == np.int64 or
                          type(index_max_energy_local) == np.int32 )
                 _etares_new = locEtaNew[index_max_energy_local]
                 _phires_new = locPhiNew[index_max_energy_local]
-                if abs(_phires_new - gen_phi) > 0.05:
-                    print(key1)
-                    print(key2)
-                    print()
-                    print(_phires_old)
-                    print(_phires_new)
-                    print(gen_phi)
-                    print()
-                    print(_etares_old)
-                    print(_etares_new)
-                    print(gen_eta)                    
-                    print()
-                    print(_enres_old)
-                    print(_enres_new)
-                    print(gen_en)
-                    breakpoint()
 
                 enres_old.append ( _enres_old / gen_en )
                 enres_new.append ( _enres_new / gen_en )
