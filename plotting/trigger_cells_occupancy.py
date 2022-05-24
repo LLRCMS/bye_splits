@@ -248,8 +248,10 @@ def plot_trigger_cells_occupancy(pars,
 
     for _k,(df_3d_cmssw,df_tc,df_3d_local) in simAlgoPlots.items():
 
-        if len(df_tc['event'].unique()) > nevents:
-            m = 'You are trying to plot more events than those available in the dataset.'
+        if  nevents > len(df_tc['event'].unique()):
+            m = ( 'You are trying to plot more events ({}) than ' +
+                  'those available in the dataset ({}).'
+                  .format(len(df_tc['event'].unique()), nevents) )
             raise ValueError(m)
         
         event_sample = ( random.sample(df_tc['event'].unique()

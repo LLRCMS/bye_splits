@@ -122,7 +122,7 @@ seeding_kwargs = setDictionary(
     { 'SeedingIn': smoothing_kwargs['SmoothingOut'],
       'SeedingOut': 'seeding',
       'histoThreshold': 20.,
-      'WindowPhiDim': 1}
+      'WindowPhiDim': 2}
     )
 
 # clustering task

@@ -470,7 +470,7 @@ if __name__ == "__main__":
                         trigger_cell_map=tc_map,
                         plot_name=plot_name,
                         pos_endcap=True,
-                        nevents=1,
+                        nevents=25,
                         min_rz=opt_kw['MinROverZ'],
                         max_rz=opt_kw['MaxROverZ'],
                         layer_edges=[0,28],
