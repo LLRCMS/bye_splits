@@ -90,15 +90,15 @@ fi
 for iter_par in ${ITER_PARS[@]}; do
 	COMMAND="python3 iterative_optimization.py -m ${iter_par} -s ${SELECTION} -n ${NEVENTS} --region ${REGION}"
 	if [ ${DO_FILLING} -eq 0 ]; then
-		COMMAND="${COMMAND} -f "
+		COMMAND="${COMMAND} -f"
 	fi
 	if [ ${PLOT_TC} -eq 1 ]; then
-		COMMAND="${COMMAND} -p "
+		COMMAND="${COMMAND} -p"
 	fi
 
 	# Only one job can reprocess the data, and it has to be sequential
 	if [ ${REPROCESS} -eq 1 ] && [ $(echo "${iter_par} == ${ITER_PARS[0]}" | bc -l) -eq 1 ] ; then
-		COMMAND="${COMMAND} -r "
+		COMMAND="${COMMAND} -r"
 		if [ ${DRYRUN} -eq 1 ] ; then
 			echo "[dry-run]" ${COMMAND}
 		else

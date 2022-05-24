@@ -269,7 +269,7 @@ if __name__ == "__main__":
     parser.add_argument('--region',
                         help=region_help,
                         choices=('Si', 'ECAL', 'MaxShower'),
-                        default='ECAL', type=str)
+                        default='Si', type=str)
 
     FLAGS = parser.parse_args()
 

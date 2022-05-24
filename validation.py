@@ -143,6 +143,22 @@ def stats_collector(pars, debug=False, **kw):
                          type(index_max_energy_local) == np.int32 )
                 _etares_new = locEtaNew[index_max_energy_local]
                 _phires_new = locPhiNew[index_max_energy_local]
+                if abs(_phires_new - gen_phi) > 0.05:
+                    print(key1)
+                    print(key2)
+                    print()
+                    print(_phires_old)
+                    print(_phires_new)
+                    print(gen_phi)
+                    print()
+                    print(_etares_old)
+                    print(_etares_new)
+                    print(gen_eta)                    
+                    print()
+                    print(_enres_old)
+                    print(_enres_new)
+                    print(gen_en)
+                    breakpoint()
 
                 enres_old.append ( _enres_old / gen_en )
                 enres_new.append ( _enres_new / gen_en )

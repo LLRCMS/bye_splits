@@ -374,7 +374,7 @@ def optimization(pars, **kw):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-r', '--reprocess',
+    parser.add_argument('-r', '--process',
                         help='reprocess trigger cell geometry data',
                         action='store_true')
     parser.add_argument('-p', '--plot',
@@ -398,10 +398,10 @@ if __name__ == "__main__":
     parser.add_argument('--region',
                         help=region_help,
                         choices=('Si', 'ECAL', 'MaxShower'),
-                        default='ECAL', type=str)
+                        default='Si', type=str)
     FLAGS = parser.parse_args()
 
-    if FLAGS.reprocess:
+    if FLAGS.process:
         process_trigger_cell_geometry_data(region=FLAGS.region,
                                            selection=FLAGS.selection, **opt_kw )
 
@@ -464,15 +464,13 @@ if __name__ == "__main__":
             this_file = os.path.basename(__file__).split('.')[0]
             plot_name = fill_path(this_file,
                                   extension='html',
-                                  **pars)
+                                  **pars_d)
                 
-            plot_tc_occ(param=FLAGS.iter_par,
-                        selection=FLAGS.selection,
-                        region=pars_d['region'],
+            plot_tc_occ(pars_d,
                         trigger_cell_map=tc_map,
                         plot_name=plot_name,
                         pos_endcap=True,
-                        nevents=16,
+                        nevents=200,
                         min_rz=opt_kw['MinROverZ'],
                         max_rz=opt_kw['MaxROverZ'],
                         layer_edges=[0,28],
