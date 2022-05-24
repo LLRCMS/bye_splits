@@ -87,40 +87,38 @@ if [ ${DO_FILLING} -eq 1 ]; then
 	echo "Run the filling step for all jobs.";
 fi
 
-for iter_par in ${ITER_PARS[@]}; do
-	COMMAND="python3 iterative_optimization.py -m ${iter_par} -s ${SELECTION} -n ${NEVENTS} --region ${REGION}"
-	if [ ${DO_FILLING} -eq 0 ]; then
-		COMMAND="${COMMAND} -f"
-	fi
-	if [ ${PLOT_TC} -eq 1 ]; then
-		COMMAND="${COMMAND} -p"
-	fi
+#for iter_par in ${ITER_PARS[@]}; do
+COMMAND="parallel -j -1 python3 iterative_optimization.py -m {} -s ${SELECTION} -n ${NEVENTS} --region ${REGION}"
+if [ ${DO_FILLING} -eq 0 ]; then
+	COMMAND="${COMMAND} -f"
+fi
+if [ ${PLOT_TC} -eq 1 ]; then
+	COMMAND="${COMMAND} -p"
+fi
 
-	# Only one job can reprocess the data, and it has to be sequential
-	if [ ${REPROCESS} -eq 1 ] && [ $(echo "${iter_par} == ${ITER_PARS[0]}" | bc -l) -eq 1 ] ; then
-		COMMAND="${COMMAND} -r"
-		if [ ${DRYRUN} -eq 1 ] ; then
-			echo "[dry-run]" ${COMMAND}
-		else
-			echo "Running the following command (includes reprocessing!): ${COMMAND}";
-			${COMMAND}
-		fi
+### Only one job can reprocess the data, and it has to be sequential
+### && [ $(echo "${iter_par} == ${ITER_PARS[0]}" | bc -l) -eq 1 ]
+
+if [ ${REPROCESS} -eq 1 ]  ; then
+	COMMAND1="${COMMAND} -r ::: ${ITER_PARS[0]}"
+	COMMAND2="${COMMAND} ::: ${ITER_PARS[@]:1}"
+	if [ ${DRYRUN} -eq 1 ] ; then
+		echo "[dry-run]" ${COMMAND1}
+		echo "[dry-run]" ${COMMAND2}
 	else
-		COMMAND="${COMMAND}";
-		if [ ${DRYRUN} -eq 1 ] ; then
-			echo "[dry-run]" ${COMMAND} &
-		else
-			echo "Running the following command: ${COMMAND}";
-			${COMMAND} &
-		fi
+		echo "Running the following command (includes reprocessing!): ${COMMAND1}";
+		${COMMAND1}
+		echo "Running the following command: ${COMMAND2}";
+		${COMMAND2}
 	fi
-	pids[${i}]=$!
-done
+else
+	COMMAND="${COMMAND}	::: ${ITER_PARS[@]}"
+	if [ ${DRYRUN} -eq 1 ] ; then
+		echo "[dry-run]" ${COMMAND}
+	else
+		echo "Running the following command: ${COMMAND}";
+		${COMMAND} 
+	fi
+fi
 
-######################################
-##Wait for jobs to finish#############
-######################################
-for pid in ${pids[*]}; do
-    wait $pid
-done
 echo "All jobs finished."
