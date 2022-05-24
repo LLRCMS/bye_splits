@@ -97,7 +97,7 @@ def filling(pars, nevents, tc_map, debug=False, **kwargs):
             #                    (split.index == 77678) |
             #                    (split.index == 8580) |
             #                    (split.index == 88782) ]
-             
+
             #splitting remaining data into cluster and tc to avoid tc data duplication
             _cl3d_vars = [x for x in split.columns.to_list()
                           if 'tc_' not in x]

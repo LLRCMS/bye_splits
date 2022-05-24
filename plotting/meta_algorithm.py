@@ -87,11 +87,37 @@ def resolution_plotter(params, names_d):
     eta_old, eta_new = ([] for x in range(2))
     phi_old, phi_new = ([] for x in range(2))
 
+    # First loop over all the datasets to calculate plot optimal ranges
+    mins = {0:  1e10, 1:  1e10, 2:  1e10 }
+    maxs = {0: -1e10, 1: -1e10, 2: -1e10 }
     for par in params:
         pars = dict(iter_par=par, **names_d)
         in_en  = fill_path(opt_kw['OptimizationEnResOut'], **pars)
         in_pos = fill_path(opt_kw['OptimizationPosResOut'], **pars)                               
+        with pd.HDFStore(in_en, mode='r') as tmpEnRes, pd.HDFStore(in_pos, mode='r') as tmpPosRes:            
+            key = opt_kw['FesAlgos'][0]+'_data'
+            df_en  = tmpEnRes[key]
+            df_pos = tmpPosRes[key]
 
+            shift = {0: 0, 1: 0, 2: 0}
+            if par == params[-1]:
+                scale = 15.
+                shift = { 0: max(df_en.enres_old)  / scale,
+                          1: max(df_pos.etares_old) / scale,
+                          2: max(df_pos.phires_old) / scale }
+            
+            mins[0] = min(mins[0], min(min(df_en.enres_old),    min(df_en.enres_new)))   - shift[0]
+            mins[1] = min(mins[1], min(min(df_pos.etares_old),  min(df_pos.etares_new))) - shift[1]
+            mins[2] = min(mins[2], min(min(df_pos.phires_old),  min(df_pos.phires_new))) - shift[2]
+            maxs[0] = max(maxs[0], max(max(df_en.enres_old),    max(df_en.enres_new)))   + shift[0]
+            maxs[1] = max(maxs[1], max(max(df_pos.etares_old),  max(df_pos.etares_new))) + shift[1]
+            maxs[2] = max(maxs[2], max(max(df_pos.phires_old),  max(df_pos.phires_new))) + shift[2]
+
+    # Second loop to plot
+    for par in params:
+        pars = dict(iter_par=par, **names_d)
+        in_en  = fill_path(opt_kw['OptimizationEnResOut'], **pars)
+        in_pos = fill_path(opt_kw['OptimizationPosResOut'], **pars)                               
         with pd.HDFStore(in_en, mode='r') as tmpEnRes, pd.HDFStore(in_pos, mode='r') as tmpPosRes:            
             #key = opt_kw['FesAlgos'][0]+'_data_'+str(hp).replace('.','p')
             key = opt_kw['FesAlgos'][0]+'_data'
@@ -111,16 +137,6 @@ def resolution_plotter(params, names_d):
             adict_new = {0: en_new,
                          1: eta_new,
                          2: phi_new}
-
-            scale = 15.
-            mins = {0: min(min(df_en['enres_old']),  min(df_en['enres_new']))  -max(df_en['enres_old'])/scale,
-                    1: min(min(df_pos['etares_old']),min(df_pos['etares_new']))-max(df_pos['etares_old'])/scale,
-                    2: min(min(df_pos['phires_old']),min(df_pos['phires_new']))-max(df_pos['phires_old'])/scale 
-                    }
-            maxs = {0: max(max(df_en['enres_old']),  max(df_en['enres_new']))  +max(df_en['enres_new'])/scale,
-                    1: max(max(df_pos['etares_old']),max(df_pos['etares_new']))+max(df_pos['etares_new'])/scale,
-                    2: max(max(df_pos['phires_old']),max(df_pos['phires_new']))+max(df_pos['phires_new'])/scale,
-                    }
         
             hist_opt = dict(density=False)
             hold, edgold = ([] for x in range(2))

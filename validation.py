@@ -142,13 +142,46 @@ def stats_collector(pars, debug=False, **kw):
                          type(index_max_energy_local) == np.int32 )
                 _etares_new = locEtaNew[index_max_energy_local]
                 _phires_new = locPhiNew[index_max_energy_local]
-
+                    
+                # if abs(_phires_new-gen_phi)>3.14:
+                #     print(key1)
+                #     print()
+                #     print('PhiOld: ', _phires_old)
+                #     print('PhiNew: ', _phires_new)
+                #     print('PhiGen: ', gen_phi)
+                #     print(_phires_old - gen_phi)
+                #     print(_phires_new - gen_phi)
+                #     print()
+                #     print('EtaOld: ', _etares_old)
+                #     print('EtaNew: ', _etares_new)                    
+                #     print('EtaGen: ', gen_eta)                    
+                #     print(_etares_old - gen_eta)
+                #     print(_etares_new - gen_eta)
+                #     print()
+                #     print('EnOld: ', _enres_old)
+                #     print('EnNew: ', _enres_new)                    
+                #     print('EnGen: ', gen_en)                    
+                #     print(_enres_old - gen_en)
+                #     print(_enres_new - gen_en)
+                #     print()
+                #     breakpoint()
                 enres_old.append ( _enres_old / gen_en )
                 enres_new.append ( _enres_new / gen_en )
                 etares_old.append( _etares_old - gen_eta )
                 etares_new.append( _etares_new - gen_eta )
-                phires_old.append( _phires_old - gen_phi )
-                phires_new.append( _phires_new - gen_phi )
+                if _phires_old - gen_phi > np.pi:
+                    phires_old.append(_phires_old - 2*np.pi - gen_phi)
+                elif _phires_old - gen_phi < -np.pi:
+                    phires_old.append(_phires_old + 2*np.pi - gen_phi)
+                else:
+                    phires_old.append(_phires_old - gen_phi)
+                    
+                if _phires_new - gen_phi > np.pi:
+                    phires_new.append(_phires_new - 2*np.pi - gen_phi)
+                elif _phires_new - gen_phi < -np.pi:
+                    phires_new.append(_phires_new + 2*np.pi - gen_phi)
+                else:
+                    phires_new.append(_phires_new - gen_phi)
 
                 if len(locEtaNew) == 1:
                     c_loc1 += 1
