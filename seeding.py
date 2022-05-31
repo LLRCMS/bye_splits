@@ -72,10 +72,6 @@ def seeding(pars, debug=False, **kwargs):
                 # southwest = np.roll(energies, shift=(1,1),   axis=(0,1))[slc]
          
                 energies = energies[slc]
-                # if '44317' in key:
-                #     print(key)
-                #     print(energies)
-                #     breakpoint()
 
                 # maxima = ( (energies > kwargs['histoThreshold'] ) &
                 #            (energies >= south) & (energies > north) &
@@ -93,6 +89,11 @@ def seeding(pars, debug=False, **kwargs):
                         wght_x[seeds_idx], wght_y[seeds_idx],
                         #wght_x_new[seeds_idx], wght_y_new[seeds_idx]
                         )
+                if '88782' in key:
+                    print(key)
+                    print(energies)
+                    print(res)
+                    breakpoint()
 
                 assert(len(kwargs['FesAlgos'])==1)
                 search_str = '{}_([0-9]{{1,7}})_group'.format(kwargs['FesAlgos'][0])

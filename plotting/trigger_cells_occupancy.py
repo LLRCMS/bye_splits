@@ -35,7 +35,7 @@ from random_utils import (
 )
 
 colors = ('orange', 'red', 'black')
-def set_figure_props(p, xbincenters, ybincenters, hide_legend=True):
+def set_figure_props(p, hide_legend=True):
     """set figure properties"""
     p.axis.axis_line_color = 'black'
     p.axis.major_tick_line_color = 'black'
@@ -55,9 +55,6 @@ def plot_trigger_cells_occupancy(pars,
                                  log_scale=False,
 								 show_html=False,
                                  **kw):
-    rzBinCenters = ['{:.2f}'.format(x) for x in ( kw['RzBinEdges'][1:] + kw['RzBinEdges'][:-1] ) / 2 ]
-    phiBinCenters = ['{:.2f}'.format(x) for x in ( kw['PhiBinEdges'][1:] + kw['PhiBinEdges'][:-1] ) / 2 ]
-
     #assumes the binning is regular
     binDistRz = kw['RzBinEdges'][1] - kw['RzBinEdges'][0] 
     binDistPhi = kw['PhiBinEdges'][1] - kw['PhiBinEdges'][0]
@@ -163,6 +160,7 @@ def plot_trigger_cells_occupancy(pars,
     groups = []
     for lmin,lmax in ledgeszip:
         groups.append( tcData[ (tcData.layer>lmin) & (tcData.layer<=lmax) ] )
+
         groupby = groups[-1].groupby(['Rz_center', 'phi_center_old'], as_index=False)
         groups[-1] = groupby.count()
 
@@ -197,8 +195,7 @@ def plot_trigger_cells_occupancy(pars,
 
         mapper_class = LogColorMapper if log_scale else LinearColorMapper
         mapper = mapper_class(palette=mypalette,
-                              low=grp['ntc'].min(),
-                              high=grp['ntc'].max())
+                              low=grp['ntc'].min(), high=grp['ntc'].max())
 
         title = title_common + '; {}'.format(tcSelections[idx])
         p = figure(title=title,
@@ -230,7 +227,7 @@ def plot_trigger_cells_occupancy(pars,
                              formatter=PrintfTickFormatter(format="%d"))
         p.add_layout(color_bar, 'right')
 
-        set_figure_props(p, phiBinCenters, rzBinCenters, hide_legend=False)
+        set_figure_props(p, hide_legend=False)
 
         p.hover.tooltips = [
             ("#TriggerCells", "@{ntc}"),
@@ -269,12 +266,14 @@ def plot_trigger_cells_occupancy(pars,
                 energies_post_smooth_new, _, _ = storeSmoothIn[knew]
 
             # convert 2D numpy array to (rz_bin, phi_bin) pandas dataframe
+            breakpoint()
             df_smooth_old = ( pd.DataFrame(energies_post_smooth_old)
-                         .reset_index()
-                         .rename(columns={'index': 'Rz_bin'}) )
-            df_smooth_old = pd.melt(df_smooth_old,
-                                    id_vars='Rz_bin',
-                                    value_vars=[x for x in range(0,216)]).rename(columns={'variable': 'phi_bin', 'value': 'energy_post_smooth_old'})
+                              .reset_index()
+                              .rename(columns={'index': 'Rz_bin'}) )
+            df_smooth_old = ( pd.melt(df_smooth_old,
+                                      id_vars='Rz_bin',
+                                      value_vars=[x for x in range(0,216)])
+                             .rename(columns={'variable': 'phi_bin', 'value': 'energy_post_smooth_old'}) )
             df_smooth_old['Rz_center']  = binConv(df_smooth_old.Rz_bin,  binDistRz,  kw['MinROverZ'])
             df_smooth_old['phi_center'] = binConv(df_smooth_old.phi_bin, binDistPhi, kw['MinPhi'])
             
@@ -382,13 +381,13 @@ def plot_trigger_cells_occupancy(pars,
                              width_units='data', height_units='data',
                              line_color='black' )
 
-            seed_window = ( 'phi seeding window = {}'
+            seed_window = ( 'phi seeding window: {}'
                            .format(seed_kw['WindowPhiDim']) )
             figs = []
             t_d = {0: ( 'Energy Density (before smoothing, ' +
                         'before algo, {})'.format(seed_window) ),
                    1: ( 'Energy Density (before smoothing, ' +
-                        'after algo, , {})'.format(seed_window) ),
+                        'after algo, {})'.format(seed_window) ),
                    2: ( 'Energy Density (after smoothing, ' +
                         'before alg, {})'.format(seed_window) ),
                    3: ( 'Energy Density (after smoothing, ' +
@@ -473,10 +472,7 @@ def plot_trigger_cells_occupancy(pars,
                 figs[-1].rect( fill_color=transform(hvar_d[it], mapper),
                               **rec_opt_d[it] )
 
-                figs[-1].hover.tooltips = [ toolvar_d[it],
-                                           ("min(eta)", "@{min_eta}"),
-                                           ("max(eta)", "@{max_eta}") ]
-
+                figs[-1].hover.tooltips = [ toolvar_d[it] ]
                 figs[-1].cross(**gen_cross_opt)
 
                 if it==1 or it==3 or it==5:
@@ -484,7 +480,7 @@ def plot_trigger_cells_occupancy(pars,
                 else:
                     figs[-1].cross(**cmssw_cross_opt)
 
-                set_figure_props(figs[-1], phiBinCenters, rzBinCenters)
+                set_figure_props(figs[-1])
 
             for bkg in tc_backgrounds:
                 bkg.cross(x=gen_pos_phi, y=gen_pos_rz,

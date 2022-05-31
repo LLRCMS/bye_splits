@@ -32,7 +32,7 @@ def clustering(pars, **kw):
                 radiusCoeffA = np.array( [kw['CoeffA'][int(xi)-1]
                                           for xi in tc[:, get_column_idx(tc_cols, 'tc_layer')]] )
                 minDist = ( radiusCoeffA +
-                           radiusCoeffB * (kw['MidRadius'] - np.abs(tc[:, get_column_idx(tc_cols, 'tc_eta_new')])) )
+                            radiusCoeffB * (kw['MidRadius'] - np.abs(tc[:, get_column_idx(tc_cols, 'tc_eta_new')])) )
                 
                 seedEn, seedX, seedY = storeInSeeds[key2]
          
@@ -46,7 +46,7 @@ def clustering(pars, **kw):
                         dRs = np.concatenate((dRs, np.expand_dims(dR, axis=-1)),
                                              axis=1)
          
-                # checks if each seeds has at least one seed which lies
+                # checks if each seed has at least one seed which lies
                 # below the threshold
                 pass_threshold = dRs < np.expand_dims(minDist, axis=-1)
                 pass_threshold = np.logical_or.reduce(pass_threshold, axis=1)
