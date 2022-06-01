@@ -266,7 +266,6 @@ def plot_trigger_cells_occupancy(pars,
                 energies_post_smooth_new, _, _ = storeSmoothIn[knew]
 
             # convert 2D numpy array to (rz_bin, phi_bin) pandas dataframe
-            breakpoint()
             df_smooth_old = ( pd.DataFrame(energies_post_smooth_old)
                               .reset_index()
                               .rename(columns={'index': 'Rz_bin'}) )

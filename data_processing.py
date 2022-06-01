@@ -59,11 +59,10 @@ class DataProcessing:
             """
             Creates a list of R/z slices, each ordered by phi.
             """
-            # data sanity check
+            # data robustness checks
             rz_slices = np.unique(data[:,split_index])
-
             assert len(rz_slices) <= nbins_rz
-            assert rz_slices.tolist() == [x for x in range(len(rz_slices))]
+            assert np.all(rz_slices[1:]-rz_slices[:-1] == 1.)
 
             # Https://stackoverflow.com/questions/2828059/sorting-arrays-in-numpy-by-column
             # ordering is already done when the data is produced, the following line is not needed anymore
