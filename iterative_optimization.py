@@ -71,26 +71,28 @@ def process_trigger_cell_geometry_data(region, selection,
         tcData = tcData.drop(['zside'], axis=1)
         tcVariables.remove('zside')
 
+    tcData['R'] = np.sqrt(tcData.x*tcData.x + tcData.y*tcData.y)
+    tcData['Rz'] = tcData.R / abs(tcData.z)
+    #the following cut removes almost no event at all
+    tcData = tcData[ (tcData['Rz'] < kw['MaxROverZ']) & (tcData['Rz'] > kw['MinROverZ']) ]
+    
+    copt = dict(labels=False)
+    tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=kw['RzBinEdges'], **copt )
+    tcData['phi_bin'] = pd.cut( tcData['phi'], bins=kw['PhiBinEdges'], **copt )
+
     # ECAL (1), HCAL silicon (2) and HCAL scintillator (10, here ignored)
     if region == 'Si':
         subdetCond = (tcData.subdet == 1) | (tcData.subdet == 2)
     elif region == 'ECAL':
         subdetCond = (tcData.subdet == 1)
     elif region == 'MaxShower':
-        subdetCond = (tcData.subdet == 1) & (tcData.layer >= 8) & (tcData.layer<=15)
+        subdetCond = (tcData.subdet == 1) & (tcData.layer >= 8) & (tcData.layer <= 15)
 
-    tcData = tcData[ subdetCond ]
-    tcData = tcData.drop(['subdet'], axis=1)
+    tcData_full = tcData[:]
+    tcData_full = tcData_full.drop(['subdet'], axis=1)
+    tcData_part = tcData[ subdetCond ]
+    tcData_part = tcData_part.drop(['subdet'], axis=1)
     tcVariables.remove('subdet')
-
-    tcData['R'] = np.sqrt(tcData.x*tcData.x + tcData.y*tcData.y)
-    tcData['Rz'] = tcData.R / abs(tcData.z)
-    #the following cut removes almost no event at all
-    tcData = tcData[ (tcData['Rz'] < kw['MaxROverZ']) & (tcData['Rz'] >  kw['MinROverZ']) ]
-    
-    copt = dict(labels=False)
-    tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=kw['RzBinEdges'], **copt )
-    tcData['phi_bin'] = pd.cut( tcData['phi'], bins=kw['PhiBinEdges'], **copt )
 
     # save data for optimization task
     inoptfile = fill_path(kw['OptimizationIn'],
@@ -98,14 +100,21 @@ def process_trigger_cell_geometry_data(region, selection,
 
     with h5py.File(inoptfile, mode='w') as store:
         save_cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
-        saveData = ( tcData[save_cols]
-                    .sort_values(by=['Rz_bin', 'phi'])
-                    .to_numpy() )
+        saveData_full = ( tcData_full[save_cols]
+                         .sort_values(by=['Rz_bin', 'phi'])
+                         .to_numpy() )
+        saveData_part = ( tcData_part[save_cols]
+                         .sort_values(by=['Rz_bin', 'phi'])
+                         .to_numpy() )
 
-        store['data'] = saveData
-        store['data'].attrs['columns'] = save_cols
-        doc = 'Trigger cell phi vs. R/z positions for optimization.'
-        store['data'].attrs['doc'] = doc
+        store['data_full'] = saveData_full
+        store['data_part'] = saveData_part
+        store['data_full'].attrs['columns'] = save_cols        
+        store['data_part'].attrs['columns'] = save_cols
+        doc_full = 'Trigger cell phi vs. R/z positions for optimization: full phase space.'
+        doc_part = 'Trigger cell phi vs. R/z positions for optimization: active algo phase space.'
+        store['data_full'].attrs['doc'] = doc_full
+        store['data_part'].attrs['doc'] = doc_part
 
 def optimization(pars, **kw):
     outresen = fill_path(kw['OptimizationIn'],
@@ -117,18 +126,18 @@ def optimization(pars, **kw):
     mode = 'variance'
     window_size = 3
 
-    assert len(store_in.keys()) == 1
+    assert list(store_in.keys()) == ['data_full', 'data_part']
     dp = DataProcessing( phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
                          bin_bounds=(0,50) )
 
     # check detids make sense
-    assert (np.sort(np.unique(store_in['data'][:,-1])) == np.sort(store_in['data'][:,-1])).all()
+    assert (np.sort(np.unique(store_in['data_full'][:,-1])) == np.sort(store_in['data_full'][:,-1])).all()
+    assert (np.sort(np.unique(store_in['data_part'][:,-1])) == np.sort(store_in['data_part'][:,-1])).all()
 
-    data, bins, _, _, idx_d = dp.preprocess( data=store_in['data'],
-                                             nbins_phi=kw['NbinsPhi'],
-                                             nbins_rz=kw['NbinsRz'],
-                                             window_size=window_size,
-                                             normalize=False )
+    data_opt = dict(nbins_phi=kw['NbinsPhi'], nbins_rz=kw['NbinsRz'],
+                    window_size=window_size, normalize=False)
+    data_part, bins_part, _, _, idx_d_part = dp.preprocess( data=store_in['data_part'], **data_opt)
+    data_full, bins_full, _, _, idx_d_full = dp.preprocess( data=store_in['data_full'], **data_opt)
 
     store_in.close()
 
@@ -143,11 +152,15 @@ def optimization(pars, **kw):
             edge += ncellstot
         return edge
     
-    for rzslice,(ldata,lbins) in enumerate(zip(data, bins)):
-        ld = np.array(ldata)
-        lb = np.array(lbins)
-        radiae = ld[:,idx_d.r]
-        phi_old = ld[:,idx_d.phi]
+    for rzslice, (ldata_part,lbins_part,ldata_full,lbins_full) in enumerate(zip(data_part, bins_part, data_full, bins_full)):
+        ld = np.array(ldata_part)
+        lb = np.array(lbins_part)
+        radiae = ld[:,idx_d_part.r]
+        phi_old = ld[:,idx_d_part.phi]
+
+        ld_full = np.array(ldata_full)
+        lb_full = np.array(ldata_full)
+        phi_full = ld_full[:,idx_d_part.phi]
 
         run_algorithm = True
         if rzslice not in kw['LayersToOptimize']:
@@ -229,7 +242,7 @@ def optimization(pars, **kw):
                         edge = get_edge(id2, misalign, ncellstot) - 1
                         lb[id1] -= 1
                         lb[id2] += 1
-                        ld[edge,idx_d.phibin] = id2
+                        ld[edge,idx_d_part.phibin] = id2
                         if id2==0:
                             misalign -= 1
              
@@ -237,7 +250,7 @@ def optimization(pars, **kw):
                         edge = get_edge(id3, misalign, ncellstot)
                         lb[id3] -= 1
                         lb[id2] += 1
-                        ld[edge,idx_d.phibin] = id2
+                        ld[edge,idx_d_part.phibin] = id2
                         if id2==lastidx:
                             misalign += 1
                 
@@ -248,9 +261,9 @@ def optimization(pars, **kw):
              
                         #SO DIRTY!!!!!!!!! Probably some very rare boundary condition issue.
                         try:
-                            ld[edge,idx_d.phibin] = id1
+                            ld[edge,idx_d_part.phibin] = id1
                         except IndexError:
-                            ld[edge-1,idx_d.phibin] = id1
+                            ld[edge-1,idx_d_part.phibin] = id1
                             
                         if id2==0:
                             misalign += 1
@@ -259,26 +272,26 @@ def optimization(pars, **kw):
                         edge = get_edge(id3, misalign, ncellstot) - 1
                         lb[id3] += 1
                         lb[id2] -= 1
-                        ld[edge,idx_d.phibin] = id3
+                        ld[edge,idx_d_part.phibin] = id3
                         if id2==lastidx:
                             misalign -= 1
                     else:
                         raise RuntimeError('Impossible 2!')                    
 
-                    if not is_sorted(ld[:,idx_d.phibin], kw['NbinsPhi']):
+                    if not is_sorted(ld[:,idx_d_part.phibin], kw['NbinsPhi']):
                         print('Not Sorted!!!!!')
                         quit()
              
-            phi_new_low_edges = kw['PhiBinEdges'][:-1][ld[:,idx_d.phibin].astype(int)]
-            phi_new_high_edges = kw['PhiBinEdges'][1:][ld[:,idx_d.phibin].astype(int)]
+            phi_new_low_edges = kw['PhiBinEdges'][:-1][ld[:,idx_d_part.phibin].astype(int)]
+            phi_new_high_edges = kw['PhiBinEdges'][1:][ld[:,idx_d_part.phibin].astype(int)]
              
             df = pd.DataFrame(dict(phi_old=phi_old,
-                                   bin_old=np.array(data[rzslice])[:,idx_d.phibin],
-                                   bin_new=ld[:,idx_d.phibin],
+                                   bin_old=np.array(data_part[rzslice])[:,idx_d_part.phibin],
+                                   bin_new=ld[:,idx_d_part.phibin],
                                    # fix upstream inconsistency when producing ROOT files
                                    # needed for TC id comparison later on
                                    radius=radiae,
-                                   id=np.uint32(ld[:,idx_d.tc_id])))
+                                   id=np.uint32(ld[:,idx_d_part.tc_id])))
     
             # the bin edge to use to calculate the phi distance to the nearest edge depends on whether the trigger cell is moving
             # to the left or to the right bin. The following introduces a mask to perform the conditional decision.
@@ -358,19 +371,33 @@ def optimization(pars, **kw):
             df = pd.DataFrame(dict(phi_old=phi_old,
                                    phi_new=phi_old,
                                    radius=radiae,
-                                   id=np.uint32(ld[:,idx_d.tc_id])))
+                                   id=np.uint32(ld[:,idx_d_part.tc_id])))
 
         df = df[['phi_old', 'phi_new', 'id']]
+        
         df_total = df if rzslice==0 else pd.concat((df_total,df), axis=0)
 
+        df_full = pd.DataFrame(dict(phi=phi_full,
+                                    id=np.uint32(ld_full[:,idx_d_full.tc_id])))
+        df_full_total = df_full if rzslice==0 else pd.concat((df_full_total,df_full), axis=0)
+        
         # end loop over the layers
     plot_name = os.path.join( 'out',
                               get_html_name(__file__, extra='_'+str(pars['iter_par']).replace('.','p')) )
     plotter.plot_iterative( plot_name=plot_name,
-                            tab_names = [''+str(x) for x in range(len(ldata))],
+                            tab_names = [''+str(x) for x in range(len(ldata_part))],
                             show_html=False )
 
-    return df_total
+    assert set(df_total.id).issubset(df_full_total.id)
+    df_merge = df_full_total.merge(df_total, how='left', on='id')
+    df_merge.drop(['phi_old'], axis=1)
+    print(df_merge.isnull())
+    df_merge.loc[df_merge.isnull() == True, 'phi_new'] = df_merge.loc[df_merge.isnull() == True, 'phi']
+    print(df_merge)
+    breakpoint()
+
+
+    return df_merge
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
