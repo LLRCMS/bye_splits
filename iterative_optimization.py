@@ -400,11 +400,10 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot',
                         help='plot shifted trigger cells instead of originals',
                         action='store_true')
-    fill_help = ( 'Whether to filling the datasets or reuse the existing ones.' +
-                  ' This step is by far the sowest in the chain.' )
-    parser.add_argument('-f', '--do_filling',
-                        help=fill_help,
-                        action='store_false')
+    parser.add_argument('--no_filling',    action='store_false')
+    parser.add_argument('--no_smoothing',  action='store_false')
+    parser.add_argument('--no_seeding',    action='store_false')
+    parser.add_argument('--no_clustering', action='store_false')
     parser.add_argument('-m', '--iter_par',
                         help='iterative algorithm tunable parameter',
                         default=0.5, type=float)
@@ -446,14 +445,17 @@ if __name__ == "__main__":
 
         tc_map = optimization(pars_d, **opt_kw )
 
-        if FLAGS.do_filling:
+        if not FLAGS.no_filling:
             filling(pars_d, FLAGS.nevents, tc_map, **filling_kwargs)
 
-        smoothing(pars_d, **smoothing_kwargs)
+        if not FLAGS.no_smoothing:
+            smoothing(pars_d, **smoothing_kwargs)
 
-        seeding(pars_d, **seeding_kwargs)
+        if not FLAGS.no_seeding:
+            seeding(pars_d, **seeding_kwargs)
 
-        clustering(pars_d, **clustering_kwargs)
+        if not FLAGS.no_clustering:
+            clustering(pars_d, **clustering_kwargs)
 
         res = stats_collector(pars_d, **validation_kwargs)
 
@@ -487,13 +489,12 @@ if __name__ == "__main__":
                                   **pars_d)
                 
             plot_tc_occ(pars_d,
-                        trigger_cell_map=tc_map,
                         plot_name=plot_name,
                         pos_endcap=True,
+                        layer_edges=[0,42],
                         nevents=25,
                         min_rz=opt_kw['MinROverZ'],
                         max_rz=opt_kw['MaxROverZ'],
-                        layer_edges=[0,28],
                         **opt_kw)
 
     print('Finished for iterative parameter {}.'.format(FLAGS.iter_par), flush=True)

@@ -1,3 +1,12 @@
+"""
+Plots TC distributions and particular events, before and after:
+- smoothing
+- trigger cell movement
+The full TC distributions show the distributions *before* TC movement.
+
+There is some code duplication with `_full/_f` and `_sel/_s` suffixes
+to describe the full phase space and the one defined ("selected") by `pars["region"]`
+"""
 import os
 import argparse
 import numpy as np
@@ -49,7 +58,6 @@ def set_figure_props(p, hide_legend=True):
         p.legend.click_policy='hide'
     
 def plot_trigger_cells_occupancy(pars,
-                                 trigger_cell_map,
                                  plot_name,
                                  pos_endcap,
                                  layer_edges,
@@ -113,57 +121,75 @@ def plot_trigger_cells_occupancy(pars,
                                            range_rz=(kw['MinROverZ'],
                                                      kw['MaxROverZ']))
     tcData.id = np.uint32(tcData.id)
-    
-    tcData = tcData[ subdetCond ]
-    print(tcData.shape)
-    # add `phi_new` to the dataframe
-    tcData = ( tcData.merge(trigger_cell_map, on='id', how='right')
-               .dropna() )
-    print(tcData.shape)
-    breakpoint()
 
-    assert_diff = tcData.phi_old - tcData.phi
-    assert not np.count_nonzero(assert_diff)
-    tcData = tcData.drop(['phi'], axis=1)
+    tcData_full = tcData[:]
+    tcData_sel = tcData[subdetCond]
 
     copt = dict(labels=False)
-    tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=kw['RzBinEdges'], **copt )
-
-    # to check the effect of NOT applying the tc mapping
-    # replace `phi_new` by `phi_old`
-    tcData['phi_bin_old'] = pd.cut( tcData.phi_old, bins=kw['PhiBinEdges'], **copt )
+    tcData_full['Rz_bin'] = pd.cut(tcData_full['Rz'],
+                                   bins=kw['RzBinEdges'],
+                                   **copt)
+    tcData_full['phi_bin'] = pd.cut(tcData_full.phi,
+                                    bins=kw['PhiBinEdges'],
+                                    **copt)
+    tcData_sel['Rz_bin'] = pd.cut(tcData_sel['Rz'],
+                                  bins=kw['RzBinEdges'],
+                                  **copt)
+    tcData_sel['phi_bin'] = pd.cut(tcData_sel.phi,
+                                   bins=kw['PhiBinEdges'],
+                                   **copt)
     
     # Convert bin ids back to values (central values in each bin)
-    tcData['Rz_center'] = binConv(tcData.Rz_bin, binDistRz, kw['MinROverZ'])
-    tcData['phi_center_old'] = binConv(tcData.phi_bin_old, binDistPhi, kw['MinPhi'])
-    _cols_drop = ['Rz_bin', 'phi_bin_old', 'phi_bin_new', 'Rz']
-    tcData = tcData.drop(_cols_drop, axis=1)
+    tcData_full['Rz_center'] = binConv(tcData_full.Rz_bin, binDistRz, kw['MinROverZ'])
+    tcData_full['phi_center'] = binConv(tcData_full.phi_bin, binDistPhi, kw['MinPhi'])
+    tcData_sel['Rz_center'] = binConv(tcData_sel.Rz_bin, binDistRz, kw['MinROverZ'])
+    tcData_sel['phi_center'] = binConv(tcData_sel.phi_bin, binDistPhi, kw['MinPhi'])
+    _cols_drop = ['Rz_bin', 'phi_bin', 'Rz', 'phi']
+    tcData_full = tcData_full.drop(_cols_drop, axis=1)
+    tcData_sel = tcData_sel.drop(_cols_drop, axis=1)
 
     # if `-1` is included in layer_edges, the full selection is also drawn
     try:
         layer_edges.remove(-1)
         leftLayerEdges, rightLayerEdges = layer_edges[:-1], layer_edges[1:]
         leftLayerEdges.insert(0, 0)
-        rightLayerEdges.insert(0, tcData.layer.max())
+        rightLayerEdges.insert(0, tcData_full.layer.max())
     except ValueError:
         leftLayerEdges, rightLayerEdges = layer_edges[:-1], layer_edges[1:]
 
     ledgeszip = tuple(zip(leftLayerEdges,rightLayerEdges))
     tcSelections = ['layer>{}, layer<={}'.format(x,y) for x,y in ledgeszip]
-    groups = []
+    grps_f, grps_s = ([] for _ in range(2))
     for lmin,lmax in ledgeszip:
-        groups.append( tcData[ (tcData.layer>lmin) & (tcData.layer<=lmax) ] )
+        #full
+        grps_f.append( tcData_full[ (tcData_full.layer>lmin) &
+                                    (tcData_full.layer<=lmax) ] )
+        groupby_full = grps_f[-1].groupby(['Rz_center', 'phi_center'],
+                                          as_index=False)
+        grps_f[-1] = groupby_full.count()
+        eta_mins = groupby_full.min()['eta']
+        eta_maxs = groupby_full.max()['eta']
+        grps_f[-1].insert(0, 'min_eta', eta_mins)
+        grps_f[-1].insert(0, 'max_eta', eta_maxs)
+        grps_f[-1] = grps_f[-1].rename(columns={'z': 'ntc'})
+        _cols_keep = ['phi_center', 'ntc', 'Rz_center',
+                      'min_eta', 'max_eta']
+        grps_f[-1] = grps_f[-1][_cols_keep]
 
-        groupby = groups[-1].groupby(['Rz_center', 'phi_center_old'], as_index=False)
-        groups[-1] = groupby.count()
-
-        eta_mins = groupby.min()['eta']
-        eta_maxs = groupby.max()['eta']
-        groups[-1].insert(0, 'min_eta', eta_mins)
-        groups[-1].insert(0, 'max_eta', eta_maxs)
-        groups[-1] = groups[-1].rename(columns={'z': 'ntc'})
-        _cols_keep = ['phi_center_old', 'ntc', 'Rz_center', 'min_eta', 'max_eta']
-        groups[-1] = groups[-1][_cols_keep]
+        #sel
+        grps_s.append( tcData_sel[ (tcData_sel.layer>lmin) &
+                                    (tcData_sel.layer<=lmax) ] )
+        groupby_sel = grps_s[-1].groupby(['Rz_center', 'phi_center'],
+                                          as_index=False)
+        grps_s[-1] = groupby_sel.count()
+        eta_mins = groupby_sel.min()['eta']
+        eta_maxs = groupby_sel.max()['eta']
+        grps_s[-1].insert(0, 'min_eta', eta_mins)
+        grps_s[-1].insert(0, 'max_eta', eta_maxs)
+        grps_s[-1] = grps_s[-1].rename(columns={'z': 'ntc'})
+        _cols_keep = ['phi_center', 'ntc', 'Rz_center',
+                      'min_eta', 'max_eta']
+        grps_s[-1] = grps_s[-1][_cols_keep]
 
     #########################################################################
     ################### DATA ANALYSIS: SIMULATION ###########################
@@ -182,34 +208,41 @@ def plot_trigger_cells_occupancy(pars,
     #########################################################################
     ################### PLOTTING: TRIGGER CELLS #############################
     #########################################################################
-    tc_backgrounds = []
-    for idx,grp in enumerate(groups):
-        source = ColumnDataSource(grp)
+    bckg_full, bckg_sel = ([] for _ in range(2))
+    for idx,(grp_full,grp_sel) in enumerate(zip(grps_f,grps_s)):
+        source_full = ColumnDataSource(grp_full)
+        source_sel  = ColumnDataSource(grp_sel)
 
         mapper_class = LogColorMapper if log_scale else LinearColorMapper
         mapper = mapper_class(palette=mypalette,
-                              low=grp['ntc'].min(), high=grp['ntc'].max())
+                              low=grp_full['ntc'].min(),
+                              high=grp_full['ntc'].max())
 
         title = title_common + '; {}'.format(tcSelections[idx])
-        p = figure(title=title,
-                   width=1800,
-                   height=600,
-                   x_range=Range1d(tcData['phi_center_old'].min()-SHIFTH,
-                                   tcData['phi_center_old'].max()+SHIFTH),
-                   y_range=Range1d(tcData['Rz_center'].min()-SHIFTV,
-                                   tcData['Rz_center'].max().max()+SHIFTV),
-                   tools="hover,box_select,box_zoom,reset,save",
-                   x_axis_location='below',
-                   x_axis_type='linear',
-                   y_axis_type='linear')
-        p.toolbar.logo = None
+        fig_opt = dict(title=title,
+                       width=1800,
+                       height=600,
+                       x_range=Range1d(tcData_full.phi_center.min()-SHIFTH,
+                                       tcData_full.phi_center.max()+SHIFTH),
+                       y_range=Range1d(tcData_full.Rz_center.min()-SHIFTV,
+                                       tcData_full.Rz_center.max().max()+SHIFTV),
+                       tools="hover,box_select,box_zoom,reset,save",
+                       x_axis_location='below',
+                       x_axis_type='linear',
+                       y_axis_type='linear')
 
-        p.rect( x='phi_center_old', y='Rz_center',
-                source=source,
-                width=binDistPhi, height=binDistRz,
-                width_units='data', height_units='data',
-                line_color='black', fill_color=transform('ntc', mapper)
-               )
+        p_full = figure(**fig_opt)
+        p_full.toolbar.logo = None
+        p_sel  = figure(**fig_opt)
+        p_sel.toolbar.logo = None
+
+        rect_opt = dict(x='phi_center', y='Rz_center',
+                        width=binDistPhi, height=binDistRz,
+                        width_units='data', height_units='data',
+                        line_color='black',
+                        fill_color=transform('ntc', mapper))
+        p_full.rect(source=source_full, **rect_opt)
+        p_sel.rect(source=source_sel, **rect_opt)
 
         ticker = ( LogTicker(desired_num_ticks=len(mypalette))
                    if log_scale
@@ -218,17 +251,20 @@ def plot_trigger_cells_occupancy(pars,
                              title='#Hits',
                              ticker=ticker,
                              formatter=PrintfTickFormatter(format="%d"))
-        p.add_layout(color_bar, 'right')
+        p_full.add_layout(color_bar, 'right')
+        p_sel.add_layout(color_bar, 'right')
 
-        set_figure_props(p, hide_legend=False)
+        set_figure_props(p_full, hide_legend=False)
+        set_figure_props(p_sel, hide_legend=False)        
 
-        p.hover.tooltips = [
-            ("#TriggerCells", "@{ntc}"),
-            ("min(eta)", "@{min_eta}"),
-            ("max(eta)", "@{max_eta}"),
-        ]
+        tooltips = [ ("#TriggerCells", "@{ntc}"),
+                     ("min(eta)", "@{min_eta}"),
+                     ("max(eta)", "@{max_eta}") ]
+        p_full.hover.tooltips = tooltips
+        p_sel.hover.tooltips = tooltips
 
-        tc_backgrounds.append( p )
+        bckg_full.append( p_full )
+        bckg_sel.append( p_sel )
 
     #########################################################################
     ################### PLOTTING: SIMULATION ################################
@@ -474,11 +510,15 @@ def plot_trigger_cells_occupancy(pars,
 
                 set_figure_props(figs[-1])
 
-            for bkg in tc_backgrounds:
-                bkg.cross(x=gen_pos_phi, y=gen_pos_rz,
-                          color=colors[0], **base_cross_opt)
-                bkg.cross(x=cl3d_pos_phi, y=cl3d_pos_rz,
-                          color=colors[1], **base_cross_opt)
+            cross1_opt = dict(x=gen_pos_phi, y=gen_pos_rz,
+                              color=colors[0], **base_cross_opt)
+            cross2_opt = dict(x=cl3d_pos_phi, y=cl3d_pos_rz,
+                              color=colors[1], **base_cross_opt)
+            for bkg1,bkg2 in zip(bckg_full,bckg_sel):
+                bkg1.cross(**cross1_opt)
+                bkg1.cross(**cross2_opt)
+                bkg2.cross(**cross1_opt)
+                bkg2.cross(**cross2_opt)
 
             #pics.append( (p,ev) )
             _lay = layout( [[figs[4], figs[5]], [figs[0],figs[1]], [figs[2],figs[3]]] )
@@ -487,20 +527,23 @@ def plot_trigger_cells_occupancy(pars,
 
     output_file(plot_name)
 
-    tc_panels = []
-    for i,bkg in enumerate(tc_backgrounds):
-        tc_panels.append( Panel(child=bkg, title='Selection {}'.format(i)) )
+    tc_panels_full, tc_panels_sel = ([] for _ in range(2))
+    for i,(bkg1,bkg2) in enumerate(zip(bckg_full,bckg_sel)):
+        tc_panels_full.append( Panel(child=bkg1,
+                                     title='Full | Selection {}'.format(i)) )
+        tc_panels_sel.append( Panel(child=bkg2,
+                                    title='Region {} | Selection {}'.format(pars['region'],i)) )
 
-    #lay = layout([[enresgrid[0], Tabs(tabs=tabs)], [Tabs(tabs=tc_panels)]])
-    lay = layout([[Tabs(tabs=ev_panels)], [Tabs(tabs=tc_panels)]])
-    #lay = layout([Tabs(tabs=ev_panels)])
+    lay = layout([[Tabs(tabs=ev_panels)],
+                  [Tabs(tabs=tc_panels_sel)],
+                  [Tabs(tabs=tc_panels_full)]])
     show(lay) if show_html else save(lay)
     # for pic,ev in pics:
     #     export_png(pic, filename=outname+'_event{}.png'.format(ev))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Plot trigger cells occupancy.')
-    parser.add_argument('--ledges', help='layer edges (if -1 is added the full range is also included)', default=[0,28], nargs='+', type=int)
+    parser.add_argument('--ledges', help='layer edges (if -1 is added the full range is also included)', default=[0,42], nargs='+', type=int)
     parser.add_argument('--pos_endcap', help='Use only the positive endcap.',
                         default=True, type=bool)
     parser.add_argument('--hcal', help='Consider HCAL instead of default ECAL.', action='store_true')
@@ -511,7 +554,6 @@ if __name__ == "__main__":
     # ERROR: standalone does not receive tc_map
     plot_trigger_cells_occupancy(param,
                                  selection,
-                                 tc_map,
                                  FLAGS.pos_endcap,
                                  FLAGS.ledges,
                                  FLAGS.log)

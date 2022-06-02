@@ -38,7 +38,7 @@ base_kwargs = {
     'MinPhi': MinPhi,
     'MaxPhi': MaxPhi,
 
-    'LayerEdges': [0,28],
+    'LayerEdges': [0,42],
     'IsHCAL': False,
 
     'DataFolder': DataFolder,
