@@ -5,6 +5,9 @@ DRYRUN=0
 REPROCESS=0
 PLOT_TC=0
 DO_FILLING=1
+DO_SMOOTHING=1
+DO_SEEDING=1
+DO_CLUSTERING=1
 NEVENTS=-1
 declare -a SELECTIONS=( "splits_only" "above_eta_2.7" )
 declare -a REGIONS=( "Si" "ECAL" "MaxShower" )
@@ -49,8 +52,20 @@ while true; do
 			fi
 			shift 2;;
 
-		-f | --no_fill )
+		--no_fill )
 			DO_FILLING=0;
+			shift ;;
+
+		--no_smooth )
+			DO_SMOOTHING=0;
+			shift ;;
+
+		--no_seed )
+			DO_SEEDING=0;
+			shift ;;
+
+		--no_cluster )
+			DO_CLUSTERING=0;
 			shift ;;
 
 		-p | --plot_tc )
@@ -84,22 +99,42 @@ printf "Number of events: %s\n" ${NEVENTS}
 printf "===========================\n"
 
 if [ ${DO_FILLING} -eq 1 ]; then
-	echo "Run the filling step for all jobs.";
+	echo "Run the filling step.";
+fi
+if [ ${DO_SMOOTHING} -eq 1 ]; then
+	echo "Run the smoothing step.";
+fi
+if [ ${DO_SEEDING} -eq 1 ]; then
+	echo "Run the seeding step.";
+fi
+if [ ${DO_CLUSTERING} -eq 1 ]; then
+	echo "Run the clustering step.";
 fi
 
-#for iter_par in ${ITER_PARS[@]}; do
 COMMAND="parallel -j -1 python3 iterative_optimization.py -m {} -s ${SELECTION} -n ${NEVENTS} --region ${REGION}"
 if [ ${DO_FILLING} -eq 0 ]; then
-	COMMAND="${COMMAND} -f"
+	echo "Do not run the filling step."
+	COMMAND="${COMMAND} --no_fill"
 fi
+if [ ${DO_SMOOTHING} -eq 0 ]; then
+	echo "Do not run the smoothing step."
+	COMMAND="${COMMAND} --no_smooth"
+fi
+if [ ${DO_SEEDING} -eq 0 ]; then
+	echo "Do not run the seeding step."
+	COMMAND="${COMMAND} --no_seed"
+fi
+if [ ${DO_CLUSTERING} -eq 0 ]; then
+	echo "Do not run the clustering step."
+	COMMAND="${COMMAND} --no_cluster"
+fi
+
 if [ ${PLOT_TC} -eq 1 ]; then
 	COMMAND="${COMMAND} -p"
 fi
 
 ### Only one job can reprocess the data, and it has to be sequential
-### && [ $(echo "${iter_par} == ${ITER_PARS[0]}" | bc -l) -eq 1 ]
-
-if [ ${REPROCESS} -eq 1 ]  ; then
+if [ ${REPROCESS} -eq 1 ]; then
 	COMMAND1="${COMMAND} -r ::: ${ITER_PARS[0]}"
 	COMMAND2="${COMMAND} ::: ${ITER_PARS[@]:1}"
 	if [ ${DRYRUN} -eq 1 ] ; then
@@ -113,7 +148,7 @@ if [ ${REPROCESS} -eq 1 ]  ; then
 	fi
 else
 	COMMAND="${COMMAND}	::: ${ITER_PARS[@]}"
-	if [ ${DRYRUN} -eq 1 ] ; then
+	if [ ${DRYRUN} -eq 1 ]; then
 		echo "[dry-run]" ${COMMAND}
 	else
 		echo "Running the following command: ${COMMAND}";

@@ -400,10 +400,10 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot',
                         help='plot shifted trigger cells instead of originals',
                         action='store_true')
-    parser.add_argument('--no_filling',    action='store_false')
-    parser.add_argument('--no_smoothing',  action='store_false')
-    parser.add_argument('--no_seeding',    action='store_false')
-    parser.add_argument('--no_clustering', action='store_false')
+    parser.add_argument('--no_filling',    action='store_true')
+    parser.add_argument('--no_smoothing',  action='store_true')
+    parser.add_argument('--no_seeding',    action='store_true')
+    parser.add_argument('--no_clustering', action='store_true')
     parser.add_argument('-m', '--iter_par',
                         help='iterative algorithm tunable parameter',
                         default=0.5, type=float)
