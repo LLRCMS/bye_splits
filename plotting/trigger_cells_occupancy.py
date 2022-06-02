@@ -31,7 +31,9 @@ from airflow.airflow_dag import (
 
 from random_utils import (
     calcRzFromEta,
+    get_detector_region_mask,
     SupressSettingWithCopyWarning,
+    tc_base_selection,
 )
 
 colors = ('orange', 'red', 'black')
@@ -105,30 +107,24 @@ def plot_trigger_cells_occupancy(pars,
     with pd.HDFStore(outclusteringplot, mode='r') as store:
         splittedClusters_3d_local = store['data']
 
-    # Data Analysis: Trigger Cells
-    if pos_endcap:
-        tcData = tcData[ tcData.zside == 1 ] #only look at positive endcap
-        tcData = tcData.drop(['zside'], axis=1)
-        tcVariables.remove('zside')
-
-    # ignoring hgcal scintillator
-    #subdetCond = tcData.subdet == 2 if flags.hcal else tcData.subdet == 1
-    subdetCond = (tcData.subdet == 1) | (tcData.subdet == 2) #look at ECAL and HCAL
-    tcData = tcData[ subdetCond ]
-    tcData = tcData.drop(['subdet'], axis=1)
-    tcVariables.remove('subdet')
-
-    tcData['Rz'] = np.sqrt(tcData.x*tcData.x + tcData.y*tcData.y) / abs(tcData.z)
-    #the following cut removes almost no event at all
-    tcData = tcData[ ((tcData['Rz'] < kw['MaxROverZ']) &
-                      (tcData['Rz'] > kw['MinROverZ'])) ]
-
+    tcData, subdetCond = tc_base_selection(tcData,
+                                           pos_endcap=pos_endcap,
+                                           region=pars['region'],
+                                           range_rz=(kw['MinROverZ'],
+                                                     kw['MaxROverZ']))
     tcData.id = np.uint32(tcData.id)
-
-    tcData = tcData.merge(trigger_cell_map, on='id', how='right').dropna()
+    
+    tcData = tcData[ subdetCond ]
+    print(tcData.shape)
+    # add `phi_new` to the dataframe
+    tcData = ( tcData.merge(trigger_cell_map, on='id', how='right')
+               .dropna() )
+    print(tcData.shape)
+    breakpoint()
 
     assert_diff = tcData.phi_old - tcData.phi
     assert not np.count_nonzero(assert_diff)
+    tcData = tcData.drop(['phi'], axis=1)
 
     copt = dict(labels=False)
     tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=kw['RzBinEdges'], **copt )
@@ -136,14 +132,11 @@ def plot_trigger_cells_occupancy(pars,
     # to check the effect of NOT applying the tc mapping
     # replace `phi_new` by `phi_old`
     tcData['phi_bin_old'] = pd.cut( tcData.phi_old, bins=kw['PhiBinEdges'], **copt )
-    tcData['phi_bin_new'] = pd.cut( tcData.phi_new, bins=kw['PhiBinEdges'], **copt )
     
     # Convert bin ids back to values (central values in each bin)
     tcData['Rz_center'] = binConv(tcData.Rz_bin, binDistRz, kw['MinROverZ'])
     tcData['phi_center_old'] = binConv(tcData.phi_bin_old, binDistPhi, kw['MinPhi'])
-    tcData['phi_center_new'] = binConv(tcData.phi_bin_new, binDistPhi, kw['MinPhi'])
-
-    _cols_drop = ['Rz_bin', 'phi_bin_old', 'phi_bin_new', 'Rz', 'phi']
+    _cols_drop = ['Rz_bin', 'phi_bin_old', 'phi_bin_new', 'Rz']
     tcData = tcData.drop(_cols_drop, axis=1)
 
     # if `-1` is included in layer_edges, the full selection is also drawn

@@ -11,7 +11,11 @@ import h5py
 import sys
 #np.set_printoptions(threshold=sys.maxsize, linewidth=170)
 
-from random_utils import get_html_name
+from random_utils import (
+    get_detector_region_mask,
+    get_html_name,
+    tc_base_selection,
+    )
 from data_processing import DataProcessing
 from plotter import Plotter
 
@@ -65,35 +69,19 @@ def process_trigger_cell_geometry_data(region, selection,
     tcData = tcTree.arrays(tcVariables, library='pd')
     if debug:
         print( tcData.describe() )
-    
-    if positive_endcap_only:
-        tcData = tcData[ tcData.zside == 1 ] #only look at positive endcap
-        tcData = tcData.drop(['zside'], axis=1)
-        tcVariables.remove('zside')
 
-    tcData['R'] = np.sqrt(tcData.x*tcData.x + tcData.y*tcData.y)
-    tcData['Rz'] = tcData.R / abs(tcData.z)
-    #the following cut removes almost no event at all
-    tcData = tcData[ (tcData['Rz'] < kw['MaxROverZ']) & (tcData['Rz'] > kw['MinROverZ']) ]
+    tcData, subdetCond = tc_base_selection(tcData,
+                                           region=region,
+                                           pos_endcap=True,
+                                           range_rz=(kw['MinROverZ'],
+                                                     kw['MaxROverZ']))
     
     copt = dict(labels=False)
     tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=kw['RzBinEdges'], **copt )
     tcData['phi_bin'] = pd.cut( tcData['phi'], bins=kw['PhiBinEdges'], **copt )
 
-    # ECAL (1), HCAL silicon (2) and HCAL scintillator (10, here ignored)
-    if region == 'Si':
-        subdetCond = (tcData.subdet == 1) | (tcData.subdet == 2)
-    elif region == 'ECAL':
-        subdetCond = (tcData.subdet == 1)
-    elif region == 'MaxShower':
-        subdetCond = (tcData.subdet == 1) & (tcData.layer >= 8) & (tcData.layer <= 15)
-
     tcData_main = tcData[ subdetCond ]
-    tcData_main = tcData_main.drop(['subdet'], axis=1)
     tcData_inv  = tcData[ ~subdetCond ]
-    tcData_inv  = tcData_inv.drop(['subdet'], axis=1)
-
-    tcVariables.remove('subdet')
 
     # save data for optimization task
     inoptfile = fill_path(kw['OptimizationIn'],
