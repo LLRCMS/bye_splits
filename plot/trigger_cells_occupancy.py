@@ -30,16 +30,15 @@ from bokeh.palettes import viridis as _palette
 
 import sys
 sys.path.append( os.environ['PWD'] )
-from airflow.airflow_dag import (
-    filling_kwargs as kw,
-    clustering_kwargs as cl_kw,
-    smoothing_kwargs as smooth_kw,
-    seeding_kwargs as seed_kw,
-    fill_path,
+from utils.params import (
+    fill_kwargs as kw,
+    cluster_kwargs as cl_kw,
+    smooth_kwargs as smooth_kw,
+    seed_kwargs as seed_kw,
 )
-
-from random_utils import (
+from utils.utils import (
     calcRzFromEta,
+    fill_path,
     get_detector_region_mask,
     SupressSettingWithCopyWarning,
     tc_base_selection,
@@ -110,14 +109,14 @@ def plot_trigger_cells_occupancy(pars,
 
     simAlgoNames = sorted(simAlgoDFs.keys())
 
-    # Inputs: Clustering After Custom Iterative Algorithm
-    outclusteringplot = fill_path(cl_kw['ClusteringOutPlot'], **pars)
-    with pd.HDFStore(outclusteringplot, mode='r') as store:
+    # Inputs: Cluster After Custom Iterative Algorithm
+    outclusterplot = fill_path(cl_kw['ClusterOutPlot'], **pars)
+    with pd.HDFStore(outclusterplot, mode='r') as store:
         splittedClusters_3d_local = store['data']
 
     tcData, subdetCond = tc_base_selection(tcData,
                                            pos_endcap=pos_endcap,
-                                           region=pars['region'],
+                                           region=pars['reg'],
                                            range_rz=(kw['MinROverZ'],
                                                      kw['MaxROverZ']))
     tcData.id = np.uint32(tcData.id)
@@ -196,8 +195,8 @@ def plot_trigger_cells_occupancy(pars,
     #########################################################################
     for i,fe in enumerate(kw['FesAlgos']):
 
-        outfillingplot = fill_path(kw['FillingOutPlot'], **pars)
-        with pd.HDFStore(outfillingplot, mode='r') as store:
+        outfillplot = fill_path(kw['FillOutPlot'], **pars)
+        with pd.HDFStore(outfillplot, mode='r') as store:
             splittedClusters_3d_cmssw = store[fe + '_3d']
             splittedClusters_tc = store[fe + '_tc']
 
@@ -286,8 +285,8 @@ def plot_trigger_cells_occupancy(pars,
                         )
         for ev in event_sample:
             # Inputs: Energy 2D histogram after smoothing but before clustering
-            outsmoothing = fill_path(smooth_kw['SmoothingOut'], **pars)
-            with h5py.File(outsmoothing, mode='r') as storeSmoothIn:
+            outsmooth = fill_path(smooth_kw['SmoothOut'], **pars)
+            with h5py.File(outsmooth, mode='r') as storeSmoothIn:
 
                 kold = kw['FesAlgos'][0]+'_'+str(ev)+'_group_old'
                 energies_post_smooth_old, _, _ = storeSmoothIn[kold]
@@ -409,20 +408,20 @@ def plot_trigger_cells_occupancy(pars,
                              width_units='data', height_units='data',
                              line_color='black' )
 
-            seed_window = ( 'phi seeding window: {}'
+            seed_window = ( 'phi seeding step window: {}'
                            .format(seed_kw['WindowPhiDim']) )
             figs = []
-            t_d = {0: ( 'Energy Density (before smoothing, ' +
+            t_d = {0: ( 'Energy Density (before smoothing step, ' +
                         'before algo, {})'.format(seed_window) ),
-                   1: ( 'Energy Density (before smoothing, ' +
+                   1: ( 'Energy Density (before smoothing step, ' +
                         'after algo, {})'.format(seed_window) ),
-                   2: ( 'Energy Density (after smoothing, ' +
+                   2: ( 'Energy Density (after smoothing step, ' +
                         'before alg, {})'.format(seed_window) ),
-                   3: ( 'Energy Density (after smoothing, ' +
+                   3: ( 'Energy Density (after smoothing step, ' +
                         'after algo, {})'.format(seed_window) ),
-                   4: ( 'Hit Density (before smoothing, ' +
+                   4: ( 'Hit Density (before smoothing step, ' +
                         'before algo, {})'.format(seed_window) ),
-                   5: ( 'Hit Density (before smoothing, ' +
+                   5: ( 'Hit Density (before smoothing step, ' +
                         'after algo, {})'.format(seed_window) ) }
             group_d = {0: group_old,
                        1: group_new,
@@ -532,7 +531,7 @@ def plot_trigger_cells_occupancy(pars,
         tc_panels_full.append( Panel(child=bkg1,
                                      title='Full | Selection {}'.format(i)) )
         tc_panels_sel.append( Panel(child=bkg2,
-                                    title='Region {} | Selection {}'.format(pars['region'],i)) )
+                                    title='Region {} | Selection {}'.format(pars['reg'],i)) )
 
     lay = layout([[Tabs(tabs=ev_panels)],
                   [Tabs(tabs=tc_panels_sel)],

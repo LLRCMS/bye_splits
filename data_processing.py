@@ -2,7 +2,7 @@
 Functions used for data processing.
 """
 import numpy as np
-from random_utils import dotDict
+from utils.utils import dot_dict
 
 class DataProcessing:
     def __init__(self, phi_bounds, bin_bounds):
@@ -30,7 +30,7 @@ class DataProcessing:
         cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
         assert data.attrs['columns'].tolist() == cols
 
-        idx_d = dotDict(dict(r      = 0,
+        idx_d = dot_dict(dict(r      = 0,
                              rz     = 1,
                              phi    = 2,
                              rzbin  = 3,

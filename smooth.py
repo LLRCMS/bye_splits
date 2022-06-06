@@ -1,6 +1,6 @@
 import numpy as np
 import h5py
-from airflow.airflow_dag import fill_path
+from utils.utils import fill_path
 from copy import copy
 
 def valid1(energies, infile, outfile, nbinsRz, nbinsPhi):
@@ -44,7 +44,8 @@ def smoothAlongRz(arr, nbinsRz, nbinsPhi):
     assert(arr_new.shape[0] == nbinsRz)
     return arr_new / weights
 
-def smoothAlongPhi(arr, binSums, nbinsRz, nbinsPhi, seedsNormByArea,
+def smoothAlongPhi(arr, kernel,
+                   binSums, nbinsRz, nbinsPhi, seedsNormByArea,
                    minROverZ, maxROverZ, areaPerTriggerCell):
     """
     Smoothes the energy distribution of cluster energies deposited on trigger cells.
@@ -76,10 +77,13 @@ def smoothAlongPhi(arr, binSums, nbinsRz, nbinsPhi, seedsNormByArea,
         roll_indices = np.where(nBinsSide == idx)[0]
         arr_copy = arr[roll_indices,:]
         arr_smooth = arr[roll_indices,:]
-        for nside in range(1, int(idx)+1):
-            arr_smooth += ( (np.roll(arr_copy, shift=nside,  axis=1) +
-                             np.roll(arr_copy, shift=-nside, axis=1))
-                            / (2**nside) )
+        if kernel=='default':
+            for nside in range(1, int(idx)+1):
+                arr_smooth += ( (np.roll(arr_copy, shift=nside,  axis=1) +
+                                np.roll(arr_copy, shift=-nside, axis=1))
+                               / (2**nside) )
+        elif kernel=='flat_top':
+            raise NotImplementedError()
         arr_new[roll_indices,:] = arr_smooth / np.expand_dims(area[roll_indices], axis=-1)
 
     return arr_new * areaPerTriggerCell
@@ -112,11 +116,11 @@ def createHistogram(bins, nbinsRz, nbinsPhi):
 
     return arr
 
-# Event by event smoothing
-def smoothing(pars, **kwargs):
-    insmoothing = fill_path(kwargs['SmoothingIn'], **pars)
-    outsmoothing = fill_path(kwargs['SmoothingOut'], **pars)
-    with h5py.File(insmoothing,  mode='r') as storeIn, h5py.File(outsmoothing, mode='w') as storeOut :
+# Event by event smooth
+def smooth(pars, **kwargs):
+    insmooth = fill_path(kwargs['SmoothIn'], **pars)
+    outsmooth = fill_path(kwargs['SmoothOut'], **pars)
+    with h5py.File(insmooth,  mode='r') as storeIn, h5py.File(outsmooth, mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:
             keys_old = [x for x in storeIn.keys()
@@ -146,32 +150,33 @@ def smoothing(pars, **kwargs):
 
                 # if '187544' in key:
                 #     valid1(energies,
-                #            infile='outLocalBeforeSmoothing.txt',
-                #            outfile='outCMSSWBeforeSmoothing.txt')
+                #            infile='outLocalBeforeSmooth.txt',
+                #            outfile='outCMSSWBeforeSmooth.txt')
          
                 #printHistogram(ev)
 
-                phi_opt = (kwargs['BinSums'],
-                           kwargs['NbinsRz'],
-                           kwargs['NbinsPhi'],
-                           kwargs['SeedsNormByArea'],
-                           kwargs['MinROverZ'],
-                           kwargs['MaxROverZ'],
-                           kwargs['AreaPerTriggerCell'])
-
+                phi_opt = dict(binSums=kwargs['BinSums'],
+                               nbinsRz=kwargs['NbinsRz'],
+                               nbinsPhi=kwargs['NbinsPhi'],
+                               seedsNormByArea=kwargs['SeedsNormByArea'],
+                               minROverZ=kwargs['MinROverZ'],
+                               maxROverZ=kwargs['MaxROverZ'],
+                               areaPerTriggerCell=kwargs['AreaPerTriggerCell'])
                 energies_old = smoothAlongPhi(
-                    energies_old,
-                    *phi_opt
+                    arr=energies_old,
+                    kernel=pars['smooth_kernel'],
+                    **phi_opt
                     )
                 energies_new = smoothAlongPhi(
-                    energies_new,
-                    *phi_opt,
+                    arr=energies_new,
+                    kernel=pars['smooth_kernel'],
+                    **phi_opt,
                     )
             
                 # if '187544' in key:
                 #     valid1(energies, '187544',
-                #            infile='outLocalHalfSmoothing.txt',
-                #            outfile='outCMSSWHalfSmoothing.txt')
+                #            infile='outLocalHalfSmooth.txt',
+                #            outfile='outCMSSWHalfSmooth.txt')
          
                 #printHistogram(ev)
 
@@ -200,12 +205,12 @@ def smoothing(pars, **kwargs):
                 
                 storeOut[kold].attrs['columns'] = cols_old
                 storeOut[knew].attrs['columns'] = cols_new                
-                doc_m = ( 'Energies (post-smoothing) ' +
+                doc_m = ( 'Energies (post-smooth) ' +
                           'and projected bin positions' )
                 doc_message = doc_m
                 storeOut[kold].attrs['doc'] = doc_message
                 storeOut[knew].attrs['doc'] = doc_message
 
 if __name__ == "__main__":
-    from airflow.airflow_dag import smoothing_kwargs
-    smoothing( **smoothing_kwargs )
+    from airflow.airflow_dag import smooth_kwargs
+    smooth( **smooth_kwargs )

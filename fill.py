@@ -4,20 +4,20 @@ import numpy as np
 import pandas as pd
 import h5py
 
-from random_utils import (
+from utils.utils import (
     calcRzFromEta,
+    fill_path,
     SupressSettingWithCopyWarning,
 )
-from airflow.airflow_dag import fill_path
 
-def filling(pars, nevents, tc_map, debug=False, **kwargs):
+def fill(pars, nevents, tc_map, debug=False, **kwargs):
     """
     Fills split clusters information according to the Stage2 FPGA fixed binning.
     """    
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
     for fe in kwargs['FesAlgos']:
-        infilling = fill_path(kwargs['FillingIn'])
-        simAlgoFiles[fe] = [ infilling ]
+        infill = fill_path(kwargs['FillIn'], is_short=True)
+        simAlgoFiles[fe] = [ infill ]
 
     for fe,files in simAlgoFiles.items():
         name = fe
@@ -33,9 +33,9 @@ def filling(pars, nevents, tc_map, debug=False, **kwargs):
         print(simAlgoNames)
 
     ### Data Processing ######################################################
-    outfillingplot = fill_path(kwargs['FillingOutPlot'], **pars)
-    outfillingcomp = fill_path(kwargs['FillingOutComp'], **pars)
-    with pd.HDFStore(outfillingplot, mode='w') as store, pd.HDFStore(outfillingcomp, mode='w') as storeComp:
+    outfillplot = fill_path(kwargs['FillOutPlot'], **pars)
+    outfillcomp = fill_path(kwargs['FillOutComp'], **pars)
+    with pd.HDFStore(outfillplot, mode='w') as store, pd.HDFStore(outfillcomp, mode='w') as storeComp:
 
         for i,fe in enumerate(kwargs['FesAlgos']):
             df = simAlgoDFs[fe]
@@ -53,11 +53,11 @@ def filling(pars, nevents, tc_map, debug=False, **kwargs):
             df = df[~nansel]
             df = pd.concat([df,nandf], sort=False)
 
-            if pars['selection'].startswith('above_eta_'):
+            if pars['sel'].startswith('above_eta_'):
                 #1332 events survive
                 df = df[ df['genpart_exeta']
-                        > float(pars['selection'].split('above_eta_')[1]) ]
-            elif pars['selection'] == 'splits_only':
+                        > float(pars['sel'].split('above_eta_')[1]) ]
+            elif pars['sel'] == 'splits_only':
                 # select events with splitted clusters (enres < energy cut)
                 # if an event has at least one cluster satisfying the enres condition,
                 # all of its clusters are kept (this eases comparison with CMSSW)
@@ -68,7 +68,7 @@ def filling(pars, nevents, tc_map, debug=False, **kwargs):
                 df = df[ df['atLeastOne'] ] #214 events survive
                 df = df.drop(['atLeastOne'], axis=1)
             else:
-                m = 'Selection {} is not supported.'.format(pars['selection'])
+                m = 'Selection {} is not supported.'.format(pars['sel'])
                 raise ValueError(m)
 
             #_events_all = list(df.index.unique())
@@ -158,9 +158,9 @@ def filling(pars, nevents, tc_map, debug=False, **kwargs):
             simAlgoPlots[fe] = (split_3d, split_tc)
 
     ### Event Processing ######################################################
-    outfilling = fill_path(kwargs['FillingOut'], **pars)
+    outfill = fill_path(kwargs['FillOut'], **pars)
 
-    with h5py.File(outfilling, mode='w') as store:
+    with h5py.File(outfill, mode='w') as store:
 
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
             for ev in df_tc['event'].unique().astype('int'):
@@ -258,5 +258,5 @@ def filling(pars, nevents, tc_map, debug=False, **kwargs):
     return group_tot_old, group_tot_new
 
 if __name__ == "__main__":
-    from airflow.airflow_dag import filling_kwargs        
-    filling( tc_map, **filling_kwargs )
+    from airflow.airflow_dag import fill_kwargs        
+    fill( tc_map, **fill_kwargs )

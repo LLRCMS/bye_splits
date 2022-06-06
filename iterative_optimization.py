@@ -11,29 +11,28 @@ import h5py
 import sys
 #np.set_printoptions(threshold=sys.maxsize, linewidth=170)
 
-from random_utils import (
-    get_detector_region_mask,
-    get_html_name,
-    tc_base_selection,
-    )
 from data_processing import DataProcessing
 from plotter import Plotter
-
-from airflow.airflow_dag import (
-    optimization_kwargs as opt_kw,
-    filling_kwargs,
-    smoothing_kwargs,
-    seeding_kwargs,
-    clustering_kwargs,
+from utils.params import (
+    cluster_kwargs,
+    fill_kwargs,
+    opt_kwargs as opt_kw,
+    seed_kwargs,
+    smooth_kwargs,
     validation_kwargs,
-    fill_path,
     )
-from filling import filling
-from smoothing import smoothing
-from seeding import seeding
-from clustering import clustering
+from utils.utils import (
+    tc_base_selection,
+    fill_path,
+    get_detector_region_mask,
+    get_html_name,
+    )
+from fill import fill
+from smooth import smooth
+from seed import seed
+from cluster import cluster
 from validation import validation, stats_collector
-from plotting.trigger_cells_occupancy import (
+from plot.trigger_cells_occupancy import (
     plot_trigger_cells_occupancy as plot_tc_occ
     )
 
@@ -84,8 +83,8 @@ def process_trigger_cell_geometry_data(region, selection,
     tcData_inv  = tcData[ ~subdetCond ]
 
     # save data for optimization task
-    inoptfile = fill_path(kw['OptimizationIn'],
-                          selection=selection, region=region)
+    inoptfile = fill_path(kw['OptIn'], is_short=True,
+                          sel=selection, reg=region)
 
     with h5py.File(inoptfile, mode='w') as store:
         save_cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
@@ -106,11 +105,10 @@ def process_trigger_cell_geometry_data(region, selection,
         store['data_main'].attrs['doc'] = doc_main
 
 def optimization(pars, **kw):
-    outresen = fill_path(kw['OptimizationIn'],
-                         selection=pars['selection'],
-                         region=pars['region'])
+    outresen = fill_path(kw['OptIn'], is_short=True,
+                         sel=pars['sel'], reg=pars['reg'])
 
-    store_in  = h5py.File(outresen,  mode='r')
+    store_in  = h5py.File(outresen, mode='r')
     plotter = Plotter(**opt_kw)
     mode = 'variance'
     window_size = 3
@@ -170,7 +168,7 @@ def optimization(pars, **kw):
              
             gl_orig = lb_orig2 - lb_orig1
             gr_orig = lb_orig3 - lb_orig2
-            stop = pars['iter_par'] * (abs(gl_orig) + abs(gr_orig))
+            stop = pars['ipar'] * (abs(gl_orig) + abs(gr_orig))
             stop[stop<1] = 1 # algorithm stabilisation
              
             idxs = [ np.arange(kw['NbinsPhi']) ]
@@ -376,7 +374,7 @@ def optimization(pars, **kw):
 
         # end loop over the layers
     plot_name = os.path.join( 'out',
-                              get_html_name(__file__, extra='_'+str(pars['iter_par']).replace('.','p')) )
+                              get_html_name(__file__, extra='_'+str(pars['ipar']).replace('.','p')) )
     plotter.plot_iterative( plot_name=plot_name,
                             tab_names = [''+str(x) for x in range(len(ldata_main))],
                             show_html=False )
@@ -400,43 +398,56 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot',
                         help='plot shifted trigger cells instead of originals',
                         action='store_true')
-    parser.add_argument('--no_filling',    action='store_true')
-    parser.add_argument('--no_smoothing',  action='store_true')
-    parser.add_argument('--no_seeding',    action='store_true')
-    parser.add_argument('--no_clustering', action='store_true')
-    parser.add_argument('-m', '--iter_par',
+    parser.add_argument('--no_fill',    action='store_true')
+    parser.add_argument('--no_smooth',  action='store_true')
+    parser.add_argument('--no_seed',    action='store_true')
+    parser.add_argument('--no_cluster', action='store_true')
+    parser.add_argument('-m', '--ipar',
                         help='iterative algorithm tunable parameter',
                         default=0.5, type=float)
-    parser.add_argument('-s', '--selection',
-                        help='selection used to select cluster under study',
+    selection_help = 'Selection used to select cluster under study.'
+    parser.add_argument('--selection', help=selection_help,
                         default='splits_only', type=str)
-    parser.add_argument('-n', '--nevents',
-                        help='selection used to select cluster under study',
+    nevents_help = 'Number of events for processing.'
+    parser.add_argument('-n', '--nevents', help=nevents_help,
                         default=-1, type=int)
-    region_help = 'Z region in the detector considered for the trigger cell geometry.'
+    region_help = ( 'Z region in the detector considered for ' +
+                    ' the trigger cell geometry.' )
     parser.add_argument('--region',
                         help=region_help,
                         choices=('Si', 'ECAL', 'MaxShower'),
                         default='Si', type=str)
+    seed_help = ( 'Size of the window used for seeding in the phi ' +
+                  'direction. The size in R/z is always 1/. A larger size' +
+                  'captures more information but consumes more ' +
+                  'firmware resources.' )
+    parser.add_argument('--seed_window', help=seed_help,
+                        default=1, type=int)
+    smooth_help = ( 'Type of smoothing kernel being applied.' )
+    parser.add_argument('--smooth_kernel', help=smooth_help,
+                        choices=('default', 'flat_top'),
+                        default='default', type=str)
     FLAGS = parser.parse_args()
 
     if FLAGS.process:
         process_trigger_cell_geometry_data(region=FLAGS.region,
                                            selection=FLAGS.selection, **opt_kw )
 
-    pars_d = {'iter_par': FLAGS.iter_par,
-              'selection': FLAGS.selection,
-              'region': FLAGS.region }
-    outresen  = fill_path(opt_kw['OptimizationEnResOut'],  **pars_d)
-    outrespos = fill_path(opt_kw['OptimizationPosResOut'], **pars_d)
-    outcsv    = fill_path(opt_kw['OptimizationCSVOut'],    extension='csv', **pars_d)
+    pars_d = {'ipar'          : FLAGS.ipar,
+              'sel'           : FLAGS.selection,
+              'reg'           : FLAGS.region,
+              'seed_window'   : FLAGS.seed_window,
+              'smooth_kernel' : FLAGS.smooth_kernel }
+    outresen  = fill_path(opt_kw['OptEnResOut'],  **pars_d)
+    outrespos = fill_path(opt_kw['OptPosResOut'], **pars_d)
+    outcsv    = fill_path(opt_kw['OptCSVOut'], ext='csv', **pars_d)
 
-    print('Starting iterative parameter {}.'.format(FLAGS.iter_par),
+    print('Starting iterative parameter {}.'.format(FLAGS.ipar),
           flush=True)
     
     with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
 
-        fieldnames = ['iter_par', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
+        fieldnames = ['ipar', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
                       'locrat1', 'locrat2', 'remrat1', 'remrat2']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -445,21 +456,21 @@ if __name__ == "__main__":
 
         tc_map = optimization(pars_d, **opt_kw )
 
-        if not FLAGS.no_filling:
-            filling(pars_d, FLAGS.nevents, tc_map, **filling_kwargs)
+        if not FLAGS.no_fill:
+            fill(pars_d, FLAGS.nevents, tc_map, **fill_kwargs)
 
-        if not FLAGS.no_smoothing:
-            smoothing(pars_d, **smoothing_kwargs)
+        if not FLAGS.no_smooth:
+            smooth(pars_d, **smooth_kwargs)
 
-        if not FLAGS.no_seeding:
-            seeding(pars_d, **seeding_kwargs)
+        if not FLAGS.no_seed:
+            seed(pars_d, **seed_kwargs)
 
-        if not FLAGS.no_clustering:
-            clustering(pars_d, **clustering_kwargs)
+        if not FLAGS.no_cluster:
+            cluster(pars_d, **cluster_kwargs)
 
         res = stats_collector(pars_d, **validation_kwargs)
 
-        writer.writerow({fieldnames[0] : FLAGS.iter_par,
+        writer.writerow({fieldnames[0] : FLAGS.ipar,
                          fieldnames[1] : res[0],
                          fieldnames[2] : res[1],
                          fieldnames[3] : res[2],
@@ -484,9 +495,7 @@ if __name__ == "__main__":
         
         if FLAGS.plot:
             this_file = os.path.basename(__file__).split('.')[0]
-            plot_name = fill_path(this_file,
-                                  extension='html',
-                                  **pars_d)
+            plot_name = fill_path(this_file, ext='html', **pars_d)
                 
             plot_tc_occ(pars_d,
                         plot_name=plot_name,
@@ -497,4 +506,4 @@ if __name__ == "__main__":
                         max_rz=opt_kw['MaxROverZ'],
                         **opt_kw)
 
-    print('Finished for iterative parameter {}.'.format(FLAGS.iter_par), flush=True)
+    print('Finished for iterative parameter {}.'.format(FLAGS.ipar), flush=True)

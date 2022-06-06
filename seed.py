@@ -1,7 +1,7 @@
 import re
 import numpy as np
 import h5py
-from airflow.airflow_dag import fill_path
+from utils.utils import fill_path
 
 def validation(mipPts, event, infile, outfile,
                nbinsRz, nbinsPhi):
@@ -26,9 +26,9 @@ def validation(mipPts, event, infile, outfile,
             for bin2 in range(nbinsPhi):
                 flocal.write('{}\t{}\t{}\n'.format(bin1, bin2, np.around(mipPts[bin1,bin2], 6)))
             
-def seeding(pars, debug=False, **kwargs):
-    inseeding = fill_path(kwargs['SeedingIn'], **pars)
-    outseeding = fill_path(kwargs['SeedingOut'], **pars) 
+def seed(pars, debug=False, **kwargs):
+    inseeding = fill_path(kwargs['SeedIn'], **pars)
+    outseeding = fill_path(kwargs['SeedOut'], **pars) 
     with h5py.File(inseeding,  mode='r') as storeIn, h5py.File(outseeding, mode='w') as storeOut:
 
         for falgo in kwargs['FesAlgos']:

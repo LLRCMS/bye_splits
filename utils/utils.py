@@ -1,3 +1,8 @@
+from utils.params import (
+    base_kwargs,
+    seed_kwargs,
+    )
+
 import os
 import numpy as np
 import pandas as pd
@@ -13,6 +18,27 @@ def calcRzFromEta(eta):
     """R/z = arctan(theta) [theta is obtained from pseudo-rapidity, eta]"""
     _theta = 2*np.arctan( np.exp(-1 * eta) )
     return np.arctan( _theta )
+
+class dot_dict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+def fill_path(base_path, is_short=False, ext='hdf5', **kw):
+    kw = dot_dict(kw)
+    if not is_short:
+        ipar = '_PAR_' + str(kw.ipar).replace('.','p')
+        sel = '_SEL_' + kw.sel.replace('.', 'p')
+        reg = '_REG_' + kw.reg
+        sw = '_SeedWindow_' + str(kw.seed_window)
+        sk = '_SmoothKernel_' + str(kw.smooth_kernel)
+        base_path += sel + ipar + reg + sw + sk
+    base_path += '.' + ext
+
+    path = 'OutPath' if ext == 'html' else 'BasePath'
+    final = os.path.join( base_kwargs[path], base_path)
+    return final
 
 class SupressSettingWithCopyWarning:
     """
@@ -32,12 +58,6 @@ class SupressSettingWithCopyWarning:
 
     def __exit__(self, *args):
         pd.options.mode.chained_assignment = self.saved_swcw
-
-class dotDict(dict):
-    """dot.notation access to dictionary attributes"""
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
 
 def get_column_idx(columns, col):
     return columns.index(col)

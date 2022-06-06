@@ -2,8 +2,10 @@ import re
 import numpy as np
 import pandas as pd
 import h5py
-from airflow.airflow_dag import fill_path
-from random_utils import get_column_idx
+from utils.utils import (
+    fill_path,
+    get_column_idx,
+    )
 
 def validation(**kw):
     with pd.HDFStore(kw['ClusteringOutValidation'], mode='r') as storeInLocal, h5py.File(kw['FillingOut'], mode='r') as storeInCMSSW :
@@ -54,9 +56,9 @@ def validation(**kw):
                         print('\tEn difference: {}'.format(locEn[i] - cmsswEn[i]))
 
 def stats_collector(pars, debug=False, **kw):
-    outclusteringvalidation = fill_path(kw['ClusteringOutValidation'], **pars)
-    outfilling = fill_path(kw['FillingOut'], **pars)
-    outfillingcomp = fill_path(kw['FillingOutComp'], **pars)
+    outclusteringvalidation = fill_path(kw['ClusterOutValidation'], **pars)
+    outfilling = fill_path(kw['FillOut'], **pars)
+    outfillingcomp = fill_path(kw['FillOutComp'], **pars)
     with pd.HDFStore(outclusteringvalidation, mode='r') as storeInLocal, h5py.File(outfilling, mode='r') as storeInCMSSW, pd.HDFStore(outfillingcomp, mode='r') as storeGen:
         
         for falgo in kw['FesAlgos']:
