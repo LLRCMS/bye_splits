@@ -111,49 +111,42 @@ if [ ${DO_CLUSTERING} -eq 1 ]; then
 	echo "Run the clustering step.";
 fi
 
-COMMAND="parallel -j -1 python3 iterative_optimization.py -m {} -s ${SELECTION} -n ${NEVENTS} --region ${REGION}"
-if [ ${DO_FILLING} -eq 0 ]; then
-	echo "Do not run the filling step."
-	COMMAND="${COMMAND} --no_fill"
-fi
-if [ ${DO_SMOOTHING} -eq 0 ]; then
-	echo "Do not run the smoothing step."
-	COMMAND="${COMMAND} --no_smooth"
-fi
-if [ ${DO_SEEDING} -eq 0 ]; then
-	echo "Do not run the seeding step."
-	COMMAND="${COMMAND} --no_seed"
-fi
-if [ ${DO_CLUSTERING} -eq 0 ]; then
-	echo "Do not run the clustering step."
-	COMMAND="${COMMAND} --no_cluster"
-fi
+### Functions
+function run_parallel() {
+	comm="parallel -j -1 python3 iterative_optimization.py -m {} -s ${SELECTION} -n ${NEVENTS} --region ${REGION} "
+	if [ ${DO_FILLING} -eq 0 ]; then
+		echo "Do not run the filling step."
+		comm+="--no_fill "
+	fi
+	if [ ${DO_SMOOTHING} -eq 0 ]; then
+		echo "Do not run the smoothing step."
+		comm+="--no_smooth "
+	fi
+	if [ ${DO_SEEDING} -eq 0 ]; then
+		echo "Do not run the seeding step."
+		comm+="--no_seed "
+	fi
+	if [ ${DO_CLUSTERING} -eq 0 ]; then
+		echo "Do not run the clustering step."
+		comm+="--no_cluster "
+	fi
 
-if [ ${PLOT_TC} -eq 1 ]; then
-	COMMAND="${COMMAND} -p"
-fi
+	if [ ${PLOT_TC} -eq 1 ]; then
+		comm+="-p "
+	fi
+
+	comm+="$@"
+	
+	[[ ${DRYRUN} -eq 1 ]] && echo ${comm} || ${comm}
+}
 
 ### Only one job can reprocess the data, and it has to be sequential
 if [ ${REPROCESS} -eq 1 ]; then
-	COMMAND1="${COMMAND} -r ::: ${ITER_PARS[0]}"
-	COMMAND2="${COMMAND} ::: ${ITER_PARS[@]:1}"
-	if [ ${DRYRUN} -eq 1 ] ; then
-		echo "[dry-run]" ${COMMAND1}
-		echo "[dry-run]" ${COMMAND2}
-	else
-		echo "Running the following command (includes reprocessing!): ${COMMAND1}";
-		${COMMAND1}
-		echo "Running the following command: ${COMMAND2}";
-		${COMMAND2}
-	fi
+	run_parallel -r ::: ${ITER_PARS[0]}
+	run_parallel ::: ${ITER_PARS[@]:1}
+
 else
-	COMMAND="${COMMAND}	::: ${ITER_PARS[@]}"
-	if [ ${DRYRUN} -eq 1 ]; then
-		echo "[dry-run]" ${COMMAND}
-	else
-		echo "Running the following command: ${COMMAND}";
-		${COMMAND} 
-	fi
+	run_parallel ::: ${ITER_PARS[@]}
 fi
 
 echo "All jobs finished."
