@@ -11,5 +11,5 @@
 /*.png
 /#nn_optimization.py#
 /.env
-/data/
-/out/
+*/data/
+*/out/
