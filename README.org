@@ -1,6 +1,6 @@
 #+CAPTION: license
 #+NAME:   fig:license
-[[https://img.shields.io/github/license/bfonta/sf_inclusion.svg]]
+[[https://img.shields.io/github/license/bfonta/bye_splits.svg]]
 
 :construction:
 
