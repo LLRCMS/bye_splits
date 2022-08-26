@@ -1,7 +1,6 @@
 import os
 import csv
 import argparse
-from tqdm import tqdm
 import random; random.seed(10)
 from copy import copy
 import numpy as np
@@ -11,30 +10,12 @@ import h5py
 import sys
 #np.set_printoptions(threshold=sys.maxsize, linewidth=170)
 
-from data_processing import DataProcessing
-from plotter import Plotter
-from utils.params import (
-    cluster_kwargs,
-    fill_kwargs,
-    opt_kwargs as opt_kw,
-    seed_kwargs,
-    smooth_kwargs,
-    validation_kwargs,
-    )
-from utils.utils import (
-    tc_base_selection,
-    fill_path,
-    get_detector_region_mask,
-    get_html_name,
-    )
-from fill import fill
-from smooth import smooth
-from seed import seed
-from cluster import cluster
-from validation import validation, stats_collector
-from plot.trigger_cells_occupancy import (
-    plot_trigger_cells_occupancy as plot_tc_occ
-    )
+import tasks
+from utils import data_processing
+from utils import plotter
+from utils import params
+from utils import utils
+from plot.trigger_cells_occupancy import plot_trigger_cells_occupancy
 
 def is_sorted(arr, nbinsphi):
     diff = arr[:-1] - arr[1:]
@@ -69,11 +50,8 @@ def process_trigger_cell_geometry_data(region, selection,
     if debug:
         print( tcData.describe() )
 
-    tcData, subdetCond = tc_base_selection(tcData,
-                                           region=region,
-                                           pos_endcap=True,
-                                           range_rz=(kw['MinROverZ'],
-                                                     kw['MaxROverZ']))
+    tcData, subdetCond = utils.tc_base_selection(tcData, region=region, pos_endcap=True,
+                                                 range_rz=(kw['MinROverZ'], kw['MaxROverZ']))
     
     copt = dict(labels=False)
     tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=kw['RzBinEdges'], **copt )
@@ -83,8 +61,7 @@ def process_trigger_cell_geometry_data(region, selection,
     tcData_inv  = tcData[ ~subdetCond ]
 
     # save data for optimization task
-    inoptfile = fill_path(kw['OptIn'], is_short=True,
-                          sel=selection, reg=region)
+    inoptfile = utils.fill_path(kw['OptIn'], is_short=True, sel=selection, reg=region)
 
     with h5py.File(inoptfile, mode='w') as store:
         save_cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
@@ -105,17 +82,16 @@ def process_trigger_cell_geometry_data(region, selection,
         store['data_main'].attrs['doc'] = doc_main
 
 def optimization(pars, **kw):
-    outresen = fill_path(kw['OptIn'], is_short=True,
-                         sel=pars['sel'], reg=pars['reg'])
+    outresen = utils.fill_path(kw['OptIn'], is_short=True, sel=pars['sel'], reg=pars['reg'])
 
     store_in  = h5py.File(outresen, mode='r')
-    plotter = Plotter(**opt_kw)
+    plotter = plotter.Plotter(**params.opt_kw)
     mode = 'variance'
     window_size = 3
 
     assert list(store_in.keys()) == ['data_inv', 'data_main']
-    dp = DataProcessing( phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
-                         bin_bounds=(0,50) )
+    dp = data_processing.DataProcessing(phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
+                                        bin_bounds=(0,50))
 
     # check detids make sense
     assert (np.sort(np.unique(store_in['data_inv'][:,-1])) == np.sort(store_in['data_inv'][:,-1])).all()
@@ -373,8 +349,7 @@ def optimization(pars, **kw):
         df_inv_total = df_inv if rzslice==0 else pd.concat((df_inv_total,df_inv), axis=0)
 
         # end loop over the layers
-    plot_name = os.path.join( 'out',
-                              get_html_name(__file__, extra='_'+str(pars['ipar']).replace('.','p')) )
+    plot_name = os.path.join('out', utils.get_html_name(__file__, extra='_'+str(pars['ipar']).replace('.','p')))
     plotter.plot_iterative( plot_name=plot_name,
                             tab_names = [''+str(x) for x in range(len(ldata_main))],
                             show_html=False )
@@ -431,16 +406,16 @@ if __name__ == "__main__":
 
     if FLAGS.process:
         process_trigger_cell_geometry_data(region=FLAGS.region,
-                                           selection=FLAGS.selection, **opt_kw )
+                                           selection=FLAGS.selection, **params.opt_kw)
 
     pars_d = {'ipar'          : FLAGS.ipar,
               'sel'           : FLAGS.selection,
               'reg'           : FLAGS.region,
               'seed_window'   : FLAGS.seed_window,
               'smooth_kernel' : FLAGS.smooth_kernel }
-    outresen  = fill_path(opt_kw['OptEnResOut'],  **pars_d)
-    outrespos = fill_path(opt_kw['OptPosResOut'], **pars_d)
-    outcsv    = fill_path(opt_kw['OptCSVOut'], ext='csv', **pars_d)
+    outresen  = utils.fill_path(params.opt_kw['OptEnResOut'],  **pars_d)
+    outrespos = utils.fill_path(params.opt_kw['OptPosResOut'], **pars_d)
+    outcsv    = utils.fill_path(params.opt_kw['OptCSVOut'], ext='csv', **pars_d)
 
     print('Starting iterative parameter {}.'.format(FLAGS.ipar),
           flush=True)
@@ -454,21 +429,21 @@ if __name__ == "__main__":
 
         sys.stderr.flush()
 
-        tc_map = optimization(pars_d, **opt_kw )
+        tc_map = optimization(pars_d, **params.opt_kw )
 
         if not FLAGS.no_fill:
-            fill(pars_d, FLAGS.nevents, tc_map, **fill_kwargs)
+            tasks.fill.fill(pars_d, FLAGS.nevents, tc_map, **params.fill_kwargs)
 
         if not FLAGS.no_smooth:
-            smooth(pars_d, **smooth_kwargs)
+            tasks.smooth.smooth(pars_d, **params.smooth_kwargs)
 
         if not FLAGS.no_seed:
-            seed(pars_d, **seed_kwargs)
+            tasks.seed.seed(pars_d, **params.seed_kwargs)
 
         if not FLAGS.no_cluster:
-            cluster(pars_d, **cluster_kwargs)
+            tasks.cluster.cluster(pars_d, **params.cluster_kwargs)
 
-        res = stats_collector(pars_d, **validation_kwargs)
+        res = tasks.validation.stats_collector(pars_d, **params.validation_kwargs)
 
         writer.writerow({fieldnames[0] : FLAGS.ipar,
                          fieldnames[1] : res[0],
@@ -480,7 +455,7 @@ if __name__ == "__main__":
                          fieldnames[7] : res[6],
                          fieldnames[8] : res[7]})
             
-        assert len(opt_kw['FesAlgos']) == 1
+        assert len(params.opt_kw['FesAlgos']) == 1
             
         df_enres = pd.DataFrame({'enres_old': res[8],
                                  'enres_new': res[9]})
@@ -488,22 +463,22 @@ if __name__ == "__main__":
                                   'etares_new': res[11],
                                   'phires_old': res[12],  
                                   'phires_new': res[13]})
-        key = opt_kw['FesAlgos'][0] + '_data'
+        key = params.opt_kw['FesAlgos'][0] + '_data'
 
         storeEnRes [key] = df_enres
         storePosRes[key] = df_posres
         
         if FLAGS.plot:
             this_file = os.path.basename(__file__).split('.')[0]
-            plot_name = fill_path(this_file, ext='html', **pars_d)
+            plot_name = utils.fill_path(this_file, ext='html', **pars_d)
                 
-            plot_tc_occ(pars_d,
-                        plot_name=plot_name,
-                        pos_endcap=True,
-                        layer_edges=[0,42],
-                        nevents=25,
-                        min_rz=opt_kw['MinROverZ'],
-                        max_rz=opt_kw['MaxROverZ'],
-                        **opt_kw)
+            plot_trigger_cells_occupancy(pars_d,
+                                         plot_name=plot_name,
+                                         pos_endcap=True,
+                                         layer_edges=[0,42],
+                                         nevents=25,
+                                         min_rz=params.opt_kw['MinROverZ'],
+                                         max_rz=params.opt_kw['MaxROverZ'],
+                                         **opt_kw)
 
     print('Finished for iterative parameter {}.'.format(FLAGS.ipar), flush=True)
