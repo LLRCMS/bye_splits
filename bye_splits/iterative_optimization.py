@@ -11,10 +11,8 @@ import sys
 #np.set_printoptions(threshold=sys.maxsize, linewidth=170)
 
 import tasks
-from utils import data_processing
-from utils import plotter
-from utils import params
-from utils import utils
+import utils
+from utils import params, utils
 from plot.trigger_cells_occupancy import plot_trigger_cells_occupancy
 
 def is_sorted(arr, nbinsphi):
@@ -61,7 +59,7 @@ def process_trigger_cell_geometry_data(region, selection,
     tcData_inv  = tcData[ ~subdetCond ]
 
     # save data for optimization task
-    inoptfile = utils.fill_path(kw['OptIn'], is_short=True, sel=selection, reg=region)
+    inoptfile = utils.fill_path(kw['OptIn'], is_short=False, sel=selection, reg=region)
 
     with h5py.File(inoptfile, mode='w') as store:
         save_cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
@@ -82,16 +80,16 @@ def process_trigger_cell_geometry_data(region, selection,
         store['data_main'].attrs['doc'] = doc_main
 
 def optimization(pars, **kw):
-    outresen = utils.fill_path(kw['OptIn'], is_short=True, sel=pars['sel'], reg=pars['reg'])
+    outresen = utils.fill_path(kw['OptIn'], is_short=False, sel=pars['sel'], reg=pars['reg'])
 
     store_in  = h5py.File(outresen, mode='r')
-    plotter = plotter.Plotter(**params.opt_kw)
+    plot_obj = utils.plotter.Plotter(**params.opt_kwargs)
     mode = 'variance'
     window_size = 3
 
     assert list(store_in.keys()) == ['data_inv', 'data_main']
-    dp = data_processing.DataProcessing(phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
-                                        bin_bounds=(0,50))
+    dp = utils.data_processing.DataProcessing(phi_bounds=(kw['MinPhi'],kw['MaxPhi']),
+                                              bin_bounds=(0,50))
 
     # check detids make sense
     assert (np.sort(np.unique(store_in['data_inv'][:,-1])) == np.sort(store_in['data_inv'][:,-1])).all()
@@ -128,13 +126,13 @@ def optimization(pars, **kw):
             run_algorithm = False
    
         if run_algorithm:
-            plotter.reset()
+            plot_obj.reset()
              
             boundshift = window_size - 1
             ncellstot = sum(lb)
             lastidx = kw['NbinsPhi']-1
              
-            plotter.save_orig_data( data=copy(lb), data_type='bins',
+            plot_obj.save_orig_data( data=copy(lb), data_type='bins',
                                     boundary_sizes=0 )
              
             # initial differences for stopping criterion
@@ -320,13 +318,13 @@ def optimization(pars, **kw):
             df.loc[cond4, 'arc'] = arcdist_f(df.phi_old, df.phi_new-2*np.pi)
             df.loc[cond4, 'arc'] = arcdist_f(df.phi_old, df.phi_new-2*np.pi)
 
-            plotter.save_gen_data(lb, boundary_sizes=0, data_type='bins')
-            plotter.save_phi_distances(phi_dist=df.distance,
+            plot_obj.save_gen_data(lb, boundary_sizes=0, data_type='bins')
+            plot_obj.save_phi_distances(phi_dist=df.distance,
                                        eucl_dist=eucl_dist,
                                        arc_dist=df.arc)
-            plotter.save_iterative_phi_tab(nonzero_ratio=nonzero_ratio,
+            plot_obj.save_iterative_phi_tab(nonzero_ratio=nonzero_ratio,
                                            ncellstot=ncellstot )
-            plotter.save_iterative_bin_tab()
+            plot_obj.save_iterative_bin_tab()
 
         else: # if run_algorithm:
             df = pd.DataFrame(dict(phi_old=phi_old,
@@ -350,9 +348,9 @@ def optimization(pars, **kw):
 
         # end loop over the layers
     plot_name = os.path.join('out', utils.get_html_name(__file__, extra='_'+str(pars['ipar']).replace('.','p')))
-    plotter.plot_iterative( plot_name=plot_name,
+    plot_obj.plot_iterative(plot_name=plot_name,
                             tab_names = [''+str(x) for x in range(len(ldata_main))],
-                            show_html=False )
+                            show_html=False)
 
     assert not set(df_total.id) & set(df_inv_total.id)
     df_merge = df_inv_total.merge(df_total, how='outer', on='id')
@@ -381,9 +379,9 @@ if __name__ == "__main__":
                         help='iterative algorithm tunable parameter',
                         default=0.5, type=float)
     selection_help = 'Selection used to select cluster under study.'
-    parser.add_argument('--selection', help=selection_help,
+    parser.add_argument('-s', '--selection', help=selection_help,
                         default='splits_only', type=str)
-    nevents_help = 'Number of events for processing.'
+    nevents_help = "Number of events for processing. Pass '-1' for all events."
     parser.add_argument('-n', '--nevents', help=nevents_help,
                         default=-1, type=int)
     region_help = ( 'Z region in the detector considered for ' +
@@ -403,19 +401,20 @@ if __name__ == "__main__":
                         choices=('default', 'flat_top'),
                         default='default', type=str)
     FLAGS = parser.parse_args()
+    assert FLAGS.selection in ('splits_only',) or FLAGS.selection.startswith('above_eta_')
 
     if FLAGS.process:
         process_trigger_cell_geometry_data(region=FLAGS.region,
-                                           selection=FLAGS.selection, **params.opt_kw)
+                                           selection=FLAGS.selection, **params.opt_kwargs)
 
     pars_d = {'ipar'          : FLAGS.ipar,
               'sel'           : FLAGS.selection,
               'reg'           : FLAGS.region,
               'seed_window'   : FLAGS.seed_window,
               'smooth_kernel' : FLAGS.smooth_kernel }
-    outresen  = utils.fill_path(params.opt_kw['OptEnResOut'],  **pars_d)
-    outrespos = utils.fill_path(params.opt_kw['OptPosResOut'], **pars_d)
-    outcsv    = utils.fill_path(params.opt_kw['OptCSVOut'], ext='csv', **pars_d)
+    outresen  = utils.fill_path(params.opt_kwargs['OptEnResOut'],  **pars_d)
+    outrespos = utils.fill_path(params.opt_kwargs['OptPosResOut'], **pars_d)
+    outcsv    = utils.fill_path(params.opt_kwargs['OptCSVOut'], ext='csv', **pars_d)
 
     print('Starting iterative parameter {}.'.format(FLAGS.ipar),
           flush=True)
@@ -429,7 +428,7 @@ if __name__ == "__main__":
 
         sys.stderr.flush()
 
-        tc_map = optimization(pars_d, **params.opt_kw )
+        tc_map = optimization(pars_d, **params.opt_kwargs )
 
         if not FLAGS.no_fill:
             tasks.fill.fill(pars_d, FLAGS.nevents, tc_map, **params.fill_kwargs)
@@ -455,7 +454,7 @@ if __name__ == "__main__":
                          fieldnames[7] : res[6],
                          fieldnames[8] : res[7]})
             
-        assert len(params.opt_kw['FesAlgos']) == 1
+        assert len(params.opt_kwargs['FesAlgos']) == 1
             
         df_enres = pd.DataFrame({'enres_old': res[8],
                                  'enres_new': res[9]})
@@ -463,7 +462,7 @@ if __name__ == "__main__":
                                   'etares_new': res[11],
                                   'phires_old': res[12],  
                                   'phires_new': res[13]})
-        key = params.opt_kw['FesAlgos'][0] + '_data'
+        key = params.opt_kwargs['FesAlgos'][0] + '_data'
 
         storeEnRes [key] = df_enres
         storePosRes[key] = df_posres
@@ -477,8 +476,8 @@ if __name__ == "__main__":
                                          pos_endcap=True,
                                          layer_edges=[0,42],
                                          nevents=25,
-                                         min_rz=params.opt_kw['MinROverZ'],
-                                         max_rz=params.opt_kw['MaxROverZ'],
-                                         **opt_kw)
+                                         min_rz=params.opt_kwargs['MinROverZ'],
+                                         max_rz=params.opt_kwargs['MaxROverZ'],
+                                         **opt_kwargs)
 
     print('Finished for iterative parameter {}.'.format(FLAGS.ipar), flush=True)

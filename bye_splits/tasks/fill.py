@@ -55,8 +55,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
 
             if pars['sel'].startswith('above_eta_'):
                 #1332 events survive
-                df = df[ df['genpart_exeta']
-                        > float(pars['sel'].split('above_eta_')[1]) ]
+                df = df[ df['genpart_exeta'] > float(pars['sel'].split('above_eta_')[1]) ]
             elif pars['sel'] == 'splits_only':
                 # select events with splitted clusters (enres < energy cut)
                 # if an event has at least one cluster satisfying the enres condition,
