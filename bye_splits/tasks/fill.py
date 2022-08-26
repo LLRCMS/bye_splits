@@ -1,14 +1,19 @@
+# coding: utf-8
+
+_all_ = [ 'fill' ]
+
 import os
+import sys
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
+sys.path.insert(0, parent_dir)
+
+import bye_splits
+from bye_splits.utils import common
+
 import random; random.seed(18)
 import numpy as np
 import pandas as pd
 import h5py
-
-from utils.utils import (
-    calcRzFromEta,
-    fill_path,
-    SupressSettingWithCopyWarning,
-)
 
 def fill(pars, nevents, tc_map, debug=False, **kwargs):
     """
@@ -16,7 +21,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
     """    
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
     for fe in kwargs['FesAlgos']:
-        infill = fill_path(kwargs['FillIn'], is_short=True)
+        infill = common.fill_path(kwargs['FillIn'], is_short=True)
         simAlgoFiles[fe] = [ infill ]
 
     for fe,files in simAlgoFiles.items():
@@ -33,8 +38,8 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
         print(simAlgoNames)
 
     ### Data Processing ######################################################
-    outfillplot = fill_path(kwargs['FillOutPlot'], **pars)
-    outfillcomp = fill_path(kwargs['FillOutComp'], **pars)
+    outfillplot = common.fill_path(kwargs['FillOutPlot'], **pars)
+    outfillcomp = common.fill_path(kwargs['FillOutComp'], **pars)
     with pd.HDFStore(outfillplot, mode='w') as store, pd.HDFStore(outfillcomp, mode='w') as storeComp:
 
         for i,fe in enumerate(kwargs['FesAlgos']):
@@ -42,7 +47,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             df = df[ (df['genpart_exeta']>1.7) & (df['genpart_exeta']<2.8) ]
             assert( df[ df['cl3d_eta']<0 ].shape[0] == 0 )
              
-            with SupressSettingWithCopyWarning():
+            with common.SupressSettingWithCopyWarning():
                 df.loc[:,'enres'] = ( df.loc[:,'cl3d_energy']
                                       - df.loc[:,'genpart_energy'] )
                 df.loc[:,'enres'] /= df.loc[:,'genpart_energy']
@@ -157,7 +162,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             simAlgoPlots[fe] = (split_3d, split_tc)
 
     ### Event Processing ######################################################
-    outfill = fill_path(kwargs['FillOut'], **pars)
+    outfill = common.fill_path(kwargs['FillOut'], **pars)
 
     with h5py.File(outfill, mode='w') as store:
 
@@ -185,9 +190,9 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 ev_tc['wght_x'] = wght_f(ev_tc.tc_x)
                 ev_tc['wght_y'] = wght_f(ev_tc.tc_y)
                 
-                with SupressSettingWithCopyWarning():
-                    ev_3d['cl3d_Roverz'] = calcRzFromEta(ev_3d.loc[:,'cl3d_eta'])
-                    ev_3d['gen_Roverz']  = calcRzFromEta(ev_3d.loc[:,'genpart_exeta'])
+                with common.SupressSettingWithCopyWarning():
+                    ev_3d['cl3d_Roverz'] = common.calcRzFromEta(ev_3d.loc[:,'cl3d_eta'])
+                    ev_3d['gen_Roverz']  = common.calcRzFromEta(ev_3d.loc[:,'genpart_exeta'])
 
                 cl3d_pos_rz  = ev_3d['cl3d_Roverz'].unique() 
                 cl3d_pos_phi = ev_3d['cl3d_phi'].unique()

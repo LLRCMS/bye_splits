@@ -1,3 +1,4 @@
+# coding: utf-8
 """
 Plots TC distributions and particular events, before and after:
 - smoothing
@@ -7,7 +8,16 @@ The full TC distributions show the distributions *before* TC movement.
 There is some code duplication with `_full/_f` and `_sel/_s` suffixes
 to describe the full phase space and the one defined ("selected") by `pars["region"]`
 """
+
+_all_ = [ ]
+
 import os
+import sys
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
+sys.path.insert(0, parent_dir)
+
+from utils import common
+
 import argparse
 import numpy as np
 import pandas as pd
@@ -27,22 +37,6 @@ from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
 from bokeh.plotting import figure
 from bokeh.transform import transform
 from bokeh.palettes import viridis as _palette
-
-import sys
-sys.path.append( os.environ['PWD'] )
-from utils.params import (
-    fill_kwargs as kw,
-    cluster_kwargs as cl_kw,
-    smooth_kwargs as smooth_kw,
-    seed_kwargs as seed_kw,
-)
-from utils.utils import (
-    calcRzFromEta,
-    fill_path,
-    get_detector_region_mask,
-    SupressSettingWithCopyWarning,
-    tc_base_selection,
-)
 
 colors = ('orange', 'red', 'black')
 def set_figure_props(p, hide_legend=True):
@@ -110,15 +104,15 @@ def plot_trigger_cells_occupancy(pars,
     simAlgoNames = sorted(simAlgoDFs.keys())
 
     # Inputs: Cluster After Custom Iterative Algorithm
-    outclusterplot = fill_path(cl_kw['ClusterOutPlot'], **pars)
+    outclusterplot = common.fill_path(cl_kw['ClusterOutPlot'], **pars)
     with pd.HDFStore(outclusterplot, mode='r') as store:
         splittedClusters_3d_local = store['data']
 
-    tcData, subdetCond = tc_base_selection(tcData,
-                                           pos_endcap=pos_endcap,
-                                           region=pars['reg'],
-                                           range_rz=(kw['MinROverZ'],
-                                                     kw['MaxROverZ']))
+    tcData, subdetCond = common.tc_base_selection(tcData,
+                                                  pos_endcap=pos_endcap,
+                                                  region=pars['reg'],
+                                                  range_rz=(kw['MinROverZ'],
+                                                            kw['MaxROverZ']))
     tcData.id = np.uint32(tcData.id)
 
     tcData_full = tcData[:]
@@ -195,7 +189,7 @@ def plot_trigger_cells_occupancy(pars,
     #########################################################################
     for i,fe in enumerate(kw['FesAlgos']):
 
-        outfillplot = fill_path(kw['FillOutPlot'], **pars)
+        outfillplot = common.fill_path(kw['FillOutPlot'], **pars)
         with pd.HDFStore(outfillplot, mode='r') as store:
             splittedClusters_3d_cmssw = store[fe + '_3d']
             splittedClusters_tc = store[fe + '_tc']
@@ -285,7 +279,7 @@ def plot_trigger_cells_occupancy(pars,
                         )
         for ev in event_sample:
             # Inputs: Energy 2D histogram after smoothing but before clustering
-            outsmooth = fill_path(smooth_kw['SmoothOut'], **pars)
+            outsmooth = common.fill_path(smooth_kw['SmoothOut'], **pars)
             with h5py.File(outsmooth, mode='r') as storeSmoothIn:
 
                 kold = kw['FesAlgos'][0]+'_'+str(ev)+'_group_old'
@@ -358,9 +352,9 @@ def plot_trigger_cells_occupancy(pars,
             _cols_drop = ['Rz_bin', 'phi_bin_old', 'phi_bin_new', 'Rz', 'phi_new']
             ev_tc = ev_tc.drop(_cols_drop, axis=1)
 
-            with SupressSettingWithCopyWarning():
-                ev_3d_cmssw['cl3d_Roverz']=calcRzFromEta(ev_3d_cmssw.cl3d_eta)
-                ev_3d_cmssw['gen_Roverz']=calcRzFromEta(ev_3d_cmssw.genpart_exeta)
+            with common.SupressSettingWithCopyWarning():
+                ev_3d_cmssw['cl3d_Roverz']=common.calcRzFromEta(ev_3d_cmssw.cl3d_eta)
+                ev_3d_cmssw['gen_Roverz']=common.calcRzFromEta(ev_3d_cmssw.genpart_exeta)
 
             cl3d_pos_rz  = ev_3d_cmssw['cl3d_Roverz'].unique()
             cl3d_pos_phi = ev_3d_cmssw['cl3d_phi'].unique()

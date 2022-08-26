@@ -1,11 +1,19 @@
+# coding: utf-8
+
+_all_ = [ 'validation', 'stats_collector' ]
+
+import os
+import sys
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
+sys.path.insert(0, parent_dir)
+
+import bye_splits
+from bye_splits.utils import common
+
 import re
 import numpy as np
 import pandas as pd
 import h5py
-from utils.utils import (
-    fill_path,
-    get_column_idx,
-    )
 
 def validation(**kw):
     with pd.HDFStore(kw['ClusteringOutValidation'], mode='r') as storeInLocal, h5py.File(kw['FillingOut'], mode='r') as storeInCMSSW :
@@ -28,10 +36,10 @@ def validation(**kw):
                 locPhiOld = local['phi'].to_numpy()
                 locRz  = local['Rz'].to_numpy()
                 locEn  = local['en'].to_numpy()
-                cmsswEta = cmssw[:][get_column_idx(cmssw_cols, 'cl3d_eta')]
-                cmsswPhi = cmssw[:][get_column_idx(cmssw_cols, 'cl3d_phi')]
-                cmsswRz  = cmssw[:][get_column_idx(cmssw_cols, 'cl3d_Roverz')]
-                cmsswEn  = cmssw[:][get_column_idx(cmssw_cols, 'cl3d_energy')]
+                cmsswEta = cmssw[:][common.get_column_idx(cmssw_cols, 'cl3d_eta')]
+                cmsswPhi = cmssw[:][common.get_column_idx(cmssw_cols, 'cl3d_phi')]
+                cmsswRz  = cmssw[:][common.get_column_idx(cmssw_cols, 'cl3d_Roverz')]
+                cmsswEn  = cmssw[:][common.get_column_idx(cmssw_cols, 'cl3d_energy')]
          
                 if (len(locEtaOld) != len(cmsswEta) or
                     len(locPhiOld) != len(cmsswPhi) or
@@ -56,9 +64,9 @@ def validation(**kw):
                         print('\tEn difference: {}'.format(locEn[i] - cmsswEn[i]))
 
 def stats_collector(pars, debug=False, **kw):
-    outclusteringvalidation = fill_path(kw['ClusterOutValidation'], **pars)
-    outfilling = fill_path(kw['FillOut'], **pars)
-    outfillingcomp = fill_path(kw['FillOutComp'], **pars)
+    outclusteringvalidation = common.fill_path(kw['ClusterOutValidation'], **pars)
+    outfilling = common.fill_path(kw['FillOut'], **pars)
+    outfillingcomp = common.fill_path(kw['FillOutComp'], **pars)
     with pd.HDFStore(outclusteringvalidation, mode='r') as storeInLocal, h5py.File(outfilling, mode='r') as storeInCMSSW, pd.HDFStore(outfillingcomp, mode='r') as storeGen:
         
         for falgo in kw['FesAlgos']:
@@ -107,10 +115,10 @@ def stats_collector(pars, debug=False, **kw):
                 locRz  = local['Rz'].to_numpy()
                 locEn  = local['en'].to_numpy()
 
-                cmsswEta  = cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_eta') ]
-                cmsswPhi  = cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_phi') ]
-                cmsswRz   = cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_rz')  ]
-                cmsswEn   = cmssw[:][ get_column_idx(cmssw_cols, 'cl3d_en')  ]
+                cmsswEta  = cmssw[:][ common.get_column_idx(cmssw_cols, 'cl3d_eta') ]
+                cmsswPhi  = cmssw[:][ common.get_column_idx(cmssw_cols, 'cl3d_phi') ]
+                cmsswRz   = cmssw[:][ common.get_column_idx(cmssw_cols, 'cl3d_rz')  ]
+                cmsswEn   = cmssw[:][ common.get_column_idx(cmssw_cols, 'cl3d_en')  ]
 
                 event_number = re.search(search_str, key1).group(1)
                 

@@ -1,6 +1,13 @@
-import os
-import numpy as np
+# coding: utf-8
 
+_all_ = [ ]
+
+import os
+import sys
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
+sys.path.insert(0, parent_dir)
+
+import numpy as np
 
 NbinsRz = 42
 NbinsPhi = 216

@@ -1,17 +1,24 @@
+# coding: utf-8
+
+_all_ = [ 'cluster' ]
+
+import os
+import sys
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
+sys.path.insert(0, parent_dir)
+
+import bye_splits
+from bye_splits.utils import common
+
 import re
 import numpy as np
 import pandas as pd
 import h5py
-from utils.utils import (
-    calcRzFromEta,
-    fill_path,
-    get_column_idx,
-)
 
 def cluster(pars, **kw):
-    inclusteringseeds = fill_path(kw['ClusterInSeeds'], **pars)
-    inclusteringtc = fill_path(kw['ClusterInTC'], **pars)
-    outclusteringvalidation = fill_path(kw['ClusterOutValidation'], **pars)
+    inclusteringseeds = common.fill_path(kw['ClusterInSeeds'], **pars)
+    inclusteringtc = common.fill_path(kw['ClusterInTC'], **pars)
+    outclusteringvalidation = common.fill_path(kw['ClusterOutValidation'], **pars)
     with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut :
 
         for falgo in kw['FesAlgos']:
@@ -25,14 +32,14 @@ def cluster(pars, **kw):
                 tc = storeInTC[key1]
                 tc_cols = list(tc.attrs['columns'])
 
-                projx = tc[:, get_column_idx(tc_cols, 'tc_x_new')]/tc[:, get_column_idx(tc_cols, 'tc_z')]
-                projy = tc[:, get_column_idx(tc_cols, 'tc_y_new')]/tc[:, get_column_idx(tc_cols, 'tc_z')]
+                projx = tc[:, common.get_column_idx(tc_cols, 'tc_x_new')]/tc[:, common.get_column_idx(tc_cols, 'tc_z')]
+                projy = tc[:, common.get_column_idx(tc_cols, 'tc_y_new')]/tc[:, common.get_column_idx(tc_cols, 'tc_z')]
 
                 # check columns via `tc.attrs['columns']`
                 radiusCoeffA = np.array( [kw['CoeffA'][int(xi)-1]
-                                          for xi in tc[:, get_column_idx(tc_cols, 'tc_layer')]] )
+                                          for xi in tc[:, common.get_column_idx(tc_cols, 'tc_layer')]] )
                 minDist = ( radiusCoeffA +
-                            radiusCoeffB * (kw['MidRadius'] - np.abs(tc[:, get_column_idx(tc_cols, 'tc_eta_new')])) )
+                            radiusCoeffB * (kw['MidRadius'] - np.abs(tc[:, common.get_column_idx(tc_cols, 'tc_eta_new')])) )
                 
                 seedEn, seedX, seedY = storeInSeeds[key2]
          
@@ -106,7 +113,7 @@ def cluster(pars, **kw):
                 cl3d['phinew'] = np.arctan2(cl3d.ynew, cl3d.xnew)
                 cl3d['etanew'] = np.arcsinh(cl3d.z / cl3d.distnew)
                 
-                cl3d['Rz']   = calcRzFromEta(cl3d.etanew)
+                cl3d['Rz']   = common.calcRzFromEta(cl3d.etanew)
                 cl3d['en']   = cl3d.pt*np.cosh(cl3d.etanew)
 
                 search_str = '{}_([0-9]{{1,7}})_tc'
@@ -128,7 +135,7 @@ def cluster(pars, **kw):
             print('[clustering step with param={}] There were {} events without seeds.'
                   .format(pars['ipar'], empty_seeds))
 
-    outclustering = fill_path(kw['ClusterOutPlot'], **pars) 
+    outclustering = common.fill_path(kw['ClusterOutPlot'], **pars) 
     with pd.HDFStore(outclustering, mode='w') as sout:
         dfout.event = dfout.event.astype(int)
         sout['data'] = dfout

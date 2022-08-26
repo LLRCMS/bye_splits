@@ -1,8 +1,14 @@
-"""
-Functions used for data processing.
-"""
+# coding: utf-8
+
+_all_ = [ ]
+
+import os
+import sys
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
+sys.path.insert(0, parent_dir)
+
 import numpy as np
-from utils.utils import dot_dict
+from utils import common
 
 class DataProcessing:
     def __init__(self, phi_bounds, bin_bounds):
@@ -30,12 +36,12 @@ class DataProcessing:
         cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
         assert data.attrs['columns'].tolist() == cols
 
-        idx_d = dot_dict(dict(r      = 0,
-                             rz     = 1,
-                             phi    = 2,
-                             rzbin  = 3,
-                             phibin = 4,
-                             tc_id  = 5, ))
+        idx_d = common.dot_dict(dict(r      = 0,
+                                     rz     = 1,
+                                     phi    = 2,
+                                     rzbin  = 3,
+                                     phibin = 4,
+                                     tc_id  = 5, ))
 
         data = data[()] #eager (lazy is the default)
 

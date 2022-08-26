@@ -1,4 +1,18 @@
+# coding: utf-8
+
+_all_ = [ ]
+    
 import os
+import sys
+parent_dir = os.path.abspath(__file__ + 2 * '/..')
+sys.path.insert(0, parent_dir)
+
+import tasks
+import utils
+from utils import params, common
+
+from plot.trigger_cells_occupancy import plot_trigger_cells_occupancy
+
 import csv
 import argparse
 import random; random.seed(10)
@@ -9,11 +23,6 @@ import uproot as up
 import h5py
 import sys
 #np.set_printoptions(threshold=sys.maxsize, linewidth=170)
-
-import tasks
-import utils
-from utils import params, utils
-from plot.trigger_cells_occupancy import plot_trigger_cells_occupancy
 
 def is_sorted(arr, nbinsphi):
     diff = arr[:-1] - arr[1:]
@@ -48,8 +57,8 @@ def process_trigger_cell_geometry_data(region, selection,
     if debug:
         print( tcData.describe() )
 
-    tcData, subdetCond = utils.tc_base_selection(tcData, region=region, pos_endcap=True,
-                                                 range_rz=(kw['MinROverZ'], kw['MaxROverZ']))
+    tcData, subdetCond = common.tc_base_selection(tcData, region=region, pos_endcap=True,
+                                                  range_rz=(kw['MinROverZ'], kw['MaxROverZ']))
     
     copt = dict(labels=False)
     tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=kw['RzBinEdges'], **copt )
@@ -59,7 +68,7 @@ def process_trigger_cell_geometry_data(region, selection,
     tcData_inv  = tcData[ ~subdetCond ]
 
     # save data for optimization task
-    inoptfile = utils.fill_path(kw['OptIn'], is_short=False, sel=selection, reg=region)
+    inoptfile = common.fill_path(kw['OptIn'], is_short=False, sel=selection, reg=region)
 
     with h5py.File(inoptfile, mode='w') as store:
         save_cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
@@ -80,7 +89,7 @@ def process_trigger_cell_geometry_data(region, selection,
         store['data_main'].attrs['doc'] = doc_main
 
 def optimization(pars, **kw):
-    outresen = utils.fill_path(kw['OptIn'], is_short=False, sel=pars['sel'], reg=pars['reg'])
+    outresen = common.fill_path(kw['OptIn'], is_short=False, sel=pars['sel'], reg=pars['reg'])
 
     store_in  = h5py.File(outresen, mode='r')
     plot_obj = utils.plotter.Plotter(**params.opt_kwargs)
@@ -347,7 +356,7 @@ def optimization(pars, **kw):
         df_inv_total = df_inv if rzslice==0 else pd.concat((df_inv_total,df_inv), axis=0)
 
         # end loop over the layers
-    plot_name = os.path.join('out', utils.get_html_name(__file__, extra='_'+str(pars['ipar']).replace('.','p')))
+    plot_name = os.path.join('out', common.get_html_name(__file__, extra='_'+str(pars['ipar']).replace('.','p')))
     plot_obj.plot_iterative(plot_name=plot_name,
                             tab_names = [''+str(x) for x in range(len(ldata_main))],
                             show_html=False)
@@ -412,9 +421,9 @@ if __name__ == "__main__":
               'reg'           : FLAGS.region,
               'seed_window'   : FLAGS.seed_window,
               'smooth_kernel' : FLAGS.smooth_kernel }
-    outresen  = utils.fill_path(params.opt_kwargs['OptEnResOut'],  **pars_d)
-    outrespos = utils.fill_path(params.opt_kwargs['OptPosResOut'], **pars_d)
-    outcsv    = utils.fill_path(params.opt_kwargs['OptCSVOut'], ext='csv', **pars_d)
+    outresen  = common.fill_path(params.opt_kwargs['OptEnResOut'],  **pars_d)
+    outrespos = common.fill_path(params.opt_kwargs['OptPosResOut'], **pars_d)
+    outcsv    = common.fill_path(params.opt_kwargs['OptCSVOut'], ext='csv', **pars_d)
 
     print('Starting iterative parameter {}.'.format(FLAGS.ipar),
           flush=True)
@@ -469,7 +478,7 @@ if __name__ == "__main__":
         
         if FLAGS.plot:
             this_file = os.path.basename(__file__).split('.')[0]
-            plot_name = utils.fill_path(this_file, ext='html', **pars_d)
+            plot_name = common.fill_path(this_file, ext='html', **pars_d)
                 
             plot_trigger_cells_occupancy(pars_d,
                                          plot_name=plot_name,

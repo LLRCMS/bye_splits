@@ -1,6 +1,17 @@
+# coding: utf-8
+
+_all_ = [ 'smooth' ]
+
+import os
+import sys
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
+sys.path.insert(0, parent_dir)
+
+import bye_splits
+from bye_splits.utils import common
+
 import numpy as np
 import h5py
-from utils.utils import fill_path
 from copy import copy
 
 def valid1(energies, infile, outfile, nbinsRz, nbinsPhi):
@@ -118,8 +129,8 @@ def createHistogram(bins, nbinsRz, nbinsPhi):
 
 # Event by event smooth
 def smooth(pars, **kwargs):
-    insmooth = fill_path(kwargs['SmoothIn'], **pars)
-    outsmooth = fill_path(kwargs['SmoothOut'], **pars)
+    insmooth = common.fill_path(kwargs['SmoothIn'], **pars)
+    outsmooth = common.fill_path(kwargs['SmoothOut'], **pars)
     with h5py.File(insmooth,  mode='r') as storeIn, h5py.File(outsmooth, mode='w') as storeOut :
 
         for falgo in kwargs['FesAlgos']:

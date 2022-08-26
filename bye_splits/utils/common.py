@@ -1,11 +1,19 @@
-from utils.params import (
-    base_kwargs,
-    seed_kwargs,
-    )
+# coding: utf-8
+
+_all_ = [ ]
+
+import os
+import sys
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
+sys.path.insert(0, parent_dir)
+
+from utils import params
 
 import os
 import numpy as np
 import pandas as pd
+
+TESTXXX = 5.
 
 def binConv(vals, dist, amin):
     """
@@ -28,16 +36,16 @@ class dot_dict(dict):
 def fill_path(base_path, is_short=False, ext='hdf5', **kw):
     kw = dot_dict(kw)
     if not is_short:
-        ipar = '_PAR_' + str(kw.ipar).replace('.','p')
-        sel = '_SEL_' + kw.sel.replace('.', 'p')
-        reg = '_REG_' + kw.reg
-        sw = '_SeedWindow_' + str(kw.seed_window)
+        ipar = '_PAR_'        + str(kw.ipar).replace('.','p')
+        sel = '_SEL_'         + kw.sel.replace('.', 'p')
+        reg = '_REG_'         + kw.reg
+        sw = '_SeedWindow_'   + str(kw.seed_window)
         sk = '_SmoothKernel_' + str(kw.smooth_kernel)
         base_path += sel + ipar + reg + sw + sk
     base_path += '.' + ext
 
     path = 'OutPath' if ext == 'html' else 'BasePath'
-    final = os.path.join( base_kwargs[path], base_path)
+    final = os.path.join(params.base_kwargs[path], base_path)
     return final
 
 class SupressSettingWithCopyWarning:
