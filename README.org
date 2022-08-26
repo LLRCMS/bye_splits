@@ -1,0 +1,7 @@
+#+CAPTION: license
+#+NAME:   fig:license
+[[https://img.shields.io/github/license/bfonta/sf_inclusion.svg]]
+
+:construction:
+
+Understand and fix the observed cluster splitting in the CMS Stage 2 reconstruction on FPGAs.
