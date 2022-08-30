@@ -8,6 +8,7 @@ parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
 import bye_splits
+from bye_splits import utils
 from bye_splits.utils import common
 
 import re
@@ -19,7 +20,7 @@ def cluster(pars, **kw):
     inclusteringseeds = common.fill_path(kw['ClusterInSeeds'], **pars)
     inclusteringtc = common.fill_path(kw['ClusterInTC'], **pars)
     outclusteringvalidation = common.fill_path(kw['ClusterOutValidation'], **pars)
-    with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut :
+    with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut:
 
         for falgo in kw['FesAlgos']:
             seed_keys = [x for x in storeInSeeds.keys() if falgo in x  and '_group_new' in x ]
@@ -141,5 +142,11 @@ def cluster(pars, **kw):
         sout['data'] = dfout
         
 if __name__ == "__main__":
-    from airflow.airflow_dag import clustering_kwargs        
-    clustering( **clustering_kwargs )
+    import argparse
+    from bye_splits.utils import params, parsing
+
+    parser = argparse.ArgumentParser(description='Clustering standalone step.')
+    parsing.add_parameters(parser)
+    FLAGS = parser.parse_args()
+    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
+    cluster(vars(FLAGS), **params.cluster_kwargs)

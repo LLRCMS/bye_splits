@@ -128,5 +128,11 @@ def seed(pars, debug=False, **kwargs):
                 storeOut[key].attrs['doc'] = doc
 
 if __name__ == "__main__":
-    from airflow.airflow_dag import seeding_kwargs        
-    seeding( **seeding_kwargs )
+    import argparse
+    from bye_splits.utils import params, parsing
+
+    parser = argparse.ArgumentParser(description='Seeding standalone step.')
+    parsing.add_parameters(parser)
+    FLAGS = parser.parse_args()
+    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
+    seed(vars(FLAGS), **params.cluster_kwargs)

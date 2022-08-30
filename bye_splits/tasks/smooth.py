@@ -212,5 +212,12 @@ def smooth(pars, **kwargs):
                 storeOut[knew].attrs['doc'] = doc_message
 
 if __name__ == "__main__":
-    from airflow.airflow_dag import smooth_kwargs
-    smooth( **smooth_kwargs )
+    import argparse
+    from bye_splits.utils import params, parsing
+
+    parser = argparse.ArgumentParser(description='Smoothing standalone step.')
+    parsing.add_parameters(parser)
+    FLAGS = parser.parse_args()
+    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
+
+    smooth(vars(FLAGS), **params.smooth_kwargs)

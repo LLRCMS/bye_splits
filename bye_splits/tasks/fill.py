@@ -262,5 +262,12 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
     return group_tot_old, group_tot_new
 
 if __name__ == "__main__":
-    from airflow.airflow_dag import fill_kwargs        
-    fill( tc_map, **fill_kwargs )
+    import argparse
+    from bye_splits.utils import params, parsing
+
+    parser = argparse.ArgumentParser(description='Filling standalone step.')
+    parsing.add_parameters(parser)
+    FLAGS = parser.parse_args()
+    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
+
+    fill(vars(FLAGS), tc_map, **params.fill_kwargs )

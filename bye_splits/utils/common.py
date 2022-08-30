@@ -13,8 +13,6 @@ import os
 import numpy as np
 import pandas as pd
 
-TESTXXX = 5.
-
 def binConv(vals, dist, amin):
     """
     Converts bin indexes back to values (central values in the bin).
