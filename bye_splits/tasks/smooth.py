@@ -88,13 +88,14 @@ def smoothAlongPhi(arr, kernel,
         roll_indices = np.where(nBinsSide == idx)[0]
         arr_copy = arr[roll_indices,:]
         arr_smooth = arr[roll_indices,:]
-        if kernel=='default':
-            for nside in range(1, int(idx)+1):
-                arr_smooth += ( (np.roll(arr_copy, shift=nside,  axis=1) +
-                                np.roll(arr_copy, shift=-nside, axis=1))
-                               / (2**nside) )
-        elif kernel=='flat_top':
-            raise NotImplementedError()
+        for nside in range(1, int(idx)+1):
+            side_sum =  np.roll(arr_copy, shift=nside,  axis=1)
+            side_sum += np.roll(arr_copy, shift=-nside, axis=1)
+            if kernel=='default':
+                arr_smooth += side_sum / 2**nside
+            elif kernel=='flat_top':
+                arr_smooth += side_sum / 2**(nside-1)
+            print(idx, 2**nside, 2**(nside-1))
         arr_new[roll_indices,:] = arr_smooth / np.expand_dims(area[roll_indices], axis=-1)
 
     return arr_new * areaPerTriggerCell
@@ -141,18 +142,12 @@ def smooth(pars, **kwargs):
             
             for kold,knew in zip(keys_old,keys_new):
                 opts = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
-                energies_old = createHistogram(storeIn[kold][:,[0,1,2]],
-                                               *opts)
-                energies_new = createHistogram(storeIn[knew][:,[0,1,2]],
-                                               *opts)
-                wght_x_old = createHistogram(storeIn[kold][:,[0,1,3]],
-                                             *opts)
-                wght_y_old = createHistogram(storeIn[kold][:,[0,1,4]],
-                                             *opts)
-                wght_x_new = createHistogram(storeIn[knew][:,[0,1,3]],
-                                             *opts)
-                wght_y_new = createHistogram(storeIn[knew][:,[0,1,4]],
-                                             *opts)
+                energies_old = createHistogram(storeIn[kold][:,[0,1,2]], *opts)
+                energies_new = createHistogram(storeIn[knew][:,[0,1,2]], *opts)
+                wght_x_old   = createHistogram(storeIn[kold][:,[0,1,3]], *opts)
+                wght_y_old   = createHistogram(storeIn[kold][:,[0,1,4]], *opts)
+                wght_x_new   = createHistogram(storeIn[knew][:,[0,1,3]], *opts)
+                wght_y_new   = createHistogram(storeIn[knew][:,[0,1,4]], *opts)
 
                 # if '44317' in key:
                 #     print(key)
@@ -191,8 +186,7 @@ def smooth(pars, **kwargs):
          
                 #printHistogram(ev)
 
-                rz_opt = (kwargs['NbinsRz'],
-                          kwargs['NbinsPhi'],)
+                rz_opt = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
                 energies_old = smoothAlongRz(
                     energies_old,
                     *rz_opt,
@@ -204,20 +198,15 @@ def smooth(pars, **kwargs):
          
                 #printHistogram(ev)
                 # 'wght_x_new', 'wght_y_new'
-                cols_old = [ 'energies_old',
-                             'wght_x_old', 'wght_y_old' ] 
-                cols_new = [ 'energies_new',
-                             'wght_x_new', 'wght_y_new' ] 
+                cols_old = [ 'energies_old', 'wght_x_old', 'wght_y_old' ] 
+                cols_new = [ 'energies_new', 'wght_x_new', 'wght_y_new' ] 
 
-                storeOut[kold] = (energies_old,
-                                 wght_x_old, wght_y_old )
-                storeOut[knew] = (energies_new,
-                                 wght_x_new, wght_y_new )
+                storeOut[kold] = (energies_old, wght_x_old, wght_y_old )
+                storeOut[knew] = (energies_new, wght_x_new, wght_y_new )
                 
                 storeOut[kold].attrs['columns'] = cols_old
                 storeOut[knew].attrs['columns'] = cols_new                
-                doc_m = ( 'Energies (post-smooth) ' +
-                          'and projected bin positions' )
+                doc_m = 'Energies (post-smooth) and projected bin positions'
                 doc_message = doc_m
                 storeOut[kold].attrs['doc'] = doc_message
                 storeOut[knew].attrs['doc'] = doc_message

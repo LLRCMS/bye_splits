@@ -89,8 +89,8 @@ def process_trigger_cell_geometry_data(region, selection,
         store['data_main'].attrs['doc'] = doc_main
 
 def optimization(pars, **kw):
-    outresen = common.fill_path(kw['OptIn'], is_short=False, sel=pars['sel'], reg=pars['reg'])
-
+    outresen = common.fill_path(kw['OptIn'], is_short=False, sel=pars['sel'], reg=pars['reg'],
+                                seed_window=pars['seed_window'], smooth_kernel=pars['smooth_kernel'])
     store_in  = h5py.File(outresen, mode='r')
     plot_obj = utils.plotter.Plotter(**params.opt_kwargs)
     mode = 'variance'

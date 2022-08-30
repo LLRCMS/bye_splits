@@ -34,19 +34,25 @@ class dot_dict(dict):
     __delattr__ = dict.__delitem__
 
 def fill_path(base_path, is_short=False, ext='hdf5', **kw):
-    kw = dot_dict(kw)
+    """Create unique file name base on user input parameters."""    
+    def add_if_exists(s, prefix):
+        nonlocal base_path
+        if s in kw:
+            base_path += '_' + prefix + '_' + str(kw[s]).replace('.','p')
+
+    strings = {'ipar'          : 'PAR',
+               'sel'           : 'SEL',
+               'reg'           : 'REG',
+               'seed_window'   : 'SeedWindow',
+               'smooth_kernel' : 'SmoothKernel'}
     if not is_short:
-        ipar = '_PAR_'        + str(kw.ipar).replace('.','p')
-        sel = '_SEL_'         + kw.sel.replace('.', 'p')
-        reg = '_REG_'         + kw.reg
-        sw = '_SeedWindow_'   + str(kw.seed_window)
-        sk = '_SmoothKernel_' + str(kw.smooth_kernel)
-        base_path += sel + ipar + reg + sw + sk
+        for k,v in strings.items():
+            add_if_exists(k, v)
+
     base_path += '.' + ext
 
     path = 'OutPath' if ext == 'html' else 'BasePath'
-    final = os.path.join(params.base_kwargs[path], base_path)
-    return final
+    return os.path.join(params.base_kwargs[path], base_path)
 
 class SupressSettingWithCopyWarning:
     """
