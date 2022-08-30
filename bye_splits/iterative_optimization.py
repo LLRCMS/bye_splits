@@ -9,7 +9,7 @@ sys.path.insert(0, parent_dir)
 
 import tasks
 import utils
-from utils import params, common
+from utils import params, common, parsing
 
 from plot.trigger_cells_occupancy import plot_trigger_cells_occupancy
 
@@ -384,41 +384,20 @@ if __name__ == "__main__":
     parser.add_argument('--no_smooth',  action='store_true')
     parser.add_argument('--no_seed',    action='store_true')
     parser.add_argument('--no_cluster', action='store_true')
-    parser.add_argument('-m', '--ipar',
-                        help='iterative algorithm tunable parameter',
-                        default=0.5, type=float)
-    selection_help = 'Selection used to select cluster under study.'
-    parser.add_argument('-s', '--selection', help=selection_help,
-                        default='splits_only', type=str)
     nevents_help = "Number of events for processing. Pass '-1' for all events."
     parser.add_argument('-n', '--nevents', help=nevents_help,
                         default=-1, type=int)
-    region_help = ( 'Z region in the detector considered for ' +
-                    ' the trigger cell geometry.' )
-    parser.add_argument('--region',
-                        help=region_help,
-                        choices=('Si', 'ECAL', 'MaxShower'),
-                        default='Si', type=str)
-    seed_help = ( 'Size of the window used for seeding in the phi ' +
-                  'direction. The size in R/z is always 1/. A larger size' +
-                  'captures more information but consumes more ' +
-                  'firmware resources.' )
-    parser.add_argument('--seed_window', help=seed_help,
-                        default=1, type=int)
-    smooth_help = ( 'Type of smoothing kernel being applied.' )
-    parser.add_argument('--smooth_kernel', help=smooth_help,
-                        choices=('default', 'flat_top'),
-                        default='default', type=str)
+    parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.selection in ('splits_only',) or FLAGS.selection.startswith('above_eta_')
+    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
 
     if FLAGS.process:
-        process_trigger_cell_geometry_data(region=FLAGS.region,
-                                           selection=FLAGS.selection, **params.opt_kwargs)
+        process_trigger_cell_geometry_data(region=FLAGS.reg,
+                                           selection=FLAGS.sel, **params.opt_kwargs)
 
     pars_d = {'ipar'          : FLAGS.ipar,
-              'sel'           : FLAGS.selection,
-              'reg'           : FLAGS.region,
+              'sel'           : FLAGS.sel,
+              'reg'           : FLAGS.reg,
               'seed_window'   : FLAGS.seed_window,
               'smooth_kernel' : FLAGS.smooth_kernel }
     outresen  = common.fill_path(params.opt_kwargs['OptEnResOut'],  **pars_d)
