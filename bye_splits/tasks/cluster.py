@@ -57,10 +57,7 @@ def cluster(pars, **kw):
                 # checks if each seed has at least one seed which lies
                 # below the threshold
                 pass_threshold = dRs < np.expand_dims(minDist, axis=-1)
-                print(pass_threshold)
                 pass_threshold = np.logical_or.reduce(pass_threshold, axis=1)
-                print(pass_threshold)
-                quit()
 
                 try:
                     seeds_indexes = np.argmin(dRs, axis=1)
