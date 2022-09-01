@@ -12,7 +12,7 @@ def add_parameters(parser):
                         default=0.5, type=float)
     parser.add_argument('-s', '--sel', default='splits_only', type=str,
                         help='Selection used to select cluster under study.')
-    parser.add_argument('--reg', choices=('Si', 'ECAL', 'MaxShower'),
+    parser.add_argument('--reg', choices=('Si', 'ECAL', 'HCAL', 'MaxShower'),
                         default='Si', type=str,
                         help='Z region in the detector for the trigger cell geometry.')
     seed_help = ( 'Size of the window used for seeding in the phi ' +

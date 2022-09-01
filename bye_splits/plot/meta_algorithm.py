@@ -282,7 +282,7 @@ if __name__ == "__main__":
     region_help = 'Z region in the detector considered for the trigger cell geometry.'
     parser.add_argument('--region',
                         help=region_help,
-                        choices=('Si', 'ECAL', 'MaxShower'),
+                        choices=('Si', 'ECAL', 'HCAL', 'MaxShower'),
                         default='Si', type=str)
 
     FLAGS = parser.parse_args()

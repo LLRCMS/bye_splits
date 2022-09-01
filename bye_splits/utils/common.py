@@ -85,6 +85,8 @@ def get_detector_region_mask(df, region):
         subdetCond = (df.subdet == 1) | (df.subdet == 2)
     elif region == 'ECAL':
         subdetCond = (df.subdet == 1)
+    elif region == 'HCAL':
+        subdetCond = (df.subdet == 2) | (df.subdet == 10)
     elif region == 'MaxShower':
         subdetCond = ( (df.subdet == 1) &
                        (df.layer >= 8) & (df.layer <= 15) )
