@@ -1,31 +1,28 @@
+# coding: utf-8
+
+_all_ = [ 'stats_plotter', 'resolution_plotter' ]
+    
 import os
+import sys
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
+sys.path.insert(0, parent_dir)
+
+import utils
+from utils import common, params, parsing
+
 import argparse
-import sys; sys.path.append( os.environ['PWD'] )
 import numpy as np
 import pandas as pd
-from bokeh.plotting import figure
-from bokeh.layouts import layout
-from bokeh.io import output_file, show, save, export_svg
-from bokeh.models import (
-    Range1d,
-    ColumnDataSource,
-    Whisker,
-    BooleanFilter,
-    CustomJS,
-    CustomJSFilter,
-    CDSView,
-    Slider,
-)
 
-from airflow.airflow_dag import (
-    optimization_kwargs as opt_kw,
-    fill_path,
-)
+import bokeh
+from bokeh import plotting
+from bokeh import io
+from bokeh import models
 
 def stats_plotter(params, names_d):
     for par in params:
-        incsv = fill_path(opt_kw['OptimizationCSVOut'],
-                          iter_par=par, extension='csv', **names_d)
+        incsv = common.fill_path(params.opt_kw['OptimizationCSVOut'],
+                                 iter_par=par, extension='csv', **names_d)
         df_tmp = pd.read_csv(incsv, sep=',', header=0)
         if par == params[0]:
             df = df_tmp[:]
@@ -34,13 +31,13 @@ def stats_plotter(params, names_d):
 
     fig_opt = dict(width=600,
                    height=300,
-                   #x_range=Range1d(-0.1, 1.1),
-                   #y_range=Range1d(-0.05, 1.05),
+                   #x_range=models.Range1d(-0.1, 1.1),
+                   #y_range=models.Range1d(-0.05, 1.05),
                    tools="save",
                    x_axis_location='below',
                    x_axis_type='linear',
                    y_axis_type='linear')
-    p1 = figure(title='Ratio of split clusters', **fig_opt)
+    p1 = plotting.figure(title='Ratio of split clusters', **fig_opt)
     base_circle_opt = dict(x=df.iter_par,
                            size=4, line_width=4)
     base_line_opt = dict(x=df.iter_par,
@@ -62,19 +59,19 @@ def stats_plotter(params, names_d):
     return p1
 
 def resolution_plotter(params, names_d):
-    assert len(opt_kw['FesAlgos']) == 1
+    assert len(params.opt_kw['FesAlgos']) == 1
 
     # aggregating data produced with different values of the iterative algo parameter
-    # in_en_tot  = fill_path(opt_kw['OptimizationEnResOut'], selection=FLAGS.selection)
-    # in_pos_tot = fill_path(opt_kw['OptimizationPosResOut'], selection=FLAGS.selection)
+    # in_en_tot  = common.fill_path(params.opt_kw['OptimizationEnResOut'], selection=FLAGS.sel)
+    # in_pos_tot = common.fill_path(params.opt_kw['OptimizationPosResOut'], selection=FLAGS.sel)
     # with pd.HDFStore(in_en_tot, mode='w') as storeEnRes, pd.HDFStore(in_pos_tot, mode='w') as storePosRes:
 
-    #     key = opt_kw['FesAlgos'][0] + '_data'
+    #     key = params.opt_kw['FesAlgos'][0] + '_data'
     #     for par in params:
-    #         in_en  = fill_path(opt_kw['OptimizationEnResOut'],
-    #                            param=par, selection=FLAGS.selection)
-    #         in_pos = fill_path(opt_kw['OptimizationPosResOut'],
-    #                            param=par, selection=FLAGS.selection)
+    #         in_en  = common.fill_path(params.opt_kw['OptimizationEnResOut'],
+    #                            param=par, selection=FLAGS.sel)
+    #         in_pos = common.fill_path(params.opt_kw['OptimizationPosResOut'],
+    #                            param=par, selection=FLAGS.sel)
     #         with pd.HDFStore(in_en, mode='w') as tmpEnRes, pd.HDFStore(in_pos, mode='w') as tmpPosRes:
     #             storeEnRes [key] = tmpEnRes[key]
     #             storePosRes[key] = tmpPosRes[key]
@@ -92,10 +89,10 @@ def resolution_plotter(params, names_d):
     maxs = {0: -1e10, 1: -1e10, 2: -1e10 }
     for par in params:
         pars = dict(iter_par=par, **names_d)
-        in_en  = fill_path(opt_kw['OptimizationEnResOut'], **pars)
-        in_pos = fill_path(opt_kw['OptimizationPosResOut'], **pars)                               
+        in_en  = common.fill_path(params.opt_kw['OptimizationEnResOut'], **pars)
+        in_pos = common.fill_path(params.opt_kw['OptimizationPosResOut'], **pars)                               
         with pd.HDFStore(in_en, mode='r') as tmpEnRes, pd.HDFStore(in_pos, mode='r') as tmpPosRes:            
-            key = opt_kw['FesAlgos'][0]+'_data'
+            key = params.opt_kw['FesAlgos'][0]+'_data'
             df_en  = tmpEnRes[key]
             df_pos = tmpPosRes[key]
 
@@ -116,11 +113,11 @@ def resolution_plotter(params, names_d):
     # Second loop to plot
     for par in params:
         pars = dict(iter_par=par, **names_d)
-        in_en  = fill_path(opt_kw['OptimizationEnResOut'], **pars)
-        in_pos = fill_path(opt_kw['OptimizationPosResOut'], **pars)                               
+        in_en  = common.fill_path(params.pt_kw['OptimizationEnResOut'], **pars)
+        in_pos = common.fill_path(params.pt_kw['OptimizationPosResOut'], **pars)                               
         with pd.HDFStore(in_en, mode='r') as tmpEnRes, pd.HDFStore(in_pos, mode='r') as tmpPosRes:            
-            #key = opt_kw['FesAlgos'][0]+'_data_'+str(hp).replace('.','p')
-            key = opt_kw['FesAlgos'][0]+'_data'
+            #key = params.opt_kw['FesAlgos'][0]+'_data_'+str(hp).replace('.','p')
+            key = params.opt_kw['FesAlgos'][0]+'_data'
 
             df_en  = tmpEnRes[key]
             df_pos = tmpPosRes[key]
@@ -172,10 +169,10 @@ def resolution_plotter(params, names_d):
                     res_dict[it]['par'].extend(repeated_parameter)
 
     max_sources = [ max( max(res_dict[q]['y']), max(hold[q]) ) for q in range(3) ]
-    sources = [ ColumnDataSource(data=res_dict[q]) for q in range(3) ]
+    sources = [ models.ColumnDataSource(data=res_dict[q]) for q in range(3) ]
     
     callback_str = """s.change.emit();"""
-    callbacks  = [ CustomJS(args=dict(s=sources[q]),  code=callback_str)
+    callbacks  = [ models.CustomJS(args=dict(s=sources[q]),  code=callback_str)
                    for q in range(3) ]
 
     slider_d = dict(zip(np.arange(len(params)),params))
@@ -205,9 +202,9 @@ def resolution_plotter(params, names_d):
                  }}
                  return indices;
                  """.format(slider_d)
-    filt  = [ CustomJSFilter(args=dict(slider=slider), code=filter_str)
+    filt  = [ models.CustomJSFilter(args=dict(slider=slider), code=filter_str)
               for q in range(3) ]
-    views  = [ CDSView(source=sources[q],  filters=[filt[q]])
+    views  = [ models.CDSView(source=sources[q],  filters=[filt[q]])
                for q in range(3) ]
 
     quad_opt = dict(line_width=1)
@@ -223,11 +220,11 @@ def resolution_plotter(params, names_d):
                     1: r'$$\eta_{\text{Reco}} - \eta_{\text{Gen}}$$',
                     2: r'$$\phi_{\text{Reco}} - \phi_{\text{Gen}}$$', }
     for it in range(3):
-        p.append( figure( width=600, height=300,
-                         title=title_d[it],
-                         y_range=Range1d(-1., max_sources[it]+1),
-                         tools='save,box_zoom,reset',
-                         y_axis_type='log' if it==3 else 'linear') )
+        p.append( plotting.figure( width=600, height=300,
+                                  title=title_d[it],
+                                  y_range=models.Range1d(-1., max_sources[it]+1),
+                                  tools='save,box_zoom,reset',
+                                  y_axis_type='log' if it==3 else 'linear') )
         p[-1].toolbar.logo = None
         p[-1].step(x=edgold[it][1:]-(edgold[it][1]-edgold[it][0])/2,
                    y=hold[it], **cmssw_opt)
@@ -236,9 +233,9 @@ def resolution_plotter(params, names_d):
         p[-1].legend.location = 'top_right' if it==2 else 'top_left'
         p[-1].xaxis.axis_label = axis_label_d[it]
             
-    if FLAGS.selection.startswith('above_eta_'):
+    if FLAGS.sel.startswith('above_eta_'):
         title_suf = ' (eta > ' + FLAGS.selection.split('above_eta_')[1] + ')'
-    elif FLAGS.selection == 'splits_only':
+    elif FLAGS.sel == 'splits_only':
         title_suf = '(split clusters only)'
 
     figs_summ = []
@@ -246,13 +243,13 @@ def resolution_plotter(params, names_d):
                1: 'Cluster Eta Resolution: standard deviations {}'.format(title_suf),
                2: 'Cluster Phi Resolution: standard deviations {}'.format(title_suf), }
     for it in range(3):
-        figs_summ.append( figure( width=600, height=300,
-                                 title=title_d[it],
-                                 tools='save',
-                                 y_axis_type='linear',
-                                 #x_range=Range1d(-0.1, 1.1),
-                                 #y_range=Range1d(-0.05, 1.05),
-                                 ) )
+        figs_summ.append( plotting.figure( width=600, height=300,
+                                          title=title_d[it],
+                                          tools='save',
+                                          y_axis_type='linear',
+                                          #x_range=models.Range1d(-0.1, 1.1),
+                                          #y_range=models.Range1d(-0.05, 1.05),
+                                          ) )
         figs_summ[-1].toolbar.logo = None
         figs_summ[-1].xaxis.axis_label = 'Algorithm tunable parameter'
 
@@ -267,42 +264,32 @@ def resolution_plotter(params, names_d):
         figs_summ[-1].xaxis.axis_label = 'Algorithm tunable parameter'
         
         # figs_summ[-1].output_backend = "svg"
-        # export_svg(figs_summ[-1], filename="plot.svg")
-        # export_png(figs_summ[-1], filename="plot.png", height=300, width=300)
+        # io.export_svg(figs_summ[-1], filename="plot.svg")
+        # io.export_png(figs_summ[-1], filename="plot.png", height=300, width=300)
     return figs_summ, p, slider
     
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-s', '--selection',
-                        help='selection used to select cluster under study',
-                        default='splits_only', type=str)
+    parser = argparse.ArgumentParser(description='Meta-plotter.')
     parser.add_argument('-m', '--params',
                         help='Iterative parameters.',
                         default=[0.0,1.0], nargs='+', type=float)
-    region_help = 'Z region in the detector considered for the trigger cell geometry.'
-    parser.add_argument('--region',
-                        help=region_help,
-                        choices=('Si', 'ECAL', 'HCAL', 'MaxShower'),
-                        default='Si', type=str)
-
+    parsing.add_parameters(parser, meta=True)
     FLAGS = parser.parse_args()
 
     this_file = os.path.basename(__file__).split('.')[0]
-    names_d = dict(selection=FLAGS.selection, region=FLAGS.region)
-    plot_name = fill_path(this_file,
-                          extension='html',
-                          **names_d)
+    names_d = dict(selection=FLAGS.sel, region=FLAGS.reg)
+    plot_name = common.fill_path(this_file, extension='html', **names_d)
 
-    output_file( plot_name )
+    io.output_file( plot_name )
     
     stats_fig  = stats_plotter(params=FLAGS.params, names_d=names_d)
     summ_fig, res_figs, slider = resolution_plotter(params=FLAGS.params, names_d=names_d)
 
     ncols = 4
-    lay_list = [[stats_fig], [slider], res_figs, summ_fig ]
+    lay_list = [[stats_fig], [slider], res_figs, summ_fig]
 
-    lay = layout(lay_list)
-    save(lay) #if show_html else save(lay)
+    lay = bokeh.layouts.layout(lay_list)
+    io.save(lay) #if show_html else save(lay)
 
 
 ##Latex equations

@@ -7,10 +7,11 @@ import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
-def add_parameters(parser):
-    parser.add_argument('-m', '--ipar', help='iterative algorithm tunable parameter',
-                        default=0.5, type=float)
-    parser.add_argument('-s', '--sel', default='splits_only', type=str,
+def add_parameters(parser, meta=False):
+    if not meta:
+        parser.add_argument('--ipar', help='iterative algorithm tunable parameter',
+                            default=0.5, type=float)
+    parser.add_argument('--sel', default='splits_only', type=str,
                         help='Selection used to select cluster under study.')
     parser.add_argument('--reg', choices=('Si', 'ECAL', 'HCAL', 'MaxShower'),
                         default='Si', type=str,
