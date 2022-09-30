@@ -29,12 +29,10 @@ def cluster(pars, **kw):
          
             radiusCoeffB = kw['CoeffB']
             empty_seeds = 0
+
             for key1, key2 in zip(tc_keys, seed_keys):
                 tc = storeInTC[key1]
                 tc_cols = list(tc.attrs['columns'])
-
-                projx = tc[:, common.get_column_idx(tc_cols, 'tc_x_new')]/tc[:, common.get_column_idx(tc_cols, 'tc_z')]
-                projy = tc[:, common.get_column_idx(tc_cols, 'tc_y_new')]/tc[:, common.get_column_idx(tc_cols, 'tc_z')]
 
                 # check columns via `tc.attrs['columns']`
                 radiusCoeffA = np.array( [kw['CoeffA'][int(xi)-1]
@@ -43,28 +41,37 @@ def cluster(pars, **kw):
                             radiusCoeffB * (kw['MidRadius'] - np.abs(tc[:, common.get_column_idx(tc_cols, 'tc_eta_new')])) )
                 
                 seedEn, seedX, seedY = storeInSeeds[key2]
-         
-                dRs = np.array([])
-                for iseed, (en, sx, sy) in enumerate(zip(seedEn, seedX, seedY)):
-                    dR = np.sqrt( (projx-sx)*(projx-sx) + (projy-sy)*(projy-sy) )
-         
-                    if dRs.shape == (0,):
-                        dRs = np.expand_dims(dR, axis=-1)
-                    else:
-                        dRs = np.concatenate((dRs, np.expand_dims(dR, axis=-1)),
-                                             axis=1)
-         
-                # checks if each seed has at least one seed which lies
-                # below the threshold
-                pass_threshold = dRs < np.expand_dims(minDist, axis=-1)
-                pass_threshold = np.logical_or.reduce(pass_threshold, axis=1)
 
-                try:
-                    seeds_indexes = np.argmin(dRs, axis=1)
-                except np.AxisError:
-                    empty_seeds += 1
-                    continue
-                
+                if pars['cluster_algo'] == 'min_distance':
+                    dRs = np.array([])
+                    projx = tc[:, common.get_column_idx(tc_cols, 'tc_x_new')]/tc[:, common.get_column_idx(tc_cols, 'tc_z')]
+                    projy = tc[:, common.get_column_idx(tc_cols, 'tc_y_new')]/tc[:, common.get_column_idx(tc_cols, 'tc_z')]
+
+                    for iseed, (en, sx, sy) in enumerate(zip(seedEn, seedX, seedY)):
+                        dR = np.sqrt( (projx-sx)*(projx-sx) + (projy-sy)*(projy-sy) )
+             
+                        if dRs.shape == (0,):
+                            dRs = np.expand_dims(dR, axis=-1)
+                        else:
+                            dRs = np.concatenate((dRs, np.expand_dims(dR, axis=-1)),
+                                                 axis=1)
+             
+                    # checks if each seed has at least one seed which lies
+                    # below the threshold
+                    pass_threshold = dRs < np.expand_dims(minDist, axis=-1)
+                    pass_threshold = np.logical_or.reduce(pass_threshold, axis=1)
+     
+                    try:
+                        seeds_indexes = np.argmin(dRs, axis=1)
+                    except np.AxisError:
+                        empty_seeds += 1
+                        continue
+
+                elif pars['cluster_algo'] == 'max_energy':
+                    seed_max = np.argmax(seedEn)
+                    seeds_indexes = np.full((tc.shape[0],), seed_max) # most energetic seed takes all
+                    pass_threshold = np.ones_like(seeds_indexes, dtype=bool) # always true                    
+
                 seeds_energies = np.array( [seedEn[xi] for xi in seeds_indexes] )
                 # axis 0 stands for trigger cells
                 assert(tc[:].shape[0] == seeds_energies.shape[0])

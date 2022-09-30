@@ -401,7 +401,8 @@ if __name__ == "__main__":
               'sel'           : FLAGS.sel,
               'reg'           : FLAGS.reg,
               'seed_window'   : FLAGS.seed_window,
-              'smooth_kernel' : FLAGS.smooth_kernel }
+              'smooth_kernel' : FLAGS.smooth_kernel,
+              'cluster_algo'  : FLAGS.cluster_algo }
     outresen  = common.fill_path(params.opt_kwargs['OptEnResOut'],  **pars_d)
     outrespos = common.fill_path(params.opt_kwargs['OptPosResOut'], **pars_d)
     outcsv    = common.fill_path(params.opt_kwargs['OptCSVOut'], ext='csv', **pars_d)

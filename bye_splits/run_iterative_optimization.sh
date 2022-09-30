@@ -9,8 +9,13 @@ DO_SMOOTHING=1
 DO_SEEDING=1
 DO_CLUSTERING=1
 NEVENTS=-1
+CLUSTER_ALGO="min_distance"
+SEED_WINDOW="1"
+SMOOTH_KERNEL="default"
 declare -a SELECTIONS=( "splits_only" "above_eta_2.7" )
 declare -a REGIONS=( "Si" "ECAL" "MaxShower" )
+declare -a CLUSTER_ALGOS=( "min_distance" "max_energy" )
+declare -a SMOOTH_KERNELS=( "default" "flat_top" )
 SELECTION="splits_only"
 REGION="ECAL"
 
@@ -79,6 +84,42 @@ while [[ $# -gt 0 ]]; do
 			fi
 			shift 2;;
 
+		--cluster_algo)
+			if [ -n "$2" ]; then
+				if [[ ! " ${CLUSTER_ALGOS[@]} " =~ " ${2} " ]]; then
+					echo "Cluster algorithm ${2} is not supported."
+					exit 1;
+				else
+					CLUSTER_ALGO="${2}";
+					echo "variable to consider: ${CLUSTER_ALGO}"
+				fi
+			fi
+			shift 2;;
+
+		--seed_window)
+			if [ -n "$2" ]; then
+				if [[ "${2}" -lt 1 ]]; then
+					echo "The seed window has to be at least one."
+					exit 1;
+				else
+					SEED_WINDOW="${2}";
+					echo "variable to consider: ${SEED_WINDOW}"
+				fi
+			fi
+			shift 2;;
+
+		--smooth_kernel)
+			if [ -n "$2" ]; then
+				if [[ ! " ${SMOOTH_KERNELS[@]} " =~ " ${2} " ]]; then
+					echo "Smoothing kernel '${2}' is not supported."
+					exit 1;
+				else
+					SMOOTH_KERNEL="${2}";
+					echo "variable to consider: ${SMOOTH_KERNEL}"
+				fi
+			fi
+			shift 2;;
+
 		--no_fill)
 			DO_FILLING=0;
 			shift ;;
@@ -119,6 +160,9 @@ done
 printf "===== Input Arguments =====\n"
 printf "Region: %s\n" ${REGION}
 printf "Selection: %s\n" ${SELECTION}
+printf "Cluster algo: %s\n" ${CLUSTER_ALGO}
+printf "Seed window: %s\n" ${SEED_WINDOW}
+printf "Smooth kernel: %s\n" ${SMOOTH_KERNEL}
 printf "Reprocess trigger cell geometry data: %s\n" ${REPROCESS}
 printf "Perform filling: %s\n" ${DO_FILLING}
 printf "Plot trigger cells: %s\n" ${PLOT_TC}
@@ -141,6 +185,7 @@ fi
 ### Functions
 function run_parallel() {
 	comm="parallel -j -1 python3 iterative_optimization.py --ipar {} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
+	comm+="--cluster_algo ${CLUSTER_ALGO} --seed_window ${SEED_WINDOW} --smooth_kernel ${SMOOTH_KERNEL} "
 	if [ ${DO_FILLING} -eq 0 ]; then
 		echo "Do not run the filling step."
 		comm+="--no_fill "

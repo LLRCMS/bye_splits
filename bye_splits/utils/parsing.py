@@ -25,3 +25,7 @@ def add_parameters(parser, meta=False):
                         choices=('default', 'flat_top'),
                         default='default', type=str,
                         help='Type of smoothing kernel being applied.')
+    parser.add_argument('--cluster_algo',
+                        choices=('max_energy', 'min_distance'),
+                        default='min_distance', type=str,
+                        help='Clustering algorithm applied.')

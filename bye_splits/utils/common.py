@@ -41,8 +41,9 @@ def fill_path(base_path, ext='hdf5', **kw):
     strings = {'ipar'          : 'PAR',
                'sel'           : 'SEL',
                'reg'           : 'REG',
-               'seed_window'   : 'SeedWindow',
-               'smooth_kernel' : 'SmoothKernel'}
+               'seed_window'   : 'SW',
+               'smooth_kernel' : 'SK',
+               'cluster_algo'  : 'CA'}
 
     for k,v in strings.items():
         add_if_exists(k, v)
