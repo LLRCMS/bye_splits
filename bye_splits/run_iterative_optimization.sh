@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 declare -a ITER_PARS=( $(seq 0. .1 1.) )
 
-DRYRUN=0
-REPROCESS=0
-PLOT_TC=0
-DO_FILLING=1
-DO_SMOOTHING=1
-DO_SEEDING=1
-DO_CLUSTERING=1
-NEVENTS=-1
+DRYRUN="0"
+REPROCESS="0"
+PLOT_TC="0"
+DO_FILLING="1"
+DO_SMOOTHING="1"
+DO_SEEDING="1"
+DO_CLUSTERING="1"
+NEVENTS="-1"
 CLUSTER_ALGO="min_distance"
 SEED_WINDOW="1"
 SMOOTH_KERNEL="default"
@@ -17,7 +17,7 @@ declare -a REGIONS=( "Si" "ECAL" "MaxShower" )
 declare -a CLUSTER_ALGOS=( "min_distance" "max_energy" )
 declare -a SMOOTH_KERNELS=( "default" "flat_top" )
 SELECTION="splits_only"
-REGION="ECAL"
+REGION="Si"
 
 ### Argument parsing
 HELP_STR="Prints this help message."
@@ -145,7 +145,7 @@ while [[ $# -gt 0 ]]; do
 			shift ;;
 
 		-d|--dry_run)
-			DRYRUN=1;
+			DRYRUN="1";
 			shift ;;
 
 		--nevents)
@@ -158,6 +158,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 printf "===== Input Arguments =====\n"
+printf "Dry-run: %s\n" ${DRYRUN}
 printf "Region: %s\n" ${REGION}
 printf "Selection: %s\n" ${SELECTION}
 printf "Cluster algo: %s\n" ${CLUSTER_ALGO}
@@ -212,13 +213,20 @@ function run_parallel() {
 	[[ ${DRYRUN} -eq 1 ]] && echo ${comm} || ${comm}
 }
 
+function run_plot() {
+	comm="python3 plot/meta_algorithm.py -m ${@} --sel ${SELECTION} --reg ${REGION} "
+	comm+="--cluster_algo ${CLUSTER_ALGO} --seed_window ${SEED_WINDOW} --smooth_kernel ${SMOOTH_KERNEL} "
+	[[ ${DRYRUN} -eq 1 ]] && echo ${comm} || ${comm}
+}
+
 ### Only one job can reprocess the data, and it has to be sequential
 if [ ${REPROCESS} -eq 1 ]; then
 	run_parallel -r ::: ${ITER_PARS[0]}
 	run_parallel ::: ${ITER_PARS[@]:1}
-
 else
 	run_parallel ::: ${ITER_PARS[@]}
 fi
+
+#run_plot "${ITER_PARS[*]}"
 
 echo "All jobs finished."

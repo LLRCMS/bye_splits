@@ -93,7 +93,7 @@ def process_trigger_cell_geometry_data(region, selection,
 def optimization(pars, **kw):
     outresen = common.fill_path(kw['OptIn'], sel=pars['sel'], reg=pars['reg'])
     store_in  = h5py.File(outresen, mode='r')
-    plot_obj = utils.plotter.Plotter(**params.opt_kwargs)
+    plot_obj = utils.plotter.Plotter(**params.opt_kw)
     mode = 'variance'
     window_size = 3
 
@@ -395,17 +395,17 @@ if __name__ == "__main__":
 
     if FLAGS.process:
         process_trigger_cell_geometry_data(region=FLAGS.reg,
-                                           selection=FLAGS.sel, **params.opt_kwargs)
+                                           selection=FLAGS.sel, **params.opt_kw)
 
-    pars_d = {'ipar'          : FLAGS.ipar,
-              'sel'           : FLAGS.sel,
+    pars_d = {'sel'           : FLAGS.sel,
               'reg'           : FLAGS.reg,
               'seed_window'   : FLAGS.seed_window,
               'smooth_kernel' : FLAGS.smooth_kernel,
               'cluster_algo'  : FLAGS.cluster_algo }
-    outresen  = common.fill_path(params.opt_kwargs['OptEnResOut'],  **pars_d)
-    outrespos = common.fill_path(params.opt_kwargs['OptPosResOut'], **pars_d)
-    outcsv    = common.fill_path(params.opt_kwargs['OptCSVOut'], ext='csv', **pars_d)
+    pars_d.update({'ipar': FLAGS.ipar})
+    outcsv = common.fill_path(params.opt_kw['OptCSVOut'], ext='csv', **pars_d)
+    outresen  = common.fill_path(params.opt_kw['OptEnResOut'],  **pars_d)
+    outrespos = common.fill_path(params.opt_kw['OptPosResOut'], **pars_d)
 
     print('Starting iterative parameter {}.'.format(FLAGS.ipar),
           flush=True)
@@ -418,21 +418,21 @@ if __name__ == "__main__":
 
         sys.stderr.flush()
 
-        tc_map = optimization(pars_d, **params.opt_kwargs )
+        tc_map = optimization(pars_d, **params.opt_kw)
 
         if not FLAGS.no_fill:
-            tasks.fill.fill(pars_d, FLAGS.nevents, tc_map, **params.fill_kwargs)
+            tasks.fill.fill(pars_d, FLAGS.nevents, tc_map, **params.fill_kw)
 
         if not FLAGS.no_smooth:
-            tasks.smooth.smooth(pars_d, **params.smooth_kwargs)
+            tasks.smooth.smooth(pars_d, **params.smooth_kw)
 
         if not FLAGS.no_seed:
-            tasks.seed.seed(pars_d, **params.seed_kwargs)
+            tasks.seed.seed(pars_d, **params.seed_kw)
 
         if not FLAGS.no_cluster:
-            tasks.cluster.cluster(pars_d, **params.cluster_kwargs)
+            tasks.cluster.cluster(pars_d, **params.cluster_kw)
 
-        res = tasks.validation.stats_collector(pars_d, **params.validation_kwargs)
+        res = tasks.validation.stats_collector(pars_d, **params.validation_kw)
 
         writer.writerow({fieldnames[0] : FLAGS.ipar,
                          fieldnames[1] : res[0],
@@ -444,7 +444,7 @@ if __name__ == "__main__":
                          fieldnames[7] : res[6],
                          fieldnames[8] : res[7]})
             
-        assert len(params.opt_kwargs['FesAlgos']) == 1
+        assert len(params.opt_kw['FesAlgos']) == 1
             
         df_enres = pd.DataFrame({'enres_old': res[8],
                                  'enres_new': res[9]})
@@ -452,7 +452,7 @@ if __name__ == "__main__":
                                   'etares_new': res[11],
                                   'phires_old': res[12],  
                                   'phires_new': res[13]})
-        key = params.opt_kwargs['FesAlgos'][0] + '_data'
+        key = params.opt_kw['FesAlgos'][0] + '_data'
 
         storeEnRes [key] = df_enres
         storePosRes[key] = df_posres
@@ -466,8 +466,8 @@ if __name__ == "__main__":
                                          pos_endcap=True,
                                          layer_edges=[0,42],
                                          nevents=25,
-                                         min_rz=params.opt_kwargs['MinROverZ'],
-                                         max_rz=params.opt_kwargs['MaxROverZ'],
-                                         **opt_kwargs)
+                                         min_rz=params.opt_kw['MinROverZ'],
+                                         max_rz=params.opt_kw['MaxROverZ'],
+                                         **opt_kw)
 
     print('Finished for iterative parameter {}.'.format(FLAGS.ipar), flush=True)

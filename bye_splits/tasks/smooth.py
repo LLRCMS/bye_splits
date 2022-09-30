@@ -219,4 +219,4 @@ if __name__ == "__main__":
     FLAGS = parser.parse_args()
     assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
 
-    smooth(vars(FLAGS), **params.smooth_kwargs)
+    smooth(vars(FLAGS), **params.smooth_kw)

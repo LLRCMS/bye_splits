@@ -51,7 +51,7 @@ def fill_path(base_path, ext='hdf5', **kw):
     base_path += '.' + ext
 
     path = 'OutPath' if ext == 'html' else 'BasePath'
-    return Path(params.base_kwargs[path]) / base_path
+    return Path(params.base_kw[path]) / base_path
 
 class SupressSettingWithCopyWarning:
     """

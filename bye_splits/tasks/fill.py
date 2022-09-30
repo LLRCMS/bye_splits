@@ -270,4 +270,4 @@ if __name__ == "__main__":
     FLAGS = parser.parse_args()
     assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
 
-    fill(vars(FLAGS), tc_map, **params.fill_kwargs )
+    fill(vars(FLAGS), tc_map, **params.fill_kw)

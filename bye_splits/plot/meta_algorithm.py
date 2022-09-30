@@ -4,7 +4,7 @@ _all_ = [ 'stats_plotter', 'resolution_plotter' ]
     
 import os
 import sys
-parent_dir = os.path.abspath(__file__ + 3 * '/..')
+parent_dir = os.path.abspath(__file__ + 2 * '/..')
 sys.path.insert(0, parent_dir)
 
 import utils
@@ -19,12 +19,12 @@ from bokeh import plotting
 from bokeh import io
 from bokeh import models
 
-def stats_plotter(params, names_d):
-    for par in params:
-        incsv = common.fill_path(params.opt_kw['OptimizationCSVOut'],
-                                 iter_par=par, extension='csv', **names_d)
+def stats_plotter(pars, names_d):
+    for par in pars:
+        incsv = common.fill_path(params.opt_kw['OptCSVOut'], ipar=par, ext='csv', **names_d)
+
         df_tmp = pd.read_csv(incsv, sep=',', header=0)
-        if par == params[0]:
+        if par == pars[0]:
             df = df_tmp[:]
         else:
             df = pd.concat((df,df_tmp))
@@ -38,9 +38,8 @@ def stats_plotter(params, names_d):
                    x_axis_type='linear',
                    y_axis_type='linear')
     p1 = plotting.figure(title='Ratio of split clusters', **fig_opt)
-    base_circle_opt = dict(x=df.iter_par,
-                           size=4, line_width=4)
-    base_line_opt = dict(x=df.iter_par,
+    base_circle_opt = dict(x=df.ipar, size=4, line_width=4)
+    base_line_opt = dict(x=df.ipar,
                          line_width=2)
     cmssw_line_opt = dict(y=df.remrat2,
                             color='blue',
@@ -58,7 +57,7 @@ def stats_plotter(params, names_d):
 
     return p1
 
-def resolution_plotter(params, names_d):
+def resolution_plotter(pars, names_d):
     assert len(params.opt_kw['FesAlgos']) == 1
 
     # aggregating data produced with different values of the iterative algo parameter
@@ -67,10 +66,10 @@ def resolution_plotter(params, names_d):
     # with pd.HDFStore(in_en_tot, mode='w') as storeEnRes, pd.HDFStore(in_pos_tot, mode='w') as storePosRes:
 
     #     key = params.opt_kw['FesAlgos'][0] + '_data'
-    #     for par in params:
-    #         in_en  = common.fill_path(params.opt_kw['OptimizationEnResOut'],
+    #     for par in pars:
+    #         in_en  = common.fill_path(pars.opt_kw['OptimizationEnResOut'],
     #                            param=par, selection=FLAGS.sel)
-    #         in_pos = common.fill_path(params.opt_kw['OptimizationPosResOut'],
+    #         in_pos = common.fill_path(pars.opt_kw['OptimizationPosResOut'],
     #                            param=par, selection=FLAGS.sel)
     #         with pd.HDFStore(in_en, mode='w') as tmpEnRes, pd.HDFStore(in_pos, mode='w') as tmpPosRes:
     #             storeEnRes [key] = tmpEnRes[key]
@@ -87,17 +86,21 @@ def resolution_plotter(params, names_d):
     # First loop over all the datasets to calculate plot optimal ranges
     mins = {0:  1e10, 1:  1e10, 2:  1e10 }
     maxs = {0: -1e10, 1: -1e10, 2: -1e10 }
-    for par in params:
-        pars = dict(iter_par=par, **names_d)
-        in_en  = common.fill_path(params.opt_kw['OptimizationEnResOut'], **pars)
-        in_pos = common.fill_path(params.opt_kw['OptimizationPosResOut'], **pars)                               
+    for par in pars:
+        nd = dict(ipar=par, **names_d)
+        in_en  = common.fill_path(params.opt_kw['OptEnResOut'], **nd)
+        in_pos = common.fill_path(params.opt_kw['OptPosResOut'], **nd)
+        print(in_en)
+        quit()
+
+
         with pd.HDFStore(in_en, mode='r') as tmpEnRes, pd.HDFStore(in_pos, mode='r') as tmpPosRes:            
             key = params.opt_kw['FesAlgos'][0]+'_data'
             df_en  = tmpEnRes[key]
             df_pos = tmpPosRes[key]
 
             shift = {0: 0, 1: 0, 2: 0}
-            if par == params[-1]:
+            if par == pars[-1]:
                 scale = 15.
                 shift = { 0: max(df_en.enres_old)  / scale,
                           1: max(df_pos.etares_old) / scale,
@@ -111,10 +114,10 @@ def resolution_plotter(params, names_d):
             maxs[2] = max(maxs[2], max(max(df_pos.phires_old),  max(df_pos.phires_new))) + shift[2]
 
     # Second loop to plot
-    for par in params:
-        pars = dict(iter_par=par, **names_d)
-        in_en  = common.fill_path(params.pt_kw['OptimizationEnResOut'], **pars)
-        in_pos = common.fill_path(params.pt_kw['OptimizationPosResOut'], **pars)                               
+    for par in pars:
+        nd = dict(ipar=par, **names_d)
+        in_en  = common.fill_path(params.opt_kw['OptEnResOut'], **nd)
+        in_pos = common.fill_path(params.opt_kw['OptPosResOut'], **nd)                               
         with pd.HDFStore(in_en, mode='r') as tmpEnRes, pd.HDFStore(in_pos, mode='r') as tmpPosRes:            
             #key = params.opt_kw['FesAlgos'][0]+'_data_'+str(hp).replace('.','p')
             key = params.opt_kw['FesAlgos'][0]+'_data'
@@ -159,7 +162,7 @@ def resolution_plotter(params, names_d):
                 line_centers = edgnew[it][1:]-(edgnew[it][1]-edgnew[it][0])/2
                 repeated_parameter = [par for _ in range(len(hnew[it]))]
 
-                if par == params[0]:
+                if par == pars[0]:
                     res_dict.append( dict(x=line_centers.tolist(),
                                           y=hnew[it].tolist(),
                                           par=repeated_parameter) )
@@ -175,7 +178,7 @@ def resolution_plotter(params, names_d):
     callbacks  = [ models.CustomJS(args=dict(s=sources[q]),  code=callback_str)
                    for q in range(3) ]
 
-    slider_d = dict(zip(np.arange(len(params)),params))
+    slider_d = dict(zip(np.arange(len(pars)),pars))
     from bokeh.models.formatters import FuncTickFormatter
     fmt = FuncTickFormatter(code="""
                                  var labels = {};
@@ -253,7 +256,7 @@ def resolution_plotter(params, names_d):
         figs_summ[-1].toolbar.logo = None
         figs_summ[-1].xaxis.axis_label = 'Algorithm tunable parameter'
 
-        points_opt = dict(x=params)
+        points_opt = dict(x=pars)
         figs_summ[-1].line(y=adict_old[it], color='blue', legend_label='CMSSW',
                            line_width=1, **points_opt) 
         figs_summ[-1].circle(y=adict_new[it], color='red', legend_label='Custom',
@@ -277,13 +280,17 @@ if __name__ == "__main__":
     FLAGS = parser.parse_args()
 
     this_file = os.path.basename(__file__).split('.')[0]
-    names_d = dict(selection=FLAGS.sel, region=FLAGS.reg)
+    names_d = dict(sel=FLAGS.sel,
+                   reg=FLAGS.reg,
+                   seed_window=FLAGS.seed_window,
+                   smooth_kernel=FLAGS.smooth_kernel,
+                   cluster_algo=FLAGS.cluster_algo)
     plot_name = common.fill_path(this_file, extension='html', **names_d)
 
     io.output_file( plot_name )
     
-    stats_fig  = stats_plotter(params=FLAGS.params, names_d=names_d)
-    summ_fig, res_figs, slider = resolution_plotter(params=FLAGS.params, names_d=names_d)
+    stats_fig  = stats_plotter(pars=FLAGS.params, names_d=names_d)
+    summ_fig, res_figs, slider = resolution_plotter(pars=FLAGS.params, names_d=names_d)
 
     ncols = 4
     lay_list = [[stats_fig], [slider], res_figs, summ_fig]

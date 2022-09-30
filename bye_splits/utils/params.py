@@ -18,7 +18,7 @@ MinPhi = -np.pi
 MaxPhi = +np.pi
 DataFolder = 'data'
 
-base_kwargs = {
+base_kw = {
     'NbinsRz': NbinsRz,
     'NbinsPhi': NbinsPhi,
     'MinROverZ': MinROverZ,
@@ -41,16 +41,16 @@ base_kwargs = {
 }
 
 def set_dictionary(adict):
-    adict.update(base_kwargs)
+    adict.update(base_kw)
     return adict
     
-if len(base_kwargs['FesAlgos'])!=1:
+if len(base_kw['FesAlgos'])!=1:
     raise ValueError('The event number in the cluster task'
                      ' assumes there is only on algo.\n'
                      'The script must be adapted.')
 
 # fill task
-fill_kwargs = set_dictionary(
+fill_kw = set_dictionary(
     {'FillIn'      : 'gen_cl3d_tc',
      'FillOut'     : 'fill',
      'FillOutComp' : 'fill_comp',
@@ -58,7 +58,7 @@ fill_kwargs = set_dictionary(
      )
 
 # optimization task
-opt_kwargs = set_dictionary(
+opt_kw = set_dictionary(
     { 'Epochs': 99999,
       'KernelSize': 10,
       'WindowSize': 3,
@@ -66,14 +66,14 @@ opt_kwargs = set_dictionary(
       'OptEnResOut': 'opt_enres',
       'OptPosResOut': 'opt_posres',
       'OptCSVOut': 'stats',
-      'FillOutPlot': fill_kwargs['FillOutPlot'],
+      'FillOutPlot': fill_kw['FillOutPlot'],
       'Pretrained': False,
       'LayersToOptimize': [x for x in range(9)],
     }
 )
 
 # smooth task
-smooth_kwargs = set_dictionary(
+smooth_kw = set_dictionary(
     { #copied from L1Trigger/L1THGCal/python/hgcalBackEndLayer2Producer_cfi.py
         'BinSums': (13,               # 0
                     11, 11, 11,       # 1 - 3
@@ -84,22 +84,22 @@ smooth_kwargs = set_dictionary(
                     ),
         'SeedsNormByArea': False,
         'AreaPerTriggerCell': 4.91E-05,
-        'SmoothIn': fill_kwargs['FillOut'],
+        'SmoothIn': fill_kw['FillOut'],
         'SmoothOut': 'smooth' }
     )
 
 # seed task
-seed_kwargs = set_dictionary(
-    { 'SeedIn': smooth_kwargs['SmoothOut'],
+seed_kw = set_dictionary(
+    { 'SeedIn': smooth_kw['SmoothOut'],
       'SeedOut': 'seed',
       'histoThreshold': 20.,
       'WindowPhiDim': 1}
     )
 
 # cluster task
-cluster_kwargs = set_dictionary(
-    { 'ClusterInTC': fill_kwargs['FillOut'],
-      'ClusterInSeeds': seed_kwargs['SeedOut'],
+cluster_kw = set_dictionary(
+    { 'ClusterInTC': fill_kw['FillOut'],
+      'ClusterInSeeds': seed_kw['SeedOut'],
 	  'ClusterOutPlot': 'cluster_validation',
       'ClusterOutValidation': 'cluster_plot',
       'CoeffA': ( (0.015,)*7 + (0.020,)*7 + (0.030,)*7 + (0.040,)*7 + #EM
@@ -111,9 +111,9 @@ cluster_kwargs = set_dictionary(
 )
 
 # validation task
-validation_kwargs = set_dictionary(
-    { 'ClusterOutValidation': cluster_kwargs['ClusterOutValidation'],
-      'FillOutComp' : fill_kwargs['FillOutComp'],
-      'FillOut': fill_kwargs['FillOut'] }
+validation_kw = set_dictionary(
+    { 'ClusterOutValidation': cluster_kw['ClusterOutValidation'],
+      'FillOutComp' : fill_kw['FillOutComp'],
+      'FillOut': fill_kw['FillOut'] }
 )
 
