@@ -14,21 +14,57 @@ declare -a REGIONS=( "Si" "ECAL" "MaxShower" )
 SELECTION="splits_only"
 REGION="ECAL"
 
+### Argument parsing
+HELP_STR="Prints this help message."
+DRYRUN_STR="(Boolean) Prints all the commands to be launched but does not launch them. Defaults to ${DRYRUN}."
+REPROCESS_STR="(Boolean) Reprocesses the input dataset (slower). Defaults to '${REPROCESS}'."
+PLOT_TC_STR="(Boolean) plot shifted trigger cells instead of originals. Defaults to '${PLOT_TC}'."
+DO_FILLING_STR="(Boolean) run the filling task. Defaults to '${DO_FILLING}'."
+DO_SMOOTHING_STR="(Boolean) run the smoothing task. Defaults to '${DO_SMOOTHING}'."
+DO_SEEDING_STR="(Boolean) run the seeding task. Defaults to '${DO_SEEDING}'."
+DO_CLUSTERING_STR="(Boolean) run the clustering task. Defaults to '${DO_CLUSTERING}'."
+SELECTION_STR="(String) Which initial data selection to apply. Values supported: ${SELECTIONS[*]}.  Defaults to '${SELECTION}'."
+REGION_STR="(String) Which initial region to consider. Values supported: ${REGIONS[*]}. Defaults to '${REGION}'."
+
+function print_usage_iter_opt {
+    USAGE=" $(basename "$0") [-H] [--dry-run --resubmit -t -d -n --klub_tag --stitching_on]
+
+	-h / --help			[ ${HELP_STR} ]
+	--dry-run			[ ${DRYRUN_STR} ]
+	-r / --reprocess	[ ${REPROCESS_STR} ]
+	-p / --plot_tc	    [ ${PLOT_TC_STR} ]
+	--selection	     	[ ${SELECTION_STR} ]
+	--region			[ ${REGION_STR} ]
+	--no_fill			[ ${DO_FILLING_STR} ]
+	--no_smooth			[ ${DO_SMOOTHING_STR} ]
+	--no_seed			[ ${DO_SEEDING_STR} ]
+	--no_cluster		[ ${DO_CLUSTERING_STR} ]
+
+    Run example: bash $(basename "$0")
+"
+    printf "${USAGE}"
+}
+
 ######################################
 ## Argument parsing ##################
 ######################################
-ARGS=$(getopt -o drpf: --long dry_run,reprocess,plot_tc,no_fill,selection:,region:,iter_par:,nevents: -n "getopts_${0}" -- "$@")
+# ARGS=$(getopt -o drpf: --long dry_run,reprocess,plot_tc,no_fill,selection:,region:,iter_par:,nevents: -n "getopts_${0}" -- "$@")
 
 #Bad arguments
-if [ $? -ne 0 ];
-then
-  exit 1
-fi
-eval set -- "$ARGS"
+# if [ $? -ne 0 ];
+# then
+#   exit 1
+# fi
+# eval set -- "$ARGS"
 
-while true; do
-    case "$1" in
-		--region )
+while [[ $# -gt 0 ]]; do
+    key=${1}
+    case $key in
+		-h|--help)
+			print_usage_iter_opt
+			exit 1
+			;;
+		--region)
 			if [ -n "$2" ]; then
 				if [[ ! " ${REGIONS[@]} " =~ " ${2} " ]]; then
 					echo "Region ${2} is not supported."
@@ -40,7 +76,7 @@ while true; do
 			fi
 			shift 2;;
 
-		--selection )
+		--selection)
 			if [ -n "$2" ]; then
 				if [[ ! " ${SELECTIONS[@]} " =~ " ${2} " ]]; then
 					echo "Data selection ${2} is not supported."
@@ -52,40 +88,40 @@ while true; do
 			fi
 			shift 2;;
 
-		--no_fill )
+		--no_fill)
 			DO_FILLING=0;
 			shift ;;
 
-		--no_smooth )
+		--no_smooth)
 			DO_SMOOTHING=0;
 			shift ;;
 
-		--no_seed )
+		--no_seed)
 			DO_SEEDING=0;
 			shift ;;
 
-		--no_cluster )
+		--no_cluster)
 			DO_CLUSTERING=0;
 			shift ;;
 
-		-p | --plot_tc )
+		-p|--plot_tc)
 			PLOT_TC=1;
 			shift ;;
 
-		-r | --reprocess )
+		-r|--reprocess)
 			REPROCESS=1;
 			shift ;;
 
-		-d | --dry_run )
+		-d|--dry_run)
 			DRYRUN=1;
 			shift ;;
 
-		--nevents )
+		--nevents)
 			NEVENTS="${2}"
 			shift 2;;
 		
-		-- )	shift; break;;
-		* ) break ;;
+		--) shift; break;;
+		*) break ;;
     esac
 done
 
