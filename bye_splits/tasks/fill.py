@@ -21,7 +21,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
     """    
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
     for fe in kwargs['FesAlgos']:
-        infill = common.fill_path(kwargs['FillIn'], is_short=True)
+        infill = common.fill_path(kwargs['FillIn'])
         simAlgoFiles[fe] = [ infill ]
 
     for fe,files in simAlgoFiles.items():

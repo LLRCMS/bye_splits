@@ -3,6 +3,7 @@
 _all_ = [ ]
 
 import os
+from pathlib import Path
 import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
@@ -17,7 +18,6 @@ MinPhi = -np.pi
 MaxPhi = +np.pi
 DataFolder = 'data'
 
-
 base_kwargs = {
     'NbinsRz': NbinsRz,
     'NbinsPhi': NbinsPhi,
@@ -31,7 +31,9 @@ base_kwargs = {
 
     'DataFolder': DataFolder,
     'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
-    'BasePath': os.path.join(os.environ['PWD'], DataFolder),
+    'BasePath': Path(__file__).parents[2] / DataFolder,
+
+    #os.path.join(os.environ['PWD'], DataFolder),
     'OutPath': os.path.join(os.environ['PWD'], 'out'),
 
     'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),

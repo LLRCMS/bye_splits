@@ -95,7 +95,6 @@ def smoothAlongPhi(arr, kernel,
                 arr_smooth += side_sum / 2**nside
             elif kernel=='flat_top':
                 arr_smooth += side_sum / 2**(nside-1)
-            print(idx, 2**nside, 2**(nside-1))
         arr_new[roll_indices,:] = arr_smooth / np.expand_dims(area[roll_indices], axis=-1)
 
     return arr_new * areaPerTriggerCell

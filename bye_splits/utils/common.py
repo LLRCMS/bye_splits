@@ -3,9 +3,9 @@
 _all_ = [ ]
 
 import os
+from pathlib import Path
 import sys
-parent_dir = os.path.abspath(__file__ + 3 * '/..')
-sys.path.insert(0, parent_dir)
+sys.path.insert(0, Path(__file__).parents[2])
 
 from utils import params
 
@@ -31,8 +31,8 @@ class dot_dict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-def fill_path(base_path, is_short=False, ext='hdf5', **kw):
-    """Create unique file name base on user input parameters."""    
+def fill_path(base_path, ext='hdf5', **kw):
+    """Create unique file name base on user input parameters."""
     def add_if_exists(s, prefix):
         nonlocal base_path
         if s in kw:
@@ -43,14 +43,14 @@ def fill_path(base_path, is_short=False, ext='hdf5', **kw):
                'reg'           : 'REG',
                'seed_window'   : 'SeedWindow',
                'smooth_kernel' : 'SmoothKernel'}
-    if not is_short:
-        for k,v in strings.items():
-            add_if_exists(k, v)
+
+    for k,v in strings.items():
+        add_if_exists(k, v)
 
     base_path += '.' + ext
 
     path = 'OutPath' if ext == 'html' else 'BasePath'
-    return os.path.join(params.base_kwargs[path], base_path)
+    return Path(params.base_kwargs[path]) / base_path
 
 class SupressSettingWithCopyWarning:
     """
@@ -94,10 +94,9 @@ def get_detector_region_mask(df, region):
     df = df.drop(['subdet'], axis=1)
     return df, subdetCond
 
-def get_html_name(script_name, extra=''):
-    f = os.path.basename(script_name)
-    f = f.split('.')
-    f = f[0] + extra + '.html'
+def get_html_name(script_name, name=''):
+    f = Path(script_name).absolute().parents[1] / 'out'
+    f /= name + '.html'
     return f
 
 def tc_base_selection(df, region, pos_endcap, range_rz):

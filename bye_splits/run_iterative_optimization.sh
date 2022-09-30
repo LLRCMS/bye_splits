@@ -48,15 +48,6 @@ function print_usage_iter_opt {
 ######################################
 ## Argument parsing ##################
 ######################################
-# ARGS=$(getopt -o drpf: --long dry_run,reprocess,plot_tc,no_fill,selection:,region:,iter_par:,nevents: -n "getopts_${0}" -- "$@")
-
-#Bad arguments
-# if [ $? -ne 0 ];
-# then
-#   exit 1
-# fi
-# eval set -- "$ARGS"
-
 while [[ $# -gt 0 ]]; do
     key=${1}
     case $key in
@@ -149,7 +140,7 @@ fi
 
 ### Functions
 function run_parallel() {
-	comm="parallel -j -1 python3 iterative_optimization.py -m {} -s ${SELECTION} -n ${NEVENTS} --region ${REGION} "
+	comm="parallel -j -1 python3 iterative_optimization.py --ipar {} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
 	if [ ${DO_FILLING} -eq 0 ]; then
 		echo "Do not run the filling step."
 		comm+="--no_fill "

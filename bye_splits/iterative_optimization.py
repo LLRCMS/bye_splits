@@ -3,6 +3,7 @@
 _all_ = [ ]
     
 import os
+from pathlib import Path
 import sys
 parent_dir = os.path.abspath(__file__ + 2 * '/..')
 sys.path.insert(0, parent_dir)
@@ -32,7 +33,8 @@ def process_trigger_cell_geometry_data(region, selection,
                                        positive_endcap_only=True, debug=False, **kw):
     """Prepare trigger cell geometry data to be used as
     input to the iterative algorithm."""
-    tcDataPath = os.path.join(os.environ['PWD'], 'data', 'test_triggergeom.root')
+
+    tcDataPath = Path(__file__).parent.absolute().parent / params.DataFolder / 'test_triggergeom.root'
     tcFile = up.open(tcDataPath)
 
     tcFolder = 'hgcaltriggergeomtester'
@@ -68,7 +70,7 @@ def process_trigger_cell_geometry_data(region, selection,
     tcData_inv  = tcData[ ~subdetCond ]
 
     # save data for optimization task
-    inoptfile = common.fill_path(kw['OptIn'], is_short=False, sel=selection, reg=region)
+    inoptfile = common.fill_path(kw['OptIn'], sel=selection, reg=region)
 
     with h5py.File(inoptfile, mode='w') as store:
         save_cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
@@ -89,8 +91,7 @@ def process_trigger_cell_geometry_data(region, selection,
         store['data_main'].attrs['doc'] = doc_main
 
 def optimization(pars, **kw):
-    outresen = common.fill_path(kw['OptIn'], is_short=False, sel=pars['sel'], reg=pars['reg'],
-                                seed_window=pars['seed_window'], smooth_kernel=pars['smooth_kernel'])
+    outresen = common.fill_path(kw['OptIn'], sel=pars['sel'], reg=pars['reg'])
     store_in  = h5py.File(outresen, mode='r')
     plot_obj = utils.plotter.Plotter(**params.opt_kwargs)
     mode = 'variance'
@@ -356,7 +357,8 @@ def optimization(pars, **kw):
         df_inv_total = df_inv if rzslice==0 else pd.concat((df_inv_total,df_inv), axis=0)
 
         # end loop over the layers
-    plot_name = os.path.join('out', common.get_html_name(__file__, extra='_'+str(pars['ipar']).replace('.','p')))
+
+    plot_name = common.get_html_name(__file__, name='plot_'+str(pars['ipar']).replace('.','p'))
     plot_obj.plot_iterative(plot_name=plot_name,
                             tab_names = [''+str(x) for x in range(len(ldata_main))],
                             show_html=False)
@@ -408,7 +410,6 @@ if __name__ == "__main__":
           flush=True)
     
     with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
-
         fieldnames = ['ipar', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
                       'locrat1', 'locrat2', 'remrat1', 'remrat2']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
