@@ -16,10 +16,14 @@ git clone git@github.com:bfonta/bye_splits.git
 I recommend creating a separate =conda= environment for running the code.
 #+BEGIN_SRC shell
 create -n <EnvName> python=3.9 pandas
-conda install -c bokeh bokeh
 #+END_SRC
 
-Run ~conda activate <EnvName>~ to enter the environment and ~conda deactivate~ to exit it.
+Then run ~conda activate <EnvName>~ to enter the environment and ~conda deactivate~ to exit it, before installing dependencies:
+
+#+BEGIN_SRC shell
+conda install -c bokeh bokeh
+conda install -c conda-forge uproot
+#+END_SRC
 
 *** Execute
 
