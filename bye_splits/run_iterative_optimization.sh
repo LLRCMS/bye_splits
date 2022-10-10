@@ -185,7 +185,7 @@ fi
 
 ### Functions
 function run_parallel() {
-	comm="parallel -j -1 python iterative_optimization.py --ipar {} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
+	comm="parallel -j -1 python bye_splits/iterative_optimization.py --ipar {} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
 	comm+="--cluster_algo ${CLUSTER_ALGO} --seed_window ${SEED_WINDOW} --smooth_kernel ${SMOOTH_KERNEL} "
 	if [ ${DO_FILLING} -eq 0 ]; then
 		echo "Do not run the filling step."
@@ -214,7 +214,7 @@ function run_parallel() {
 }
 
 function run_plot() {
-	comm="python3 plot/meta_algorithm.py -m ${@} --sel ${SELECTION} --reg ${REGION} "
+	comm="python plot/meta_algorithm.py -m ${@} --sel ${SELECTION} --reg ${REGION} "
 	comm+="--cluster_algo ${CLUSTER_ALGO} --seed_window ${SEED_WINDOW} --smooth_kernel ${SMOOTH_KERNEL} "
 	[[ ${DRYRUN} -eq 1 ]] && echo ${comm} || ${comm}
 }
