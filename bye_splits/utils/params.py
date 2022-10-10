@@ -33,8 +33,7 @@ base_kw = {
     'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
     'BasePath': Path(__file__).parents[2] / DataFolder,
 
-    #os.path.join(os.environ['PWD'], DataFolder),
-    'OutPath': os.path.join(os.environ['PWD'], 'out'),
+    'OutPath': Path(__file__).parents[2] / 'out',
 
     'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
     'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),

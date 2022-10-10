@@ -90,9 +90,6 @@ def resolution_plotter(pars, names_d):
         nd = dict(ipar=par, **names_d)
         in_en  = common.fill_path(params.opt_kw['OptEnResOut'], **nd)
         in_pos = common.fill_path(params.opt_kw['OptPosResOut'], **nd)
-        print(in_en)
-        quit()
-
 
         with pd.HDFStore(in_en, mode='r') as tmpEnRes, pd.HDFStore(in_pos, mode='r') as tmpPosRes:            
             key = params.opt_kw['FesAlgos'][0]+'_data'
@@ -190,7 +187,7 @@ def resolution_plotter(pars, names_d):
                       step=1, value=0, 
                       format=fmt,
                       title='Iterative algorithm tunable parameter')
-    slider = Slider(**slider_opt)
+    slider = models.Slider(**slider_opt)
     for it in range(3):
         slider.js_on_change('value', callbacks[it])
 
@@ -285,7 +282,7 @@ if __name__ == "__main__":
                    seed_window=FLAGS.seed_window,
                    smooth_kernel=FLAGS.smooth_kernel,
                    cluster_algo=FLAGS.cluster_algo)
-    plot_name = common.fill_path(this_file, extension='html', **names_d)
+    plot_name = common.fill_path(this_file, ext='html', **names_d)
 
     io.output_file( plot_name )
     
@@ -296,7 +293,7 @@ if __name__ == "__main__":
     lay_list = [[stats_fig], [slider], res_figs, summ_fig]
 
     lay = bokeh.layouts.layout(lay_list)
-    io.save(lay) #if show_html else save(lay)
+    io.save(lay)
 
 
 ##Latex equations
