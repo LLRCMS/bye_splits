@@ -15,11 +15,15 @@ git clone git@github.com:bfonta/bye_splits.git
 
 I recommend creating a separate =conda= environment for running the code.
 #+BEGIN_SRC shell
-create -n <EnvName> python=3.9 pandas
+create -n <EnvName> python=3.9 pandas uproot pytables h5py
 conda install -c bokeh bokeh
 #+END_SRC
 
-Run ~conda activate <EnvName>~ to enter the environment and ~conda deactivate~ to exit it.
+Then run ~conda activate <EnvName>~ to enter the environment (~conda deactivate~ to exit at any time). In case of package conflicts, you can install each package using ~conda install -c conda-forge <PackageName>~. This ensures that every package will be installed from the conda-forge package channel, and will ensure there aren't inconsisties coming from cross-channel installations.
+
+You will also need to create two new directories, ~/data~ and ~/out~, on the same level as the second ~/bye_splits~ directory (parallel to ~/.git~ if cloned from this repository).
+
+You will need to place the =test_triggergeom.root= file in ~/data~ before running the reconstruction chain.
 
 *** Execute
 
@@ -35,10 +39,10 @@ python bye_splits/production/matching.py
 - To run the L1 reconstruction chain:
 
 #+BEGIN_SRC shell
-bash bye_splits/run_iterative_optimization.sh
+bash bye_splits/run_iterative_optimization.sh -r
 #+END_SRC
 
-where one can use the =-h= flag to visualize available options.
+where one can use the =-h= flag to visualize available options. The ~-r~ option (re)processes the trigger cell geometry information and only needs to be passed the first time you run the chain; subsequent runs can be done dropping this option, and the program should run faster.
 
 - For plotting results as a function of the optimization trigger cell parameter:
 
