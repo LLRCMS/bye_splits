@@ -26,7 +26,8 @@ else:
     if htcondor:
         files_photons = glob.glob('/home/llr/cms/sauvan/DATA_UPG/HGCAL/Ntuples/study_autoencoder/3_22_1/SinglePhoton_PT2to200/GammaGun_Pt2_200_PU0_HLTWinter20_std_ae_xyseed/210430_091126/ntuple*.root')
     else:
-        files_photons = [ str(Path('/data_CMS') / 'cms' / os.environ['USER'] / 'TriggerCells' / 'hadd.root') ]
+        #files_photons = [ str(Path('/data_CMS') / 'cms' / os.environ['USER'] / 'TriggerCells' / 'hadd.root') ]
+        files_photons = [ str(Path('/data_CMS') / 'cms' / 'alves' / 'TriggerCells' / 'hadd.root') ]
 
 # Pick one of the different algos trees to retrieve the gen information
 gen_tree = 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple'
@@ -41,7 +42,7 @@ if htcondor:
     file_per_batch_photons = 2
 else:
     out_dir = params.base_kw['BasePath']
-        
+
 out_name = 'gen_cl3d_tc.hdf5'
 
 # List of ECON algorithms

@@ -1,7 +1,7 @@
 # coding: utf-8
 
 _all_ = [ ]
-    
+
 import os
 from pathlib import Path
 import sys
@@ -61,7 +61,7 @@ def process_trigger_cell_geometry_data(region, selection,
 
     tcData, subdetCond = common.tc_base_selection(tcData, region=region, pos_endcap=True,
                                                   range_rz=(kw['MinROverZ'], kw['MaxROverZ']))
-    
+
     copt = dict(labels=False)
     tcData['Rz_bin'] = pd.cut( tcData['Rz'], bins=kw['RzBinEdges'], **copt )
     tcData['phi_bin'] = pd.cut( tcData['phi'], bins=kw['PhiBinEdges'], **copt )
@@ -83,7 +83,7 @@ def process_trigger_cell_geometry_data(region, selection,
 
         store['data_inv']  = saveData_inv
         store['data_main'] = saveData_main
-        store['data_inv'].attrs['columns'] = save_cols        
+        store['data_inv'].attrs['columns'] = save_cols
         store['data_main'].attrs['columns'] = save_cols
         doc_inv = 'Trigger cell phi vs. R/z positions for optimization: inverted phase space (relative to active algo phase space).'
         doc_main = 'Trigger cell phi vs. R/z positions for optimization: active algo phase space.'
@@ -92,6 +92,8 @@ def process_trigger_cell_geometry_data(region, selection,
 
 def optimization(pars, **kw):
     outresen = common.fill_path(kw['OptIn'], sel=pars['sel'], reg=pars['reg'])
+    #print("\nFile: ", outresen)
+    #print("\n")
     store_in  = h5py.File(outresen, mode='r')
     plot_obj = utils.plotter.Plotter(**params.opt_kw)
     mode = 'variance'
@@ -109,7 +111,7 @@ def optimization(pars, **kw):
                     window_size=window_size, normalize=False)
     data_main, bins_main, _, _, idx_d_main = dp.preprocess( data=store_in['data_main'], **data_opt)
     data_inv, bins_inv, _, _, idx_d_inv = dp.preprocess( data=store_in['data_inv'], **data_opt)
-    
+
     store_in.close()
 
     def get_edge(idx, misalignment, ncellstot):
@@ -134,64 +136,64 @@ def optimization(pars, **kw):
         run_algorithm = True
         if rzslice not in kw['LayersToOptimize']:
             run_algorithm = False
-   
+
         if run_algorithm:
             plot_obj.reset()
-             
+
             boundshift = window_size - 1
             ncellstot = sum(lb)
             lastidx = kw['NbinsPhi']-1
-             
+
             plot_obj.save_orig_data( data=copy(lb), data_type='bins',
                                     boundary_sizes=0 )
-             
+
             # initial differences for stopping criterion
             lb_orig2 = lb[:]
             lb_orig1 = np.roll(lb_orig2, +1)
             lb_orig3 = np.roll(lb_orig2, -1)
-             
+
             gl_orig = lb_orig2 - lb_orig1
             gr_orig = lb_orig3 - lb_orig2
             stop = pars['ipar'] * (abs(gl_orig) + abs(gr_orig))
             stop[stop<1] = 1 # algorithm stabilisation
-             
+
             idxs = [ np.arange(kw['NbinsPhi']) ]
             for _ in range(boundshift):
                 idxs.append( np.roll(idxs[-1], -1) )
-             
+
             # "excess" (positive or negative): how much the first bin 0 cell is misaligned
             # with respect to its starting position
             # required due to the cyclic boundary conditions
             misalign = 0
-             
+
             at_least_one = True
             while at_least_one:
                 at_least_one = False
                 for id_tuple in zip(*idxs):
                     # triplet bin indices
                     id1, id2, id3 = id_tuple
-             
+
                     # bin counts
                     c1, c2, c3 = lb[id1], lb[id2], lb[id3]
-             
+
                     # left and right gradients
                     gl = c2 - c1
                     gr = c3 - c2
                     gsum = abs(gl) + abs(gr)
-             
+
                     # stopping criterion
                     # must be satisfied for all triplets
                     if gsum <= stop[id2]:
                         continue
 
                     at_least_one = True
-                    
+
                     # weights for random draw
                     wl = abs(gl) / gsum
                     assert( 0. <= wl <= 1.)
                     wr = abs(gr) / gsum
                     assert( 0. <= wr <= 1.)
-             
+
                     # "region" based on left and right gradients
                     if gl <= 0 and gr >= 0:
                         region = 'valley'
@@ -203,10 +205,10 @@ def optimization(pars, **kw):
                         region = 'descent'
                     else:
                         raise RuntimeError('Impossible 1!')
-                    
+
                     # random draw (pick a side)
                     side = 'left' if random.random() < wl else 'right'
-                    
+
                     if side == 'left' and region in ('valley', 'descent'):
                         edge = get_edge(id2, misalign, ncellstot) - 1
                         lb[id1] -= 1
@@ -214,7 +216,7 @@ def optimization(pars, **kw):
                         ld[edge,idx_d_main.phibin] = id2
                         if id2==0:
                             misalign -= 1
-             
+
                     elif side == 'right' and region in ('valley', 'ascent'):
                         edge = get_edge(id3, misalign, ncellstot)
                         lb[id3] -= 1
@@ -222,21 +224,21 @@ def optimization(pars, **kw):
                         ld[edge,idx_d_main.phibin] = id2
                         if id2==lastidx:
                             misalign += 1
-                
+
                     elif side == 'left' and region in ('mountain', 'ascent'):
                         edge = get_edge(id2, misalign, ncellstot)
                         lb[id1] += 1
                         lb[id2] -= 1
-             
+
                         #SO DIRTY!!!!!!!!! Probably some very rare boundary condition issue.
                         try:
                             ld[edge,idx_d_main.phibin] = id1
                         except IndexError:
                             ld[edge-1,idx_d_main.phibin] = id1
-                            
+
                         if id2==0:
                             misalign += 1
-             
+
                     elif side == 'right' and region in ('mountain', 'descent'):
                         edge = get_edge(id3, misalign, ncellstot) - 1
                         lb[id3] += 1
@@ -245,15 +247,15 @@ def optimization(pars, **kw):
                         if id2==lastidx:
                             misalign -= 1
                     else:
-                        raise RuntimeError('Impossible 2!')                    
+                        raise RuntimeError('Impossible 2!')
 
                     if not is_sorted(ld[:,idx_d_main.phibin], kw['NbinsPhi']):
                         print('Not Sorted!!!!!')
                         quit()
-             
+
             phi_new_low_edges = kw['PhiBinEdges'][:-1][ld[:,idx_d_main.phibin].astype(int)]
             phi_new_high_edges = kw['PhiBinEdges'][1:][ld[:,idx_d_main.phibin].astype(int)]
-             
+
             df = pd.DataFrame(dict(phi_old=phi_old,
                                    bin_old=np.array(data_main[rzslice])[:,idx_d_main.phibin],
                                    bin_new=ld[:,idx_d_main.phibin],
@@ -261,7 +263,7 @@ def optimization(pars, **kw):
                                    # needed for TC id comparison later on
                                    radius=radiae,
                                    id=np.uint32(ld[:,idx_d_main.tc_id])))
-    
+
             # the bin edge to use to calculate the phi distance to the nearest edge depends on whether the trigger cell is moving
             # to the left or to the right bin. The following introduces a mask to perform the conditional decision.
             df['move_to_the_left'] = np.sign(df.bin_old - df.bin_new).astype(int)
@@ -269,36 +271,36 @@ def optimization(pars, **kw):
             df.loc[ df.move_to_the_left == -1, 'move_to_the_right' ] = 1
             df.loc[ df.move_to_the_left == -1, 'move_to_the_left' ] = 0
             # each row must have either left or right equal to zero
-            assert not np.count_nonzero(df.move_to_the_left * df.move_to_the_right != 0.) 
-             
+            assert not np.count_nonzero(df.move_to_the_left * df.move_to_the_right != 0.)
+
             # fix boundary conditions
             df.loc[ df.bin_old-df.bin_new == kw['NbinsPhi']-1,    'move_to_the_left']   = 0
             df.loc[ df.bin_old-df.bin_new == kw['NbinsPhi']-1,    'move_to_the_right']  = 1
             df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_left']   = 1
             df.loc[ df.bin_old-df.bin_new == -(kw['NbinsPhi']-1), 'move_to_the_right']  = 0
-             
+
             half_bin_width = 0.0001#(kw['PhiBinEdges'][1]-kw['PhiBinEdges'][0])/2
             #assert round(half_bin_width,5) == round((kw['PhiBinEdges'][-1]-kw['PhiBinEdges'][-2])/2,5)
             df['d_left']  = df.move_to_the_left  * abs(phi_old - phi_new_high_edges + half_bin_width)
             df['d_right'] = df.move_to_the_right * abs(phi_new_low_edges  - phi_old + half_bin_width)
-            assert not np.count_nonzero(df.d_left * df.d_right != 0.) 
-             
+            assert not np.count_nonzero(df.d_left * df.d_right != 0.)
+
             df['distance'] = -1*df.d_left + df.d_right
-             
+
             # the distance is zero when the bin does not change
             df.loc[ df.bin_old==df.bin_new, 'distance' ] = 0.
-             
+
             nonzero_ratio = 1. - float(len(df[df.distance == 0])) / float(len(df.distance))
-             
+
             # remove migrations in boundary conditions to avoid visualization issues
             df.loc[ df.distance >= np.pi, 'distance' ] = abs(df.loc[ df.distance >= np.pi, 'distance' ] - 2*np.pi)
             df.loc[ df.distance < -np.pi, 'distance' ] = -abs(df.loc[ df.distance < -np.pi, 'distance' ] + 2*np.pi)
-             
+
             df['phi_new'] = df.phi_old + df.distance
-             
+
             cond1 = (df.bin_new-df.bin_old < 0) & (df.distance>0)
             df.loc[cond1, 'phi_new'] = df.loc[cond1, 'phi_new'] - 2*np.pi
-             
+
             cond2 = (df.bin_new-df.bin_old > 0) & (df.distance<0)
             df.loc[cond2, 'phi_new'] = df.loc[cond2, 'phi_new'] + 2*np.pi
 
@@ -306,7 +308,7 @@ def optimization(pars, **kw):
             ydist_f = lambda i,f: df.radius*(np.sin(i)-np.sin(f))
             df['xdist'] = xdist_f(df.phi_old, df.phi_new)
             df['ydist'] = ydist_f(df.phi_old, df.phi_new)
-            
+
             # boundary condition: from bin 0 to 215
             cond3 = ( (df.phi_new < 0.) & (df.phi_old > 0.)
                      & (df.phi_old-df.phi_new>kw['MaxPhi']) )
@@ -343,7 +345,7 @@ def optimization(pars, **kw):
                                    id=np.uint32(ld[:,idx_d_main.tc_id])))
 
         df = df[['phi_old', 'phi_new', 'id']]
-        
+
         df_total = df if rzslice==0 else pd.concat((df_total,df), axis=0)
 
 
@@ -409,7 +411,7 @@ if __name__ == "__main__":
 
     print('Starting iterative parameter {}.'.format(FLAGS.ipar),
           flush=True)
-    
+
     with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
         fieldnames = ['ipar', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
                       'locrat1', 'locrat2', 'remrat1', 'remrat2']
@@ -443,24 +445,24 @@ if __name__ == "__main__":
                          fieldnames[6] : res[5],
                          fieldnames[7] : res[6],
                          fieldnames[8] : res[7]})
-            
+
         assert len(params.opt_kw['FesAlgos']) == 1
-            
+
         df_enres = pd.DataFrame({'enres_old': res[8],
                                  'enres_new': res[9]})
         df_posres = pd.DataFrame({'etares_old': res[10],
                                   'etares_new': res[11],
-                                  'phires_old': res[12],  
+                                  'phires_old': res[12],
                                   'phires_new': res[13]})
         key = params.opt_kw['FesAlgos'][0] + '_data'
 
         storeEnRes [key] = df_enres
         storePosRes[key] = df_posres
-        
+
         if FLAGS.plot:
             this_file = os.path.basename(__file__).split('.')[0]
             plot_name = common.fill_path(this_file, ext='html', **pars_d)
-                
+
             plot_trigger_cells_occupancy(pars_d,
                                          plot_name=plot_name,
                                          pos_endcap=True,
