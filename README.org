@@ -30,7 +30,7 @@ conda install -c anaconda pytables
 
 - Start from =hadd.root= file which gathers trigger cell, cluster and generated information of single photon events without PU [the code required to create this file will be added in this repo in due time]
   
-- Produce an intermediated skimmed file with matching applied. This steps is not required if matching is not necessary, but speeds up the folloing step significantly.
+- Produce an intermediated skimmed file with matching applied. This steps is not required if matching is not necessary, but speeds up the folloing step significantly. This will produce a file in a /data directory that you must create on the same level as the second /bye_splits directory. This will be automated in a future version.
 
 #+BEGIN_SRC shell
 python bye_splits/production/matching.py
