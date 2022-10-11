@@ -21,7 +21,7 @@ conda install -c bokeh bokeh
 
 Then run ~conda activate <EnvName>~ to enter the environment (~conda deactivate~ to exit at any time). In case of package conflicts, you can install each package using ~conda install -c conda-forge <PackageName>~. This ensures that every package will be installed from the conda-forge package channel, and will ensure there aren't inconsisties coming from cross-channel installations.
 
-You will also need to create two new directories, ~/data~ and ~/out~, on the same level as the second ~bye_splits~ directory (parallel to ~/.git~ if cloned from this repository).
+You will also need to create two new directories, ~/data~ and ~/out~, on the same level as the second ~/bye_splits~ directory (parallel to ~/.git~ if cloned from this repository).
 
 You will need to place the =test_triggergeom.root= file in ~/data~ before running the reconstruction chain.
 
