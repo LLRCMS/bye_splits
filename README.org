@@ -15,10 +15,11 @@ git clone git@github.com:bfonta/bye_splits.git
 
 I recommend creating a separate =conda= environment for running the code.
 #+BEGIN_SRC shell
-create -n <EnvName> python=3.9 pandas bokeh uproot pytables h5py
+create -n <EnvName> python=3.9 pandas uproot pytables h5py
+conda install -c bokeh bokeh
 #+END_SRC
 
-Then run ~conda activate <EnvName>~ to enter the environment; you can use ~conda deactivate~ to exit the environment.
+Then run ~conda activate <EnvName>~ to enter the environment (~conda deactivate~ to exit at any time). In case of package conflicts, you can install each package using ~conda install -c conda-forge <PackageName>~. This ensures that every package will be installed from the conda-forge package channel, and will ensure there aren't inconsisties coming from cross-channel installations.
 
 You will also need to create two new directories, ~/data~ and ~/out~, on the same level as the second ~bye_splits~ directory (parallel to ~/.git~ if cloned from this repository).
 
