@@ -23,6 +23,7 @@ Then run ~conda activate <EnvName>~ to enter the environment and ~conda deactiva
 #+BEGIN_SRC shell
 conda install -c bokeh bokeh
 conda install -c conda-forge uproot
+conda install -c anaconda pytables
 #+END_SRC
 
 *** Execute
