@@ -151,7 +151,7 @@ while [[ $# -gt 0 ]]; do
 		--nevents)
 			NEVENTS="${2}"
 			shift 2;;
-		
+
 		--) shift; break;;
 		*) break ;;
     esac
@@ -185,7 +185,9 @@ fi
 
 ### Functions
 function run_parallel() {
-	comm="parallel -j -1 python bye_splits/iterative_optimization.py --ipar {} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
+  comm="mkdir -p ../data"
+  comm+="mkdir -p ../out"
+	comm+="parallel -j -1 python bye_splits/iterative_optimization.py --ipar {} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
 	comm+="--cluster_algo ${CLUSTER_ALGO} --seed_window ${SEED_WINDOW} --smooth_kernel ${SMOOTH_KERNEL} "
 	if [ ${DO_FILLING} -eq 0 ]; then
 		echo "Do not run the filling step."
@@ -209,7 +211,7 @@ function run_parallel() {
 	fi
 
 	comm+="$@"
-	
+
 	[[ ${DRYRUN} -eq 1 ]] && echo ${comm} || ${comm}
 }
 
