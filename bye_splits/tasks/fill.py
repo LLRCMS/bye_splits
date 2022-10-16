@@ -75,7 +75,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 m = 'Selection {} is not supported.'.format(pars['sel'])
                 raise ValueError(m)
 
-            #_events_all = list(df.index.unique())
+            _events_all = list(df.index.unique())
             _events_remaining = list(df.index.unique())
 
             # _events_sample_all = random.sample(_events_all, 10000)
@@ -91,9 +91,9 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             else:
                 _events_sample = random.sample(_events_remaining, nevents)
              
-            #split = df.loc[_events_all]
+            split = df.loc[_events_all]
             #split = df.loc[_events_sample + _events_sample_all]
-            split = df.loc[_events_sample]
+            #split = df.loc[_events_sample]
 
             #debug: events with large eta split and good resolution
             # split = split.loc[ (split.index == 115441) |
@@ -101,6 +101,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             #                    (split.index == 77678) |
             #                    (split.index == 8580) |
             #                    (split.index == 88782) ]
+            split = split.loc[ (split.index == 88782) ]
 
             #splitting remaining data into cluster and tc to avoid tc data duplication
             _cl3d_vars = [x for x in split.columns.to_list()
@@ -126,9 +127,9 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             split_tc = split_tc.reset_index()
              
             #pd cut returns np.nan when value lies outside the binning
-            split_tc['Rz_bin'] = pd.cut( split_tc['Rz'],
-                                         bins=kwargs['RzBinEdges'],
-                                         labels=False )
+            split_tc['Rz_bin'] = pd.cut(split_tc['Rz'],
+                                        bins=kwargs['RzBinEdges'],
+                                        labels=False)
             nansel = pd.isna(split_tc['Rz_bin']) 
             split_tc = split_tc[~nansel]
              
@@ -146,12 +147,12 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             split_tc['tc_eta_new'] = np.arcsinh( split_tc.tc_z /
                                                  np.sqrt(split_tc.tc_x_new**2 + split_tc.tc_y_new**2) )
 
-            split_tc['tc_phi_bin_old'] = pd.cut( split_tc.phi_old,
+            split_tc['tc_phi_bin_old'] = pd.cut(split_tc.phi_old,
                                                 bins=kwargs['PhiBinEdges'],
-                                                labels=False )
-            split_tc['tc_phi_bin_new'] = pd.cut( split_tc.phi_new,
+                                                labels=False)
+            split_tc['tc_phi_bin_new'] = pd.cut(split_tc.phi_new,
                                                 bins=kwargs['PhiBinEdges'],
-                                             labels=False )
+                                                labels=False)
 
             nansel = pd.isna(split_tc.tc_phi_bin_new) 
             split_tc = split_tc[~nansel]
@@ -160,7 +161,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             store[fe + '_tc'] = split_tc
 
             simAlgoPlots[fe] = (split_3d, split_tc)
-
+            
     ### Event Processing ######################################################
     outfill = common.fill_path(kwargs['FillOut'], **pars)
 

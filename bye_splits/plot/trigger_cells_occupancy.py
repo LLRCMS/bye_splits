@@ -16,7 +16,7 @@ import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
-from utils import common
+from bye_splits.utils import params, common
 
 import argparse
 import numpy as np
@@ -56,7 +56,7 @@ def plot_trigger_cells_occupancy(pars,
                                  layer_edges,
                                  nevents,
                                  log_scale=False,
-								 show_html=False,
+				 show_html=False,
                                  **kw):
     #assumes the binning is regular
     binDistRz = kw['RzBinEdges'][1] - kw['RzBinEdges'][0] 
@@ -104,7 +104,7 @@ def plot_trigger_cells_occupancy(pars,
     simAlgoNames = sorted(simAlgoDFs.keys())
 
     # Inputs: Cluster After Custom Iterative Algorithm
-    outclusterplot = common.fill_path(cl_kw['ClusterOutPlot'], **pars)
+    outclusterplot = common.fill_path(params.cluster_kw['ClusterOutPlot'], **pars)
     with pd.HDFStore(outclusterplot, mode='r') as store:
         splittedClusters_3d_local = store['data']
 
@@ -119,6 +119,7 @@ def plot_trigger_cells_occupancy(pars,
     tcData_sel = tcData[subdetCond]
 
     copt = dict(labels=False)
+
     tcData_full['Rz_bin'] = pd.cut(tcData_full['Rz'],
                                    bins=kw['RzBinEdges'],
                                    **copt)
@@ -267,10 +268,10 @@ def plot_trigger_cells_occupancy(pars,
 
     for _k,(df_3d_cmssw,df_tc,df_3d_local) in simAlgoPlots.items():
 
-        if  nevents > len(df_tc['event'].unique()):
-            m = ( 'You are trying to plot more events ({}) than ' +
-                  'those available in the dataset ({}).'
-                  .format(len(df_tc['event'].unique()), nevents) )
+        if nevents > len(df_tc['event'].unique()):
+            nev_data = len(df_tc['event'].unique())
+            m = ( 'You are trying to plot more events ({}) than '.format(nev_data) +
+                  'those available in the dataset ({}).'.format(nevents) )
             raise ValueError(m)
         
         event_sample = ( random.sample(df_tc['event'].unique()
@@ -279,7 +280,7 @@ def plot_trigger_cells_occupancy(pars,
                         )
         for ev in event_sample:
             # Inputs: Energy 2D histogram after smoothing but before clustering
-            outsmooth = common.fill_path(smooth_kw['SmoothOut'], **pars)
+            outsmooth = common.fill_path(params.smooth_kw['SmoothOut'], **pars)
             with h5py.File(outsmooth, mode='r') as storeSmoothIn:
 
                 kold = kw['FesAlgos'][0]+'_'+str(ev)+'_group_old'
@@ -329,27 +330,22 @@ def plot_trigger_cells_occupancy(pars,
             ev_3d_cmssw = df_3d_cmssw[ df_3d_cmssw.event == ev ]
             ev_3d_local = df_3d_local[ df_3d_local.event == ev ]
 
-            tc_cols = [ 'tc_mipPt', 'tc_z', 'Rz', 'tc_id',
+            tc_cols = [ 'tc_mipPt', 'tc_z', 'tc_id',
                         'tc_eta', 'tc_eta_new', 
                         'phi_old', 'phi_new',
+                        'Rz', 'Rz_bin', 'tc_phi_bin_old', 'tc_phi_bin_new',
                         'genpart_exeta', 'genpart_exphi' ]
             ev_tc = ev_tc.filter(items=tc_cols)
 
             copt = dict(labels=False)
-            ev_tc['Rz_bin']  = pd.cut(ev_tc.Rz,
-                                      bins=kw['RzBinEdges'], **copt )
-            ev_tc['phi_bin_old'] = pd.cut(ev_tc.phi_old,
-                                          bins=kw['PhiBinEdges'], **copt )
-            ev_tc['phi_bin_new'] = pd.cut(ev_tc.phi_new,
-                                          bins=kw['PhiBinEdges'], **copt )
 
             # Convert bin ids back to values (central values in each bin)
             ev_tc['Rz_center'] = binConv(ev_tc.Rz_bin, binDistRz, kw['MinROverZ'])
-            ev_tc['phi_center_old'] = binConv(ev_tc.phi_bin_old, binDistPhi,
+            ev_tc['phi_center_old'] = binConv(ev_tc.tc_phi_bin_old, binDistPhi,
                                               kw['MinPhi'])
-            ev_tc['phi_center_new'] = binConv(ev_tc.phi_bin_new, binDistPhi,
+            ev_tc['phi_center_new'] = binConv(ev_tc.tc_phi_bin_new, binDistPhi,
                                               kw['MinPhi'])
-            _cols_drop = ['Rz_bin', 'phi_bin_old', 'phi_bin_new', 'Rz', 'phi_new']
+            _cols_drop = ['Rz_bin', 'tc_phi_bin_old', 'tc_phi_bin_new', 'Rz', 'phi_new']
             ev_tc = ev_tc.drop(_cols_drop, axis=1)
 
             with common.SupressSettingWithCopyWarning():
@@ -403,14 +399,14 @@ def plot_trigger_cells_occupancy(pars,
                              line_color='black' )
 
             seed_window = ( 'phi seeding step window: {}'
-                           .format(seed_kw['WindowPhiDim']) )
+                           .format(params.seed_kw['WindowPhiDim']) )
             figs = []
             t_d = {0: ( 'Energy Density (before smoothing step, ' +
                         'before algo, {})'.format(seed_window) ),
                    1: ( 'Energy Density (before smoothing step, ' +
                         'after algo, {})'.format(seed_window) ),
                    2: ( 'Energy Density (after smoothing step, ' +
-                        'before alg, {})'.format(seed_window) ),
+                        'before algo, {})'.format(seed_window) ),
                    3: ( 'Energy Density (after smoothing step, ' +
                         'after algo, {})'.format(seed_window) ),
                    4: ( 'Hit Density (before smoothing step, ' +
@@ -435,12 +431,12 @@ def plot_trigger_cells_occupancy(pars,
                       3: 'Energy [mipPt]',
                       4: '#Hits',
                       5: '#Hits' }
-            toolvar_d = {0: ("EnSum", "@{sum_en}"),
-                         1: ("EnSum", "@{sum_en}"),
-                         2: ("EnSum", "@{energy_post_smooth_old}"),
-                         3: ("EnSum", "@{energy_post_smooth_new}"),                         
-                         4: ("#hits", "@{nhits}"),
-                         5: ("#hits", "@{nhits}") }
+            toolvar_d = {0: ('EnSum', '@{sum_en}'),
+                         1: ('EnSum', '@{sum_en}'),
+                         2: ('EnSum', '@{energy_post_smooth_old}'),
+                         3: ('EnSum', '@{energy_post_smooth_new}'),
+                         4: ('#hits', '@{nhits}'),
+                         5: ('#hits', '@{nhits}') }
             rec_opt_d = {0: dict(x='phi_center_old',
                                  source=ColumnDataSource(group_old),
                                  **rect_opt),
@@ -490,7 +486,7 @@ def plot_trigger_cells_occupancy(pars,
                 bar = ColorBar(color_mapper=mapper, **bar_opt)
                 figs[-1].add_layout(bar, 'right')
 
-                figs[-1].rect( fill_color=transform(hvar_d[it], mapper),
+                figs[-1].rect(fill_color=transform(hvar_d[it], mapper),
                               **rec_opt_d[it] )
 
                 figs[-1].hover.tooltips = [ toolvar_d[it] ]

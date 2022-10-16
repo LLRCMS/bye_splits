@@ -460,14 +460,14 @@ if __name__ == "__main__":
         if FLAGS.plot:
             this_file = os.path.basename(__file__).split('.')[0]
             plot_name = common.fill_path(this_file, ext='html', **pars_d)
-                
+            print(plot_name)
             plot_trigger_cells_occupancy(pars_d,
                                          plot_name=plot_name,
                                          pos_endcap=True,
                                          layer_edges=[0,42],
-                                         nevents=25,
+                                         nevents=1,
                                          min_rz=params.opt_kw['MinROverZ'],
                                          max_rz=params.opt_kw['MaxROverZ'],
-                                         **opt_kw)
+                                         **params.opt_kw)
 
     print('Finished for iterative parameter {}.'.format(FLAGS.ipar), flush=True)

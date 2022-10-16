@@ -99,7 +99,7 @@ seed_kw = set_dictionary(
 cluster_kw = set_dictionary(
     { 'ClusterInTC': fill_kw['FillOut'],
       'ClusterInSeeds': seed_kw['SeedOut'],
-	  'ClusterOutPlot': 'cluster_validation',
+      'ClusterOutPlot': 'cluster_validation',
       'ClusterOutValidation': 'cluster_plot',
       'CoeffA': ( (0.015,)*7 + (0.020,)*7 + (0.030,)*7 + (0.040,)*7 + #EM
                   (0.040,)*6 + (0.050,)*6 + # FH
