@@ -75,10 +75,10 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 m = 'Selection {} is not supported.'.format(pars['sel'])
                 raise ValueError(m)
 
-            _events_all = list(df.index.unique())
-            _events_remaining = list(df.index.unique())
-
-            # _events_sample_all = random.sample(_events_all, 10000)
+            if debug:
+                _events_all = list(df.index.unique())
+            else:
+                _events_remaining = list(df.index.unique())
 
             storeComp[fe + '_gen'] = df.filter(regex='^gen.*')
              
@@ -91,17 +91,17 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             else:
                 _events_sample = random.sample(_events_remaining, nevents)
              
-            split = df.loc[_events_all]
-            #split = df.loc[_events_sample + _events_sample_all]
-            #split = df.loc[_events_sample]
-
-            #debug: events with large eta split and good resolution
-            # split = split.loc[ (split.index == 115441) |
-            #                    (split.index == 130968) |
-            #                    (split.index == 77678) |
-            #                    (split.index == 8580) |
-            #                    (split.index == 88782) ]
-            split = split.loc[ (split.index == 88782) ]
+            if debug:
+                split = df.loc[_events_all]
+                # events with large eta split and good resolution
+                split = split.loc[(split.index == 115441) |
+                                  (split.index == 130968) |
+                                  (split.index == 77678) |
+                                  (split.index == 8580) |
+                                  (split.index == 88782) ]
+                
+            else:
+                split = df.loc[_events_sample]
 
             #splitting remaining data into cluster and tc to avoid tc data duplication
             _cl3d_vars = [x for x in split.columns.to_list()

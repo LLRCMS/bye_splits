@@ -40,6 +40,7 @@ function print_usage_iter_opt {
 	-p / --plot_tc	    [ ${PLOT_TC_STR} ]
 	--selection	     	[ ${SELECTION_STR} ]
 	--region			[ ${REGION_STR} ]
+	--cluster_algo		[ ${CLUSTER_ALGOS} ]
 	--no_fill			[ ${DO_FILLING_STR} ]
 	--no_smooth			[ ${DO_SMOOTHING_STR} ]
 	--no_seed			[ ${DO_SEEDING_STR} ]
