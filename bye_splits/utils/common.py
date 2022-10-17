@@ -23,7 +23,7 @@ def binConv(vals, dist, amin):
 def calcRzFromEta(eta):
     """R/z = arctan(theta) [theta is obtained from pseudo-rapidity, eta]"""
     _theta = 2*np.arctan( np.exp(-1 * eta) )
-    return np.arctan( _theta )
+    return np.tan( _theta )
 
 class dot_dict(dict):
     """dot.notation access to dictionary attributes"""
