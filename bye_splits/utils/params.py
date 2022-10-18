@@ -42,7 +42,7 @@ base_kw = {
 def set_dictionary(adict):
     adict.update(base_kw)
     return adict
-    
+
 if len(base_kw['FesAlgos'])!=1:
     raise ValueError('The event number in the cluster task'
                      ' assumes there is only on algo.\n'
@@ -116,3 +116,7 @@ validation_kw = set_dictionary(
       'FillOut': fill_kw['FillOut'] }
 )
 
+# energy task
+energy_kw = set_dictionary(
+    { 'ClusterIn': cluster_kw['ClusterOutValidation']}
+)
