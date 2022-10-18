@@ -26,7 +26,7 @@ def cluster(pars, **kw):
             seed_keys = [x for x in storeInSeeds.keys() if falgo in x  and '_group_new' in x ]
             tc_keys  = [x for x in storeInTC.keys() if falgo in x and '_tc' in x]
             assert(len(seed_keys) == len(tc_keys))
-         
+
             radiusCoeffB = kw['CoeffB']
             empty_seeds = 0
 
@@ -39,7 +39,7 @@ def cluster(pars, **kw):
                                           for xi in tc[:, common.get_column_idx(tc_cols, 'tc_layer')]] )
                 minDist = ( radiusCoeffA +
                             radiusCoeffB * (kw['MidRadius'] - np.abs(tc[:, common.get_column_idx(tc_cols, 'tc_eta_new')])) )
-                
+
                 seedEn, seedX, seedY = storeInSeeds[key2]
 
                 if pars['cluster_algo'] == 'min_distance':
@@ -49,18 +49,18 @@ def cluster(pars, **kw):
 
                     for iseed, (en, sx, sy) in enumerate(zip(seedEn, seedX, seedY)):
                         dR = np.sqrt( (projx-sx)*(projx-sx) + (projy-sy)*(projy-sy) )
-             
+
                         if dRs.shape == (0,):
                             dRs = np.expand_dims(dR, axis=-1)
                         else:
                             dRs = np.concatenate((dRs, np.expand_dims(dR, axis=-1)),
                                                  axis=1)
-             
+
                     # checks if each seed has at least one seed which lies
                     # below the threshold
                     pass_threshold = dRs < np.expand_dims(minDist, axis=-1)
                     pass_threshold = np.logical_or.reduce(pass_threshold, axis=1)
-     
+
                     try:
                         seeds_indexes = np.argmin(dRs, axis=1)
                     except np.AxisError:
@@ -70,32 +70,32 @@ def cluster(pars, **kw):
                 elif pars['cluster_algo'] == 'max_energy':
                     seed_max = np.argmax(seedEn)
                     seeds_indexes = np.full((tc.shape[0],), seed_max) # most energetic seed takes all
-                    pass_threshold = np.ones_like(seeds_indexes, dtype=bool) # always true                    
+                    pass_threshold = np.ones_like(seeds_indexes, dtype=bool) # always true
 
                 seeds_energies = np.array( [seedEn[xi] for xi in seeds_indexes] )
                 # axis 0 stands for trigger cells
                 assert(tc[:].shape[0] == seeds_energies.shape[0])
-         
+
                 seeds_indexes  = np.expand_dims( seeds_indexes[pass_threshold],
                                                  axis=-1 )
                 seeds_energies = np.expand_dims( seeds_energies[pass_threshold],
                                                  axis=-1 )
-         
+
                 tc = tc[:][pass_threshold]
-         
+
                 res = np.concatenate((tc, seeds_indexes, seeds_energies), axis=1)
-         
+
                 key = key1.replace('_tc', '_cl')
                 cols = tc_cols + [ 'seed_idx', 'seed_energy']
                 assert(len(cols)==res.shape[1])
                 df = pd.DataFrame(res, columns=cols)
-         
+
                 # df['cl3d_pos_x'] = df.tc_x * df.tc_mipPt
                 # df['cl3d_pos_y'] = df.tc_y * df.tc_mipPt
                 df['cl3d_pos_z'] = df.tc_z * df.tc_mipPt
                 df['cl3d_pos_x_new'] = df.tc_x_new * df.tc_mipPt
                 df['cl3d_pos_y_new'] = df.tc_y_new * df.tc_mipPt
-                
+
                 cl3d_cols = [#'cl3d_pos_x', 'cl3d_pos_y',
                              'cl3d_pos_x_new', 'cl3d_pos_y_new',
                              'cl3d_pos_z',
@@ -108,19 +108,19 @@ def cluster(pars, **kw):
                                             'cl3d_pos_z'       : 'z',
                                             'tc_mipPt'         : 'mipPt',
                                             'tc_pt'            : 'pt'})
-         
+
                 cl3d = cl3d[ cl3d.pt > kw['PtC3dThreshold'] ]
-                
+
                 cl3d.z    /= cl3d.mipPt
                 cl3d.xnew /= cl3d.mipPt
                 cl3d.ynew /= cl3d.mipPt
-                
+
                 cl3d['x2new'] = cl3d.xnew**2
                 cl3d['y2new'] = cl3d.ynew**2
                 cl3d['distnew'] = np.sqrt(cl3d.x2new + cl3d.y2new)
                 cl3d['phinew'] = np.arctan2(cl3d.ynew, cl3d.xnew)
                 cl3d['etanew'] = np.arcsinh(cl3d.z / cl3d.distnew)
-                
+
                 cl3d['Rz']   = common.calcRzFromEta(cl3d.etanew)
                 cl3d['en']   = cl3d.pt*np.cosh(cl3d.etanew)
 
@@ -130,7 +130,7 @@ def cluster(pars, **kw):
                 if not event_number:
                     m = 'The event number was not extracted!'
                     raise ValueError(m)
-                
+
                 cl3d['event'] = event_number.group(1)
                 cl3d_cols = ['en', 'xnew', 'ynew', 'z', 'Rz',
                              'etanew', 'phinew']
@@ -140,14 +140,23 @@ def cluster(pars, **kw):
                 else:
                     dfout = pd.concat((dfout,cl3d[cl3d_cols+['event']]), axis=0)
 
+            if kw['ForEnergy']:
+                mean_en = np.mean(dfout['en'])
+                outenergy = common.fill_path(kw['EnergyOut'], **pars)
+                print('\nPath: ', outenergy)
+                print()
+                with pd.HDFStore(outenergy, mode='a') as enout:
+                    coef = 'coef_'+str(kw['CoeffA'][0]).replace('.','p')
+                    enout[coef] = dfout['en']
+
             print('[clustering step with param={}] There were {} events without seeds.'
                   .format(pars['ipar'], empty_seeds))
 
-    outclustering = common.fill_path(kw['ClusterOutPlot'], **pars) 
+    outclustering = common.fill_path(kw['ClusterOutPlot'], **pars)
     with pd.HDFStore(outclustering, mode='w') as sout:
         dfout.event = dfout.event.astype(int)
         sout['data'] = dfout
-        
+
 if __name__ == "__main__":
     import argparse
     from bye_splits.utils import params, parsing

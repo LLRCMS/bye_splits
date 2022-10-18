@@ -18,49 +18,23 @@ import math
 
 def energy(pars, **kw):
 
-    #files = []
-
     coefs = np.linspace(0.00,0.05)
     energies = np.array([0])
 
-    for coef in coefs:
-        clust_params = params.cluster_kw
-        clust_params['CoeffA'] = (coef,0)*52 #28(EM)+24(FH+BH)
-        cluster.cluster(pars, **clust_params)
-        clusterin = common.fill_path(kw['ClusterIn'], **pars)
+    # This will create a .hdf5 file containing the cluster energy information corresponding to each coefficient
+    # By default this file is assumed to be there
+    if kw['ReInit']:
+        for coef in coefs:
+            clust_params = params.cluster_kw
+            clust_params['ForEnergy'] = True
+            clust_params['CoeffA'] = (coef,0)*52 #28(EM)+24(FH+BH)
 
-        with h5py.File(clusterin,'r') as ClusterIn:
-            for i, (outer_key, outer_val) in enumerate(ClusterIn.items()):
-                for j, (inner_key, inner_val) in enumerate(ClusterIn[outer_key].items()):
-                    for en in ClusterIn[outer_key]['axis0'][0]:
-                        if i%20==0:
-                            print(list(ClusterIn[outer_key]['axis0'][0]))
-                            print("\nEnergy: ", en)
-        #files.append(clusterin)
-    #print("\nPath: ", clusterin)
+            cluster.cluster(pars, **clust_params)
 
-    #print("Files: ", files)
+            #mean_en = cluster.cluster(pars, **clust_params)
+            #clusterin = common.fill_path(kw['ClusterIn'], **pars)
 
     '''
-    for file in files:
-        with h5py.File(file,'r') as ClusterIn:
-            for i, (outer_key, outer_val) in enumerate(ClusterIn.items()):
-                for j, (inner_key, inner_val) in enumerate(ClusterIn[outer_key].items()):
-                    for en in ClusterIn[outer_key]['axis0'][0]:
-                        if i%20==0:
-                            print(list(ClusterIn[outer_key]['axis0'][0]))
-                            print("\nEnergy: ", en)
-
-
-    coefs = np.linspace(0.00,0.05)
-    energies = np.array([0])
-
-    for coef in coefs:
-        clust_params = params.cluster_kw
-        clust_params['CoeffA'] = (coef,0)*52 #28(EM)+24(FH+BH)
-        en = cluster.cluster(pars, **clust_params)
-        energies = np.append(energies, en)
-
     energies = energies[1:]
 
     for i, (coef, en) in enumerate(zip(coefs, energies)):

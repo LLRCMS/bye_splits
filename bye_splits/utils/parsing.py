@@ -29,3 +29,4 @@ def add_parameters(parser, meta=False):
                         choices=('max_energy', 'min_distance'),
                         default='min_distance', type=str,
                         help='Clustering algorithm applied.')
+    #parser.add_argument('--coef', help='Value of the CoefficentA, or DeltaR=(x,y)/z. Default is 0.015', default=0.015, type=float)

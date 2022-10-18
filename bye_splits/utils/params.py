@@ -106,7 +106,9 @@ cluster_kw = set_dictionary(
                   (0.050,)*12 ), # BH
       'CoeffB': 0,
       'MidRadius': 2.3,
-      'PtC3dThreshold': 0.5 }
+      'PtC3dThreshold': 0.5,
+      'ForEnergy': False,
+      'EnergyOut': 'cluster_energy'}
 )
 
 # validation task
@@ -118,5 +120,7 @@ validation_kw = set_dictionary(
 
 # energy task
 energy_kw = set_dictionary(
-    { 'ClusterIn': cluster_kw['ClusterOutValidation']}
+    { 'ClusterIn': cluster_kw['ClusterOutValidation'],
+      'Coeff': cluster_kw['CoeffA'],
+      'ReInit': False}
 )
