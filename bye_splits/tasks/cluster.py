@@ -155,5 +155,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Clustering standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
     cluster(vars(FLAGS), **params.cluster_kw)

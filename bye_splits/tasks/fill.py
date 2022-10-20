@@ -61,16 +61,24 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             if pars['sel'].startswith('above_eta_'):
                 #1332 events survive
                 df = df[ df['genpart_exeta'] > float(pars['sel'].split('above_eta_')[1]) ]
+
             elif pars['sel'] == 'splits_only':
                 # select events with splitted clusters (enres < energy cut)
                 # if an event has at least one cluster satisfying the enres condition,
                 # all of its clusters are kept (this eases comparison with CMSSW)
                 df.loc[:,'atLeastOne'] = ( df.groupby(['event'])
-                                          .apply(lambda grp:
-                                                 np.any(grp['enres'] < -0.35))
+                                          .apply(lambda grp: np.any(grp['enres'] < -0.35))
                                           )
                 df = df[ df['atLeastOne'] ] #214 events survive
                 df = df.drop(['atLeastOne'], axis=1)
+
+            elif pars['sel'] == 'no_splits':
+                df = df[ (df['genpart_exeta'] > 2.3) & (df['genpart_exeta'] < 2.4) ]
+                df.loc[:,'goodClusters'] = (df.groupby(['event'])
+                                            .apply(lambda grp: np.all(grp['enres'] > -0.15)))
+                df = df[ df['goodClusters'] ] #1574 events survive
+                print(df)
+                df = df.drop(['goodClusters'], axis=1)
             else:
                 m = 'Selection {} is not supported.'.format(pars['sel'])
                 raise ValueError(m)
@@ -269,6 +277,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Filling standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
+    assert FLAGS.sel in ('splits_only','no_splits') or FLAGS.sel.startswith('above_eta_')
 
     fill(vars(FLAGS), tc_map, **params.fill_kw)

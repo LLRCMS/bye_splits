@@ -12,7 +12,7 @@ NEVENTS="-1"
 CLUSTER_ALGO="min_distance"
 SEED_WINDOW="1"
 SMOOTH_KERNEL="default"
-declare -a SELECTIONS=( "splits_only" "above_eta_2.7" )
+declare -a SELECTIONS=( "splits_only" "no_splits" "above_eta_2.7" )
 declare -a REGIONS=( "Si" "ECAL" "MaxShower" )
 declare -a CLUSTER_ALGOS=( "min_distance" "max_energy" )
 declare -a SMOOTH_KERNELS=( "default" "flat_top" )
@@ -38,7 +38,7 @@ function print_usage_iter_opt {
 	--dry-run			[ ${DRYRUN_STR} ]
 	-r / --reprocess	[ ${REPROCESS_STR} ]
 	-p / --plot_tc	    [ ${PLOT_TC_STR} ]
-	--selection	     	[ ${SELECTION_STR} ]
+	-s / --selection	     	[ ${SELECTION_STR} ]
 	--region			[ ${REGION_STR} ]
 	--cluster_algo		[ ${CLUSTER_ALGOS} ]
 	--no_fill			[ ${DO_FILLING_STR} ]
@@ -73,7 +73,7 @@ while [[ $# -gt 0 ]]; do
 			fi
 			shift 2;;
 
-		--selection)
+		-s|--selection)
 			if [ -n "$2" ]; then
 				if [[ ! " ${SELECTIONS[@]} " =~ " ${2} " ]]; then
 					echo "Data selection ${2} is not supported."
@@ -169,6 +169,7 @@ printf "Reprocess trigger cell geometry data: %s\n" ${REPROCESS}
 printf "Perform filling: %s\n" ${DO_FILLING}
 printf "Plot trigger cells: %s\n" ${PLOT_TC}
 printf "Number of events: %s\n" ${NEVENTS}
+echo   "Parameters: " ${ITER_PARS[*]}
 printf "===========================\n"
 
 if [ ${DO_FILLING} -eq 1 ]; then

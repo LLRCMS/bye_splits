@@ -391,7 +391,7 @@ if __name__ == "__main__":
                         default=-1, type=int)
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
+    assert FLAGS.sel in ('splits_only','no_splits') or FLAGS.sel.startswith('above_eta_')
 
     if FLAGS.process:
         process_trigger_cell_geometry_data(region=FLAGS.reg,
@@ -407,8 +407,7 @@ if __name__ == "__main__":
     outresen  = common.fill_path(params.opt_kw['OptEnResOut'],  **pars_d)
     outrespos = common.fill_path(params.opt_kw['OptPosResOut'], **pars_d)
 
-    print('Starting iterative parameter {}.'.format(FLAGS.ipar),
-          flush=True)
+    print('Starting iterative parameter {}.'.format(FLAGS.ipar), flush=True)
     
     with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
         fieldnames = ['ipar', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
@@ -465,7 +464,7 @@ if __name__ == "__main__":
                                          plot_name=plot_name,
                                          pos_endcap=True,
                                          layer_edges=[0,42],
-                                         nevents=1,
+                                         nevents=30,
                                          min_rz=params.opt_kw['MinROverZ'],
                                          max_rz=params.opt_kw['MaxROverZ'],
                                          **params.opt_kw)

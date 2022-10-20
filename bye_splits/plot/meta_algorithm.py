@@ -237,6 +237,8 @@ def resolution_plotter(pars, names_d):
         title_suf = ' (eta > ' + FLAGS.selection.split('above_eta_')[1] + ')'
     elif FLAGS.sel == 'splits_only':
         title_suf = '(split clusters only)'
+    elif FLAGS.sel == 'no_splits':
+        title_suf = '(no split clusters)'
 
     figs_summ = []
     title_d = {0: 'Cluster Energy Resolution: standard deviations {}'.format(title_suf),

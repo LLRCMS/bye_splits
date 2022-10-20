@@ -217,6 +217,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Smoothing standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
-
     smooth(vars(FLAGS), **params.smooth_kw)
