@@ -77,7 +77,6 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 df.loc[:,'goodClusters'] = (df.groupby(['event'])
                                             .apply(lambda grp: np.all(grp['enres'] > -0.15)))
                 df = df[ df['goodClusters'] ] #1574 events survive
-                print(df)
                 df = df.drop(['goodClusters'], axis=1)
             else:
                 m = 'Selection {} is not supported.'.format(pars['sel'])

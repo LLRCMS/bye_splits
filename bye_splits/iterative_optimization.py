@@ -358,7 +358,7 @@ def optimization(pars, **kw):
 
         # end loop over the layers
 
-    plot_name = common.get_html_name(__file__, name='plot_'+str(pars['ipar']).replace('.','p'))
+    plot_name = common.fill_path('tc_moves_', ext='html', **pars)
     plot_obj.plot_iterative(plot_name=plot_name,
                             tab_names = [''+str(x) for x in range(len(ldata_main))],
                             show_html=False)

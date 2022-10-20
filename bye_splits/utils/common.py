@@ -21,7 +21,7 @@ def binConv(vals, dist, amin):
     return (vals*dist) + (dist/2) + amin
 
 def calcRzFromEta(eta):
-    """R/z = arctan(theta) [theta is obtained from pseudo-rapidity, eta]"""
+    """R/z = tan(theta) [theta is obtained from pseudo-rapidity, eta]"""
     _theta = 2*np.arctan( np.exp(-1 * eta) )
     return np.tan( _theta )
 

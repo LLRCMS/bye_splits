@@ -38,8 +38,8 @@ function print_usage_iter_opt {
 	--dry-run			[ ${DRYRUN_STR} ]
 	-r / --reprocess	[ ${REPROCESS_STR} ]
 	-p / --plot_tc	    [ ${PLOT_TC_STR} ]
-	-s / --selection	     	[ ${SELECTION_STR} ]
-	--region			[ ${REGION_STR} ]
+	-s / --sel      	[ ${SELECTION_STR} ]
+	--reg   			[ ${REGION_STR} ]
 	--cluster_algo		[ ${CLUSTER_ALGOS} ]
 	--no_fill			[ ${DO_FILLING_STR} ]
 	--no_smooth			[ ${DO_SMOOTHING_STR} ]
@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
 			print_usage_iter_opt
 			exit 1
 			;;
-		--region)
+		--reg)
 			if [ -n "$2" ]; then
 				if [[ ! " ${REGIONS[@]} " =~ " ${2} " ]]; then
 					echo "Region ${2} is not supported."
@@ -73,14 +73,14 @@ while [[ $# -gt 0 ]]; do
 			fi
 			shift 2;;
 
-		-s|--selection)
+		-s|--sel)
 			if [ -n "$2" ]; then
 				if [[ ! " ${SELECTIONS[@]} " =~ " ${2} " ]]; then
 					echo "Data selection ${2} is not supported."
 					exit 1;
 				else
 					SELECTION="${2}";
-					echo "variable to consider: ${SELECTION}";
+					echo "Variable to consider: ${SELECTION}";
 				fi
 			fi
 			shift 2;;
