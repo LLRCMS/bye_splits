@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-declare -a ITER_PARS=( $(seq 0. .1 1.) )
+declare -a ITER_PARS=( $(seq 0. 0.1 1.) )
 
 DRYRUN="0"
 REPROCESS="0"
@@ -23,24 +23,29 @@ REGION="Si"
 HELP_STR="Prints this help message."
 DRYRUN_STR="(Boolean) Prints all the commands to be launched but does not launch them. Defaults to ${DRYRUN}."
 REPROCESS_STR="(Boolean) Reprocesses the input dataset (slower). Defaults to '${REPROCESS}'."
+ITER_PARS_STR="(List) Parameters to be used by the iterative TC moving algorithm. Defaults to '${ITER_PARS}'"
 PLOT_TC_STR="(Boolean) plot shifted trigger cells instead of originals. Defaults to '${PLOT_TC}'."
 DO_FILLING_STR="(Boolean) run the filling task. Defaults to '${DO_FILLING}'."
 DO_SMOOTHING_STR="(Boolean) run the smoothing task. Defaults to '${DO_SMOOTHING}'."
 DO_SEEDING_STR="(Boolean) run the seeding task. Defaults to '${DO_SEEDING}'."
 DO_CLUSTERING_STR="(Boolean) run the clustering task. Defaults to '${DO_CLUSTERING}'."
-SELECTION_STR="(String) Which initial data selection to apply. Values supported: ${SELECTIONS[*]}.  Defaults to '${SELECTION}'."
+SELECTION_STR="(String) Which initial data selection to apply. Values supported: ${SELECTIONS[*]}. Defaults to '${SELECTION}'."
 REGION_STR="(String) Which initial region to consider. Values supported: ${REGIONS[*]}. Defaults to '${REGION}'."
+SMOOTH_KERNEL_STR="(String) Which smoothing kernel to apply. Values supported: ${SMOOTH_KERNELS[*]}.  Defaults to '${SMOOTH_KERNEL}'."
+CLUSTER_ALGO_STR="(String) Which smoothing kernel to apply. Values supported: ${CLUSTER_ALGOS[*]}.  Defaults to '${CLUSTER_ALGO}'."
 
 function print_usage_iter_opt {
-    USAGE=" $(basename "$0") [-H] [--dry-run --resubmit -t -d -n --klub_tag --stitching_on]
+    USAGE="bash $(basename "$0")
 
 	-h / --help			[ ${HELP_STR} ]
 	--dry-run			[ ${DRYRUN_STR} ]
 	-r / --reprocess	[ ${REPROCESS_STR} ]
-	-p / --plot_tc	    [ ${PLOT_TC_STR} ]
+	--pars          	[ ${ITER_PARS_STR} ]
+	--plot      	    [ ${PLOT_TC_STR} ]
 	-s / --sel      	[ ${SELECTION_STR} ]
 	--reg   			[ ${REGION_STR} ]
-	--cluster_algo		[ ${CLUSTER_ALGOS} ]
+	--smooth_kernel		[ ${SMOOTH_KERNEL_STR} ]
+	--cluster_algo		[ ${CLUSTER_ALGO_STR} ]
 	--no_fill			[ ${DO_FILLING_STR} ]
 	--no_smooth			[ ${DO_SMOOTHING_STR} ]
 	--no_seed			[ ${DO_SEEDING_STR} ]
@@ -84,6 +89,17 @@ while [[ $# -gt 0 ]]; do
 				fi
 			fi
 			shift 2;;
+
+		--pars)
+			ITER_PARS=()
+			end_while=0
+			while [ $end_while -eq 0 ]; do
+				shift;
+				ITER_PARS+=("${1}");
+				if [[ "${2}" =~ ^--.+$  ]] || [[ "${2}" =~ ^-.+$  ]]; then
+					end_while=1
+				fi
+			done;;
 
 		--cluster_algo)
 			if [ -n "$2" ]; then
@@ -137,7 +153,7 @@ while [[ $# -gt 0 ]]; do
 			DO_CLUSTERING=0;
 			shift ;;
 
-		-p|--plot_tc)
+		-p|--plot)
 			PLOT_TC=1;
 			shift ;;
 
@@ -160,6 +176,7 @@ done
 
 printf "===== Input Arguments =====\n"
 printf "Dry-run: %s\n" ${DRYRUN}
+echo   "Iteration parameters:" ${ITER_PARS[*]}
 printf "Region: %s\n" ${REGION}
 printf "Selection: %s\n" ${SELECTION}
 printf "Cluster algo: %s\n" ${CLUSTER_ALGO}
@@ -169,7 +186,6 @@ printf "Reprocess trigger cell geometry data: %s\n" ${REPROCESS}
 printf "Perform filling: %s\n" ${DO_FILLING}
 printf "Plot trigger cells: %s\n" ${PLOT_TC}
 printf "Number of events: %s\n" ${NEVENTS}
-echo   "Parameters: " ${ITER_PARS[*]}
 printf "===========================\n"
 
 if [ ${DO_FILLING} -eq 1 ]; then
