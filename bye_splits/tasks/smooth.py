@@ -66,8 +66,11 @@ def smoothAlongPhi(arr, kernel,
 
     nBinsSide = (np.array(binSums, dtype=np.int32) - 1) / 2; # one element per Rz bin
     assert(nBinsSide.shape[0] == nbinsRz)
-    area = (1 + 2.0 * (1 - 0.5**nBinsSide)) # one element per Rz bin
-
+    if kernel=='default':
+        area = (1 + 2.0 * (1 - 0.5**nBinsSide)) # one element per Rz bin
+    elif kernel=='flat_top':
+        area = 5 - 2**(2-nBinsSide) # 1 + 1 + 1 + 2*(Sum[1/(2^i), {i, 1, nBinsSide - 1}])
+        
     if seedsNormByArea:
         R1 = minROverZ + bin1 * (maxROverZ - minROverZ) / nbinsRz
         R2 = R1 + ((maxROverZ - minROverZ) / nbinsRz)
@@ -76,7 +79,12 @@ def smoothAlongPhi(arr, kernel,
         #compute quantities for non-normalised-by-area histoMax
         #The 0.1 factor in bin1_10pct is an attempt to keep the same rough scale for seeds.
         #The exact value is arbitrary.
+        #The value is zero, not indented, but: according to JB:
+        #    the seeding threshold has been tuned with this definition,
+        #    it should be kept this way until the seeding thresholds
+        #    are retuned (or this 10% thingy is removed)
         bin1_10pct = int(0.1) * nbinsRz
+
         R1_10pct = minROverZ + bin1_10pct * (maxROverZ - minROverZ) / nbinsRz
         R2_10pct = R1_10pct + ((maxROverZ - minROverZ) / nbinsRz)
         area_10pct_ = ((np.pi * (R2_10pct**2 - R1_10pct**2)) / nbinsPhi)
@@ -98,15 +106,6 @@ def smoothAlongPhi(arr, kernel,
         arr_new[roll_indices,:] = arr_smooth / np.expand_dims(area[roll_indices], axis=-1)
 
     return arr_new * areaPerTriggerCell
-
-def printHistogram(arr):
-    for i in range(arr.shape[0]):
-        for j in range(arr.shape[1]):
-            if arr[i,j] == 0:
-                print('-', end='|')
-            else:
-                print('X', end='|')
-        print()
 
 def createHistogram(bins, nbinsRz, nbinsPhi):
     """
@@ -159,7 +158,6 @@ def smooth(pars, **kwargs):
                 #            outfile='outCMSSWBeforeSmooth.txt')
          
                 #printHistogram(ev)
-
                 phi_opt = dict(binSums=kwargs['BinSums'],
                                nbinsRz=kwargs['NbinsRz'],
                                nbinsPhi=kwargs['NbinsPhi'],
@@ -202,6 +200,8 @@ def smooth(pars, **kwargs):
 
                 storeOut[kold] = (energies_old, wght_x_old, wght_y_old )
                 storeOut[knew] = (energies_new, wght_x_new, wght_y_new )
+                if '109299' in knew:
+                    breakpoint()
                 
                 storeOut[kold].attrs['columns'] = cols_old
                 storeOut[knew].attrs['columns'] = cols_new                
