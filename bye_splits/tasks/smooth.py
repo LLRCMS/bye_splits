@@ -107,7 +107,7 @@ def smoothAlongPhi(arr, kernel,
 
     return arr_new * areaPerTriggerCell
 
-def createHistogram(bins, nbinsRz, nbinsPhi):
+def createHistogram(bins, nbinsRz, nbinsPhi, fillWith):
     """
     Creates a 2D histogram with fixed (R/z vs Phi) size.
     The input event must be a 2D array where the inner axis encodes, in order:
@@ -115,11 +115,9 @@ def createHistogram(bins, nbinsRz, nbinsPhi):
     - 2: Phi bin index
     - 3: Value of interest ("counts" of the histogram, "z axis")
     """
-    arr = np.zeros((nbinsRz, nbinsPhi))
+    arr = np.full((nbinsRz, nbinsPhi), fillWith)
 
     for bin in bins[:]:
-        assert(bin[0] >= 0)
-        assert(bin[1] >= 0)
         rzbin = int(bin[0])
         phibin = int(bin[1])
         arr[rzbin,phibin] = bin[2]
@@ -140,24 +138,13 @@ def smooth(pars, **kwargs):
             
             for kold,knew in zip(keys_old,keys_new):
                 opts = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
-                energies_old = createHistogram(storeIn[kold][:,[0,1,2]], *opts)
-                energies_new = createHistogram(storeIn[knew][:,[0,1,2]], *opts)
-                wght_x_old   = createHistogram(storeIn[kold][:,[0,1,3]], *opts)
-                wght_y_old   = createHistogram(storeIn[kold][:,[0,1,4]], *opts)
-                wght_x_new   = createHistogram(storeIn[knew][:,[0,1,3]], *opts)
-                wght_y_new   = createHistogram(storeIn[knew][:,[0,1,4]], *opts)
+                energies_old = createHistogram(storeIn[kold][:,[0,1,2]], *opts, fillWith=0.)
+                energies_new = createHistogram(storeIn[knew][:,[0,1,2]], *opts, fillWith=0.)
+                wght_x_old   = createHistogram(storeIn[kold][:,[0,1,3]], *opts, fillWith=np.nan)
+                wght_y_old   = createHistogram(storeIn[kold][:,[0,1,4]], *opts, fillWith=np.nan)
+                wght_x_new   = createHistogram(storeIn[knew][:,[0,1,3]], *opts, fillWith=np.nan)
+                wght_y_new   = createHistogram(storeIn[knew][:,[0,1,4]], *opts, fillWith=np.nan)
 
-                # if '44317' in key:
-                #     print(key)
-                #     print(energies)
-                #     breakpoint()
-
-                # if '187544' in key:
-                #     valid1(energies,
-                #            infile='outLocalBeforeSmooth.txt',
-                #            outfile='outCMSSWBeforeSmooth.txt')
-         
-                #printHistogram(ev)
                 phi_opt = dict(binSums=kwargs['BinSums'],
                                nbinsRz=kwargs['NbinsRz'],
                                nbinsPhi=kwargs['NbinsPhi'],
@@ -200,8 +187,6 @@ def smooth(pars, **kwargs):
 
                 storeOut[kold] = (energies_old, wght_x_old, wght_y_old )
                 storeOut[knew] = (energies_new, wght_x_new, wght_y_new )
-                if '109299' in knew:
-                    breakpoint()
                 
                 storeOut[kold].attrs['columns'] = cols_old
                 storeOut[knew].attrs['columns'] = cols_new                
