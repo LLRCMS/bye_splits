@@ -155,7 +155,14 @@ def resolution_plotter(pars, names_d):
                 
             hratio = [[(x/y if y!=0. else 1. if x==0. else 0.)
                        for x,y in zip(v1,v2)] for v1,v2 in zip(hold,hnew)]
-            
+            error_flag = -1
+            segments = [[((x/y)*np.sqrt(1/x+1/y) if y!=0. and x!= 0 else 1.)
+                         for x,y in zip(v1,v2)] for v1,v2 in zip(hold,hnew)]
+            y_seg_low = [[((x-y/2) if y!=error_flag else 0.)
+                          for x,y in zip(rat,seg)] for rat,seg in zip(hratio,segments)]
+            y_seg_up  = [[((x+y/2) if y!=error_flag else 1.)
+                          for x,y in zip(rat,seg)] for rat,seg in zip(hratio,segments)]
+
             for it in range(3):
                 line_centers = edgnew[it][1:]-(edgnew[it][1]-edgnew[it][0])/2
                 repeated_parameter = [par for _ in range(len(hnew[it]))]
@@ -164,11 +171,15 @@ def resolution_plotter(pars, names_d):
                     res_dict.append( dict(x=line_centers.tolist(),
                                           y=hnew[it].tolist(),
                                           yratio=hratio[it],
+                                          y_seg_low=y_seg_low[it],
+                                          y_seg_up=y_seg_up[it],
                                           par=repeated_parameter) )
                 else:
                     res_dict[it]['x'].extend(line_centers.tolist())
                     res_dict[it]['y'].extend(hnew[it].tolist())
                     res_dict[it]['yratio'].extend(hratio[it])
+                    res_dict[it]['y_seg_low'].extend(y_seg_low[it])
+                    res_dict[it]['y_seg_up'].extend(y_seg_up[it])
                     res_dict[it]['par'].extend(repeated_parameter)
 
     max_sources = [ max( max(res_dict[q]['y']), max(hold[q]) ) for q in range(3) ]
@@ -215,6 +226,7 @@ def resolution_plotter(pars, names_d):
     custom_opt = dict(x='x', y='y',
                       color='red', legend_label='Custom', **quad_opt)
     ratio_opt = dict(x='x', y='yratio', color='gray', size=4, legend_label='CMSSW/Custom')
+    uncert_opt = dict(x0='x', x1='x', y0='y_seg_low', y1='y_seg_up', color='gray', line_width=2, legend_label='CMSSW/Custom')
 
     p, p_ratio = ([] for _ in range(2))
     title_d = {0: 'Energy Resolution: RecoPt/GenPt',
@@ -224,7 +236,7 @@ def resolution_plotter(pars, names_d):
                     1: r'$$\eta_{\text{Reco}} - \eta_{\text{Gen}}$$',
                     2: r'$$\phi_{\text{Reco}} - \phi_{\text{Gen}}$$', }
     for it in range(3):
-        p.append( plotting.figure( width=400, height=300,
+        p.append( plotting.figure(width=400, height=300,
                                   title=title_d[it],
                                   y_range=models.Range1d(-1., max_sources[it]+1),
                                   tools='save,box_zoom,reset',
@@ -247,6 +259,7 @@ def resolution_plotter(pars, names_d):
         p_ratio[-1].output_backend = 'svg'
         p_ratio[-1].toolbar.logo = None
         p_ratio[-1].circle(source=sources[it], view=views[it], **ratio_opt)
+        p_ratio[-1].segment(source=sources[it], view=views[it], **uncert_opt)
         p_ratio[-1].xaxis.axis_label = axis_label_d[it]
         #p_ratio[-1].yaxis.axis_label = 'Custom / CMSSW'
         p_ratio[-1].min_border_top = 5
