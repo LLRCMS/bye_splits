@@ -73,9 +73,9 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 df = df.drop(['atLeastOne'], axis=1)
 
             elif pars['sel'] == 'no_splits':
-                df = df[ (df['genpart_exeta'] > 2.3) & (df['genpart_exeta'] < 2.4) ]
+                df = df[ (df['genpart_exeta'] > 2.) & (df['genpart_exeta'] < 2.6) ]
                 df.loc[:,'goodClusters'] = (df.groupby(['event'])
-                                            .apply(lambda grp: np.all(grp['enres'] > -0.15)))
+                                            .apply(lambda grp: np.all(grp['enres'] > -0.2)))
                 df = df[ df['goodClusters'] ] #1574 events survive
                 df = df.drop(['goodClusters'], axis=1)
             else:
@@ -90,14 +90,14 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             storeComp[fe + '_gen'] = df.filter(regex='^gen.*')
              
             df = df.drop(['matches', 'best_match', 'cl3d_layer_pt'], axis=1)
-             
+
             # random pick some events (fixing the seed for reproducibility)
             if nevents == -1:
                 _events_sample = random.sample(_events_remaining,
                                                len(_events_remaining))
             else:
                 _events_sample = random.sample(_events_remaining, nevents)
-             
+
             if debug:
                 split = df.loc[_events_all]
                 # events with large eta split and good resolution
@@ -111,21 +111,20 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 split = df.loc[_events_sample]
 
             #splitting remaining data into cluster and tc to avoid tc data duplication
-            _cl3d_vars = [x for x in split.columns.to_list()
-                          if 'tc_' not in x]
+            _cl3d_vars = [x for x in split.columns.to_list() if 'tc_' not in x]
              
             split_3d = split[_cl3d_vars]
             split_3d = split_3d.reset_index()
-             
+
             #trigger cells info is repeated across clusters in the same event
             _tc_vars = [x for x in split.columns.to_list() if 'cl3d' not in x]
             split_tc = split.groupby('event').head(1)[_tc_vars]
             _tc_vars = [x for x in _tc_vars if 'tc_' in x]
             split_tc = split_tc.explode( _tc_vars )
-             
+
             for v in _tc_vars:
                 split_tc[v] = split_tc[v].astype(np.float64)
-             
+
             split_tc.tc_id = split_tc.tc_id.astype('uint32')
 
             split_tc['R'] = np.sqrt(split_tc.tc_x**2 + split_tc.tc_y**2)
@@ -139,7 +138,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                                         labels=False)
             nansel = pd.isna(split_tc['Rz_bin']) 
             split_tc = split_tc[~nansel]
-             
+
             tc_map = tc_map.rename(columns={'id': 'tc_id'})
 
             split_tc = split_tc.merge(tc_map,
@@ -197,7 +196,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 wght_f = lambda pos: ev_tc.tc_mipPt*pos/np.abs(ev_tc.tc_z)
                 ev_tc['wght_x'] = wght_f(ev_tc.tc_x)
                 ev_tc['wght_y'] = wght_f(ev_tc.tc_y)
-                
+
                 with common.SupressSettingWithCopyWarning():
                     ev_3d['cl3d_Roverz'] = common.calcRzFromEta(ev_3d.loc[:,'cl3d_eta'])
                     ev_3d['gen_Roverz']  = common.calcRzFromEta(ev_3d.loc[:,'genpart_exeta'])

@@ -137,13 +137,15 @@ def smooth(pars, **kwargs):
                         if falgo in x and '_group_new' in x]
             
             for kold,knew in zip(keys_old,keys_new):
-                opts = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
-                energies_old = createHistogram(storeIn[kold][:,[0,1,2]], *opts, fillWith=0.)
-                energies_new = createHistogram(storeIn[knew][:,[0,1,2]], *opts, fillWith=0.)
-                wght_x_old   = createHistogram(storeIn[kold][:,[0,1,3]], *opts, fillWith=np.nan)
-                wght_y_old   = createHistogram(storeIn[kold][:,[0,1,4]], *opts, fillWith=np.nan)
-                wght_x_new   = createHistogram(storeIn[knew][:,[0,1,3]], *opts, fillWith=np.nan)
-                wght_y_new   = createHistogram(storeIn[knew][:,[0,1,4]], *opts, fillWith=np.nan)
+                en_opts = dict(nbinsRz=kwargs['NbinsRz'], nbinsPhi=kwargs['NbinsPhi'], fillWith=0.)
+                xy_opts = dict(nbinsRz=kwargs['NbinsRz'], nbinsPhi=kwargs['NbinsPhi'],
+                               fillWith=kwargs['Placeholder'])
+                energies_old = createHistogram(storeIn[kold][:,[0,1,2]], **en_opts)
+                energies_new = createHistogram(storeIn[knew][:,[0,1,2]], **en_opts)
+                wght_x_old   = createHistogram(storeIn[kold][:,[0,1,3]], **xy_opts)
+                wght_y_old   = createHistogram(storeIn[kold][:,[0,1,4]], **xy_opts)
+                wght_x_new   = createHistogram(storeIn[knew][:,[0,1,3]], **xy_opts)
+                wght_y_new   = createHistogram(storeIn[knew][:,[0,1,4]], **xy_opts)
 
                 phi_opt = dict(binSums=kwargs['BinSums'],
                                nbinsRz=kwargs['NbinsRz'],
@@ -163,13 +165,6 @@ def smooth(pars, **kwargs):
                     **phi_opt,
                     )
             
-                # if '187544' in key:
-                #     valid1(energies, '187544',
-                #            infile='outLocalHalfSmooth.txt',
-                #            outfile='outCMSSWHalfSmooth.txt')
-         
-                #printHistogram(ev)
-
                 rz_opt = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
                 energies_old = smoothAlongRz(
                     energies_old,

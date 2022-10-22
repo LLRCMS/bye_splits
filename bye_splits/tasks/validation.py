@@ -109,7 +109,7 @@ def stats_collector(pars, debug=True, **kw):
                 local = storeInLocal[key1]
                 cmssw = storeInCMSSW[key2]
                 cmssw_cols = list(cmssw.attrs['columns'])
-                
+
                 locEtaNew = local['etanew'].to_numpy()
                 locPhiNew = local['phinew'].to_numpy()
                 locRz  = local['Rz'].to_numpy()

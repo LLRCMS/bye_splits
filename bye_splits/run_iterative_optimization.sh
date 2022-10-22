@@ -13,7 +13,7 @@ CLUSTER_ALGO="min_distance"
 SEED_WINDOW="1"
 SMOOTH_KERNEL="default"
 declare -a SELECTIONS=( "splits_only" "no_splits" "above_eta_2.7" )
-declare -a REGIONS=( "Si" "ECAL" "MaxShower" )
+declare -a REGIONS=( "Si" "ECAL" "HCAL" "MaxShower" "ExcludeMaxShower" )
 declare -a CLUSTER_ALGOS=( "min_distance" "max_energy" )
 declare -a SMOOTH_KERNELS=( "default" "flat_top" )
 SELECTION="splits_only"
@@ -99,7 +99,8 @@ while [[ $# -gt 0 ]]; do
 				if [[ "${2}" =~ ^--.+$  ]] || [[ "${2}" =~ ^-.+$  ]]; then
 					end_while=1
 				fi
-			done;;
+			done
+			shift;;
 
 		--cluster_algo)
 			if [ -n "$2" ]; then
@@ -184,6 +185,9 @@ printf "Seed window: %s\n" ${SEED_WINDOW}
 printf "Smooth kernel: %s\n" ${SMOOTH_KERNEL}
 printf "Reprocess trigger cell geometry data: %s\n" ${REPROCESS}
 printf "Perform filling: %s\n" ${DO_FILLING}
+printf "Perform smoothing: %s\n" ${DO_SMOOTHING}
+printf "Perform seeding: %s\n" ${DO_SEEDING}
+printf "Perform clustering: %s\n" ${DO_CLUSTERING}
 printf "Plot trigger cells: %s\n" ${PLOT_TC}
 printf "Number of events: %s\n" ${NEVENTS}
 printf "===========================\n"

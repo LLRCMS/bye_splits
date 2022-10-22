@@ -158,7 +158,7 @@ def optimization(pars, **kw):
             idxs = [ np.arange(kw['NbinsPhi']) ]
             for _ in range(boundshift):
                 idxs.append( np.roll(idxs[-1], -1) )
-             
+
             # "excess" (positive or negative): how much the first bin 0 cell is misaligned
             # with respect to its starting position
             # required due to the cyclic boundary conditions
@@ -358,7 +358,7 @@ def optimization(pars, **kw):
 
         # end loop over the layers
 
-    plot_name = common.fill_path('tc_moves_', ext='html', **pars)
+    plot_name = common.fill_path('tc_moves', ext='html', **pars)
     plot_obj.plot_iterative(plot_name=plot_name,
                             tab_names = [''+str(x) for x in range(len(ldata_main))],
                             show_html=False)
@@ -424,13 +424,13 @@ if __name__ == "__main__":
 
         if not FLAGS.no_smooth:
             tasks.smooth.smooth(pars_d, **params.smooth_kw)
-
+        
         if not FLAGS.no_seed:
             tasks.seed.seed(pars_d, **params.seed_kw)
-
+        
         if not FLAGS.no_cluster:
             tasks.cluster.cluster(pars_d, **params.cluster_kw)
-
+        
         res = tasks.validation.stats_collector(pars_d, **params.validation_kw)
 
         writer.writerow({fieldnames[0] : FLAGS.ipar,
@@ -464,7 +464,7 @@ if __name__ == "__main__":
                                          plot_name=plot_name,
                                          pos_endcap=True,
                                          layer_edges=[0,42],
-                                         nevents=30,
+                                         nevents=25,
                                          min_rz=params.opt_kw['MinROverZ'],
                                          max_rz=params.opt_kw['MaxROverZ'],
                                          **params.opt_kw)

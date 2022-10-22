@@ -25,6 +25,8 @@ base_kw = {
     'MaxROverZ': MaxROverZ,
     'MinPhi': MinPhi,
     'MaxPhi': MaxPhi,
+    'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
+    'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
 
     'LayerEdges': [0,42],
     'IsHCAL': False,
@@ -32,11 +34,9 @@ base_kw = {
     'DataFolder': DataFolder,
     'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
     'BasePath': Path(__file__).parents[2] / DataFolder,
-
     'OutPath': Path(__file__).parents[2] / 'out',
 
-    'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
-    'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
+    'Placeholder': np.nan,
 }
 
 def set_dictionary(adict):
