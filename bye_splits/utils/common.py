@@ -91,6 +91,9 @@ def get_detector_region_mask(df, region):
     elif region == 'MaxShower':
         subdetCond = ( (df.subdet == 1) &
                        (df.layer >= 8) & (df.layer <= 15) )
+    elif region == 'ExcludeMaxShower':
+        subdetCond = ( (df.subdet == 1) &
+                       (df.layer < 8) | (df.layer > 15) )
 
     df = df.drop(['subdet'], axis=1)
     return df, subdetCond
@@ -99,6 +102,15 @@ def get_html_name(script_name, name=''):
     f = Path(script_name).absolute().parents[1] / 'out'
     f /= name + '.html'
     return f
+
+def print_histogram(arr):
+    for i in range(arr.shape[0]):
+        for j in range(arr.shape[1]):
+            if arr[i,j] == 0:
+                print('-', end='|')
+            else:
+                print('X', end='|')
+        print()
 
 def tc_base_selection(df, region, pos_endcap, range_rz):
     if pos_endcap:
