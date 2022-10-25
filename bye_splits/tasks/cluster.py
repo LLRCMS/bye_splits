@@ -15,13 +15,30 @@ import re
 import numpy as np
 import pandas as pd
 import h5py
+import itertools
+
+def deltar(dfgen, dfout):
+    diff = pd.DataFrame({'deta': dfout['etanew']-dfgen['genpart_exeta'],
+                         'dphi': np.abs(dfout['phinew']-dfgen['genpart_exphi'])})
+
+    sel=diff['dphi']>np.pi
+    diff['dphi']-=sel*(2*np.pi)
+
+    return(np.sqrt(diff['dphi']*diff['dphi']+diff['deta']*diff['deta']))
+
+def matching(event):
+    if event.matches.sum()==0:
+        return event.cl3d_pt==event.cl3d_pt.max()
+    else:
+        cond_a = event.matches==True
+        cond_b = event.cl3d_pt==event[cond_a].cl3d_pt.max()
+        return (cond_a&cond_b)
 
 def cluster(pars, **kw):
     inclusteringseeds = common.fill_path(kw['ClusterInSeeds'], **pars)
     inclusteringtc = common.fill_path(kw['ClusterInTC'], **pars)
     outclusteringvalidation = common.fill_path(kw['ClusterOutValidation'], **pars)
     with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut:
-
         for falgo in kw['FesAlgos']:
             seed_keys = [x for x in storeInSeeds.keys() if falgo in x  and '_group_new' in x ]
             tc_keys  = [x for x in storeInTC.keys() if falgo in x and '_tc' in x]
@@ -32,6 +49,7 @@ def cluster(pars, **kw):
 
             for key1, key2 in zip(tc_keys, seed_keys):
                 tc = storeInTC[key1]
+
                 tc_cols = list(tc.attrs['columns'])
 
                 # check columns via `tc.attrs['columns']`
@@ -82,7 +100,7 @@ def cluster(pars, **kw):
                                                  axis=-1 )
 
                 tc = tc[:][pass_threshold]
-
+                ####breakpoint()
                 res = np.concatenate((tc, seeds_indexes, seeds_energies), axis=1)
 
                 key = key1.replace('_tc', '_cl')
@@ -95,12 +113,18 @@ def cluster(pars, **kw):
                 df['cl3d_pos_z'] = df.tc_z * df.tc_mipPt
                 df['cl3d_pos_x_new'] = df.tc_x_new * df.tc_mipPt
                 df['cl3d_pos_y_new'] = df.tc_y_new * df.tc_mipPt
+                #df['num_cells'] = tc.shape[0]
+
 
                 cl3d_cols = [#'cl3d_pos_x', 'cl3d_pos_y',
                              'cl3d_pos_x_new', 'cl3d_pos_y_new',
                              'cl3d_pos_z',
                              'tc_mipPt', 'tc_pt']
+
+                ##breakpoint()
+
                 cl3d = df.groupby(['seed_idx']).sum()[cl3d_cols]
+
                 cl3d = cl3d.rename(columns={#'cl3d_pos_x'       : 'x',
                                             #'cl3d_pos_y'       : 'y',
                                             'cl3d_pos_x_new'   : 'xnew',
@@ -124,6 +148,9 @@ def cluster(pars, **kw):
                 cl3d['Rz']   = common.calcRzFromEta(cl3d.etanew)
                 cl3d['en']   = cl3d.pt*np.cosh(cl3d.etanew)
 
+                #Number of TCells in cluster
+                cl3d['Ncells'] = df.groupby(['seed_idx']).count()['tc_pt']
+
                 search_str = '{}_([0-9]{{1,7}})_tc'
                 search_str = search_str.format(kw['FesAlgos'][0])
                 event_number = re.search(search_str, key1)
@@ -133,21 +160,40 @@ def cluster(pars, **kw):
 
                 cl3d['event'] = event_number.group(1)
                 cl3d_cols = ['en', 'xnew', 'ynew', 'z', 'Rz',
-                             'etanew', 'phinew']
+                             'etanew', 'phinew', 'Ncells']
                 storeOut[key] = cl3d[cl3d_cols]
                 if key1 == tc_keys[0] and key2 == seed_keys[0]:
                     dfout = cl3d[cl3d_cols+['event']]
                 else:
                     dfout = pd.concat((dfout,cl3d[cl3d_cols+['event']]), axis=0)
 
+            #breakpoint()
+
             if kw['ForEnergy']:
-                mean_en = np.mean(dfout['en'])
+                def get_val(arr):
+                    return next((i for i in arr if i is not None),0.0)
+
+                coef = 'coef_'+str(kw['CoeffA'][0]).replace('.','p')
+
                 outenergy = common.fill_path(kw['EnergyOut'], **pars)
-                print('\nPath: ', outenergy)
-                print()
-                with pd.HDFStore(outenergy, mode='a') as enout:
-                    coef = 'coef_'+str(kw['CoeffA'][0]).replace('.','p')
-                    enout[coef] = dfout['en']
+                gens = parent_dir + '/data/' + kw['GenPart'] + '.hdf5'
+
+                ev = dfout['event']
+                num_cells = dfout['Ncells']
+                clust_en = dfout['en']
+                clust_id = dfout['en'].axes[0]
+
+                vals = pd.DataFrame({'event'   : ev,
+                                     'Ncells'  : num_cells,
+                                     'en'      : clust_en,
+                                     'clust_id': clust_id}) # note that the cluster id is just the seed id
+
+                EnOut = pd.HDFStore(outenergy, mode='a')
+
+                # THIS MUST BE CHECKED (with __ as ___ is throwing an error)
+                EnOut = pd.HDFStore(outenergy, mode='a')
+                EnOut.put(coef,vals)
+                EnOut.close()
 
             print('[clustering step with param={}] There were {} events without seeds.'
                   .format(pars['ipar'], empty_seeds))
@@ -164,5 +210,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Clustering standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
+    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
     cluster(vars(FLAGS), **params.cluster_kw)

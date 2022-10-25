@@ -21,7 +21,7 @@ def validation(mipPts, event, infile, outfile,
     """
     with open(infile, 'w') as flocal, open(outfile, 'r') as fremote:
         lines = fremote.readlines()
-         
+
         for line in lines:
             l = line.split('\t')
             if l[0]=='\n' or '#' in l[0]:
@@ -32,34 +32,34 @@ def validation(mipPts, event, infile, outfile,
             val_local = mipPts[bin1,bin2]
             if abs(val_remote-val_local)>0.0001:
                 print('Diff found! Bin1={}\t Bin2={}\tRemote={}\tLocal={}'.format(bin1, bin2, val_remote, val_local))
-         
+
         for bin1 in range(nbinsRz):
             for bin2 in range(nbinsPhi):
                 flocal.write('{}\t{}\t{}\n'.format(bin1, bin2, np.around(mipPts[bin1,bin2], 6)))
-            
+
 def seed(pars, debug=False, **kwargs):
     inseeding = common.fill_path(kwargs['SeedIn'], **pars)
-    outseeding = common.fill_path(kwargs['SeedOut'], **pars) 
+    outseeding = common.fill_path(kwargs['SeedOut'], **pars)
     with h5py.File(inseeding,  mode='r') as storeIn, h5py.File(outseeding, mode='w') as storeOut:
 
         for falgo in kwargs['FesAlgos']:
             keys = [x for x in storeIn.keys() if falgo in x]
-         
+
             for key in keys:
                 energies, wght_x, wght_y = storeIn[key]
-         
+
                 # if '187544' in key:
                 #      validation(energies, '187544',
                 #                 infile='outLocalBeforeSeeding.txt',
                 #                 outfile='outCMSSWBeforeSeeding.txt',
                 #                 kwargs['NbinsRz'], kwargs['NbinsPhi'] )
-         
+
                 # add unphysical top and bottom R/z rows for edge cases
                 # fill the rows with negative (unphysical) energy values
                 # boundary conditions on the phi axis are satisfied by 'np.roll'
                 phiPad = -1 * np.ones((1,kwargs['NbinsPhi']))
                 energies = np.concatenate( (phiPad,energies,phiPad) )
-         
+
                 #remove padding
                 slc = slice(1,energies.shape[0]-1)
 
@@ -72,7 +72,7 @@ def seed(pars, debug=False, **kwargs):
                     for iphi in range(-window_size_phi, window_size_phi+1):
                         surroundings.append( np.roll(energies, shift=(iRz,iphi),
                                                      axis=(0,1))[slc] )
-                
+
                 # south = np.roll(energies, shift=1,  axis=0)[slc]
                 # north = np.roll(energies, shift=-1, axis=0)[slc]
                 # east  = np.roll(energies, shift=-1, axis=1)[slc]
@@ -81,7 +81,7 @@ def seed(pars, debug=False, **kwargs):
                 # northwest = np.roll(energies, shift=(-1,1),  axis=(0,1))[slc]
                 # southeast = np.roll(energies, shift=(1,-1),  axis=(0,1))[slc]
                 # southwest = np.roll(energies, shift=(1,1),   axis=(0,1))[slc]
-         
+
                 energies = energies[slc]
 
                 # maxima = ( (energies > kwargs['histoThreshold'] ) &
@@ -93,9 +93,9 @@ def seed(pars, debug=False, **kwargs):
                 maxima = (energies > kwargs['histoThreshold'] )
                 for surr in surroundings:
                     maxima = maxima & (energies >= surr)
-         
+
                 seeds_idx = np.nonzero(maxima)
-         
+
                 res = ( energies[seeds_idx],
                         wght_x[seeds_idx], wght_y[seeds_idx],
                         #wght_x_new[seeds_idx], wght_y_new[seeds_idx]
@@ -108,17 +108,17 @@ def seed(pars, debug=False, **kwargs):
 
                 assert(len(kwargs['FesAlgos'])==1)
                 search_str = '{}_([0-9]{{1,7}})_group'.format(kwargs['FesAlgos'][0])
-         
+
                 event_number = re.search(search_str, key).group(1)
-         
+
                 if debug:
                     print('Ev:{}'.format(event_number))
                     print('Seeds bins: {}'.format(seeds_idx))
                     # print('NSeeds={}\tMipPt={}\tX={}\tY={}\tXnew={}\tYnew={}'
-                    #       .format(len(res[0]),res[0],res[1],res[2],res[3],res[4])) 
+                    #       .format(len(res[0]),res[0],res[1],res[2],res[3],res[4]))
                     print('NSeeds={}\tMipPt={}\tX={}\tY={}'
-                          .format(len(res[0]),res[0],res[1],res[2])) 
-         
+                          .format(len(res[0]),res[0],res[1],res[2]))
+
                 storeOut[key] = res
                 storeOut[key].attrs['columns'] = ['seedEn',
                                                   'seedX', 'seedY',
@@ -134,5 +134,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Seeding standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
+    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
     seed(vars(FLAGS), **params.cluster_kw)

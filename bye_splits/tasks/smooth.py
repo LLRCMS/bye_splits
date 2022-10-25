@@ -20,7 +20,7 @@ def valid1(energies, infile, outfile, nbinsRz, nbinsPhi):
     """
     with open(infile, 'w') as flocal, open(outfile, 'r') as fremote :
         lines = fremote.readlines()
-         
+
         for line in lines:
             l = line.split('\t')
             if l[0]=='\n' or '#' in l[0]:
@@ -34,7 +34,7 @@ def valid1(energies, infile, outfile, nbinsRz, nbinsPhi):
         for bin1 in range(nbinsRz):
             for bin2 in range(nbinsPhi):
                 flocal.write('{}\t{}\t{}\n'.format(bin1, bin2, np.around(energies[bin1,bin2], 6)))
-                
+
 
 def smoothAlongRz(arr, nbinsRz, nbinsPhi):
     """
@@ -138,7 +138,7 @@ def smooth(pars, **kwargs):
                         if falgo in x and '_group_old' in x]
             keys_new = [x for x in storeIn.keys()
                         if falgo in x and '_group_new' in x]
-            
+
             for kold,knew in zip(keys_old,keys_new):
                 opts = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
                 energies_old = createHistogram(storeIn[kold][:,[0,1,2]], *opts)
@@ -157,7 +157,7 @@ def smooth(pars, **kwargs):
                 #     valid1(energies,
                 #            infile='outLocalBeforeSmooth.txt',
                 #            outfile='outCMSSWBeforeSmooth.txt')
-         
+
                 #printHistogram(ev)
 
                 phi_opt = dict(binSums=kwargs['BinSums'],
@@ -177,12 +177,12 @@ def smooth(pars, **kwargs):
                     kernel=pars['smooth_kernel'],
                     **phi_opt,
                     )
-            
+
                 # if '187544' in key:
                 #     valid1(energies, '187544',
                 #            infile='outLocalHalfSmooth.txt',
                 #            outfile='outCMSSWHalfSmooth.txt')
-         
+
                 #printHistogram(ev)
 
                 rz_opt = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
@@ -194,17 +194,17 @@ def smooth(pars, **kwargs):
                     energies_new,
                     *rz_opt,
                     )
-         
+
                 #printHistogram(ev)
                 # 'wght_x_new', 'wght_y_new'
-                cols_old = [ 'energies_old', 'wght_x_old', 'wght_y_old' ] 
-                cols_new = [ 'energies_new', 'wght_x_new', 'wght_y_new' ] 
+                cols_old = [ 'energies_old', 'wght_x_old', 'wght_y_old' ]
+                cols_new = [ 'energies_new', 'wght_x_new', 'wght_y_new' ]
 
                 storeOut[kold] = (energies_old, wght_x_old, wght_y_old )
                 storeOut[knew] = (energies_new, wght_x_new, wght_y_new )
-                
+
                 storeOut[kold].attrs['columns'] = cols_old
-                storeOut[knew].attrs['columns'] = cols_new                
+                storeOut[knew].attrs['columns'] = cols_new
                 doc_m = 'Energies (post-smooth) and projected bin positions'
                 doc_message = doc_m
                 storeOut[kold].attrs['doc'] = doc_message
@@ -217,6 +217,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Smoothing standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_')
+    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
 
     smooth(vars(FLAGS), **params.smooth_kw)

@@ -12,7 +12,7 @@ NEVENTS="-1"
 CLUSTER_ALGO="min_distance"
 SEED_WINDOW="1"
 SMOOTH_KERNEL="default"
-declare -a SELECTIONS=( "splits_only" "above_eta_2.7" )
+declare -a SELECTIONS=( "splits_only" "above_eta_2.7" "below_eta_2.7")
 declare -a REGIONS=( "Si" "ECAL" "MaxShower" )
 declare -a CLUSTER_ALGOS=( "min_distance" "max_energy" )
 declare -a SMOOTH_KERNELS=( "default" "flat_top" )
@@ -152,7 +152,7 @@ while [[ $# -gt 0 ]]; do
 		--nevents)
 			NEVENTS="${2}"
 			shift 2;;
-		
+
 		--) shift; break;;
 		*) break ;;
     esac
@@ -210,7 +210,7 @@ function run_parallel() {
 	fi
 
 	comm+="$@"
-	
+
 	[[ ${DRYRUN} -eq 1 ]] && echo ${comm} || ${comm}
 }
 

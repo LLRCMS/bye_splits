@@ -107,8 +107,10 @@ cluster_kw = set_dictionary(
       'CoeffB': 0,
       'MidRadius': 2.3,
       'PtC3dThreshold': 0.5,
-      'ForEnergy': False,
-      'EnergyOut': 'cluster_energy'}
+      'ForEnergy': True,
+      'EnergyOut': 'cluster_energy',
+      'RecoOut': 'reco_eff',
+      'GenPart': fill_kw['FillIn']}
 )
 
 # validation task
@@ -122,5 +124,8 @@ validation_kw = set_dictionary(
 energy_kw = set_dictionary(
     { 'ClusterIn': cluster_kw['ClusterOutValidation'],
       'Coeff': cluster_kw['CoeffA'],
-      'ReInit': False}
+      'ReInit': False, # If true, ../scripts/en_per_deltaR.py will create an .hdf5 file containing energy info.
+      'Coeffs': (0.0,0.05,50), #tuple containing (coeff_start, coeff_end, num_coeffs)
+      'EnergyIn': cluster_kw['EnergyOut'],
+      'RecoIn': cluster_kw['RecoOut']}
 )
