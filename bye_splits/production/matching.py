@@ -1,4 +1,13 @@
-#!/usr/bin/env python
+# coding: utf-8
+
+_all_ = [ ]
+
+import os
+from pathlib import Path
+import sys
+parent_dir = os.path.abspath(__file__ + 2 * '/..')
+sys.path.insert(0, parent_dir)
+
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -6,23 +15,7 @@ import uproot # uproot4
 #from itertools import chain
 
 import prod_params
-
-disconnectedTriggerLayers = [
-    2,
-    4,
-    6,
-    8,
-    10,
-    12,
-    14,
-    16,
-    18,
-    20,
-    22,
-    24,
-    26,
-    28
-]
+from utils import params
 
 def deltar(df):
     df['deta']=df['cl3d_eta']-df['genpart_exeta']
@@ -73,7 +66,7 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE):
                 batch = batch[ batch['tc_zside']==1 ] #positive endcap
                 batch = batch.drop(columns=['tc_zside'])
                 #remove layers not read by trigger cells
-                batch = batch[ ~batch['tc_layer'].isin(disconnectedTriggerLayers) ]
+                batch = batch[ ~batch['tc_layer'].isin(params.disconnectedTriggerLayers) ]
                 #convert all the trigger cell hits in each event to a list
                 batch = batch.groupby(by=['event']).aggregate(lambda x: list(x))
                 batches_tc.append(batch)
