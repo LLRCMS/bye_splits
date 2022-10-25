@@ -1,0 +1,3 @@
+[submodule "bye_splits/crab/realistic-signaldriven-elinks"]
+	path = bye_splits/crab/realistic-signaldriven-elinks
+	url = git@github.com:portalesHEP/realistic-signaldriven-elinks.git
