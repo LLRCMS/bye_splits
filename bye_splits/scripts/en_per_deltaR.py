@@ -17,9 +17,6 @@ import h5py
 import math
 import itertools
 
-def get_val(arr):
-    return next((i for i in arr if i is not None),0.0)
-
 def energy(pars, **kw):
 
     start, end, tot = kw['Coeffs']
@@ -39,24 +36,35 @@ def energy(pars, **kw):
 
     # Create list of mean cluster energy from cluster_energy... file
     infile = common.fill_path(kw['EnergyIn'], **pars)
-    with h5py.File(infile,mode='r') as InFile:
+    genFile = common.fill_path(kw['genFile'], **pars)
+    outfile = common.fill_path('normed_energy', **pars)
+    with pd.HDFStore(infile,'r') as InFile, pd.HDFStore(genFile,'r') as GenFile, pd.HDFStore(outfile,'w') as OutFile:
 
-        max_coef_key = 'coef_' + str(end).replace('.','p')
-        max_energies = [i[0] for i in list(InFile[max_coef_key]['block1_values'])] #list(InFile...) produces a list of shape (1,0) arrays
+        coef_keys = ['/coef_' + str(coef).replace('.','p') for coef in coefs]
 
-        for key in InFile.keys():
-            if key.startswith('coef_'):
-                coef = InFile[key]
+        #for coef in coef_keys[1:]:
+        for coef in coef_keys:
 
-                num_cells = [i[0] for i in list(coef['block0_values'])]
-                energy = [i[0] for i in list(coef['block1_values'])]
+            df_current = InFile[coef]
+            df_final = InFile[coef_keys[-1]]
 
-                breakpoint()
+            df_current['seed_idx'] = df_current.index
+            df_final['seed_idx'] = df_final.index
 
-                en_norm = [en/max for en,max in list(itertools.zip_longest(energy,max_energies,fillvalue=0.0))]
+            combined_df = df_current.set_index(['event','seed_idx']).join(df_final.set_index(['event','seed_idx']), how='inner', lsuffix='_current', rsuffix='_max')
 
-                normed_energies = np.append(normed_energies,en_norm)
-                cell_nums = np.append(cell_nums,num_cells)
+            combined_df['normed_en'] = combined_df['en_current']/combined_df['en_max']
+
+            if coef == coef_keys[0]:
+                mean_normed_en = 0.0
+            else:
+                mean_normed_en = combined_df['normed_en'].mean()
+
+            normed_energies = np.append(normed_energies,mean_normed_en)
+
+            OutFile[coef] = combined_df.drop(columns=['en_max','xnew_max','ynew_max','z_max','Rz_max','etanew_max','phinew_max','Ncells_max'])
+
+
 
     one_line = np.full(coefs.shape,1.0)
 
@@ -65,9 +73,9 @@ def energy(pars, **kw):
     p.line(coefs,normed_energies,color='blue',line_dash = 'solid')
     p.line(coefs,one_line,color='green',line_dash='dashed')
 
-    p.extra_y_ranges = {'y2': Range1d(start = 0, end=90)}
-    p.add_layout(LinearAxis(y_range_name= 'y2',axis_label='Number of Cells'), 'right')
-    p.line(coefs,cell_nums,color='red',line_dash = 'solid', y_range_name='y2')
+    #p.extra_y_ranges = {'y2': Range1d(start = 0, end=90)}
+    #p.add_layout(LinearAxis(y_range_name= 'y2',axis_label='Number of Cells'), 'right')
+    #p.line(coefs,cell_nums,color='red',line_dash = 'solid', y_range_name='y2')
 
     #p.title.text = 'Normalized Cluster Energy vs. Radius From Seed'
     p.xaxis.axis_label = 'Distance From Seed (x/z)'
@@ -83,7 +91,7 @@ if __name__ == "__main__":
     from bokeh.util.compiler import TypeScript
     from bokeh.models import LinearAxis, Range1d
 
-    output_file('NewFigure.html')
+    output_file('ClusterEnergy.html')
 
     parser = argparse.ArgumentParser(description='Clustering standalone step.')
     parsing.add_parameters(parser)

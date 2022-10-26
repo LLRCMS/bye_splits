@@ -167,32 +167,16 @@ def cluster(pars, **kw):
                 else:
                     dfout = pd.concat((dfout,cl3d[cl3d_cols+['event']]), axis=0)
 
-            #breakpoint()
-
             if kw['ForEnergy']:
                 def get_val(arr):
                     return next((i for i in arr if i is not None),0.0)
 
                 coef = 'coef_'+str(kw['CoeffA'][0]).replace('.','p')
-
                 outenergy = common.fill_path(kw['EnergyOut'], **pars)
-                gens = parent_dir + '/data/' + kw['GenPart'] + '.hdf5'
-
-                ev = dfout['event']
-                num_cells = dfout['Ncells']
-                clust_en = dfout['en']
-                clust_id = dfout['en'].axes[0]
-
-                vals = pd.DataFrame({'event'   : ev,
-                                     'Ncells'  : num_cells,
-                                     'en'      : clust_en,
-                                     'clust_id': clust_id}) # note that the cluster id is just the seed id
-
-                EnOut = pd.HDFStore(outenergy, mode='a')
 
                 # THIS MUST BE CHECKED (with __ as ___ is throwing an error)
                 EnOut = pd.HDFStore(outenergy, mode='a')
-                EnOut.put(coef,vals)
+                EnOut.put(coef,dfout)
                 EnOut.close()
 
             print('[clustering step with param={}] There were {} events without seeds.'

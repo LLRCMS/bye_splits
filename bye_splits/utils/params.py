@@ -107,7 +107,7 @@ cluster_kw = set_dictionary(
       'CoeffB': 0,
       'MidRadius': 2.3,
       'PtC3dThreshold': 0.5,
-      'ForEnergy': True,
+      'ForEnergy': False,
       'EnergyOut': 'cluster_energy',
       'RecoOut': 'reco_eff',
       'GenPart': fill_kw['FillIn']}
@@ -127,5 +127,6 @@ energy_kw = set_dictionary(
       'ReInit': False, # If true, ../scripts/en_per_deltaR.py will create an .hdf5 file containing energy info.
       'Coeffs': (0.0,0.05,50), #tuple containing (coeff_start, coeff_end, num_coeffs)
       'EnergyIn': cluster_kw['EnergyOut'],
-      'RecoIn': cluster_kw['RecoOut']}
+      'RecoIn': cluster_kw['RecoOut'],
+      'genFile': validation_kw['FillOutComp']}
 )
