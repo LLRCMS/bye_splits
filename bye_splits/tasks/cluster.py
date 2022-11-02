@@ -10,6 +10,7 @@ sys.path.insert(0, parent_dir)
 import bye_splits
 from bye_splits import utils
 from bye_splits.utils import common
+from bye_splits.scripts import matching_v3 as match
 
 import re
 import numpy as np
@@ -17,42 +18,27 @@ import pandas as pd
 import h5py
 import itertools
 
-def deltar(dfgen, dfout):
-    diff = pd.DataFrame({'deta': dfout['etanew']-dfgen['genpart_exeta'],
-                         'dphi': np.abs(dfout['phinew']-dfgen['genpart_exphi'])})
-
-    sel=diff['dphi']>np.pi
-    diff['dphi']-=sel*(2*np.pi)
-
-    return(np.sqrt(diff['dphi']*diff['dphi']+diff['deta']*diff['deta']))
-
-def matching(event):
-    if event.matches.sum()==0:
-        return event.cl3d_pt==event.cl3d_pt.max()
-    else:
-        cond_a = event.matches==True
-        cond_b = event.cl3d_pt==event[cond_a].cl3d_pt.max()
-        return (cond_a&cond_b)
-
 def cluster(pars, **kw):
     inclusteringseeds = common.fill_path(kw['ClusterInSeeds'], **pars)
     inclusteringtc = common.fill_path(kw['ClusterInTC'], **pars)
     outclusteringvalidation = common.fill_path(kw['ClusterOutValidation'], **pars)
+
     with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut:
+        # Note that the 498 events in storeInSeeds and storeInTC are a subset of the gen_cl3d_tc events
         for falgo in kw['FesAlgos']:
             seed_keys = [x for x in storeInSeeds.keys() if falgo in x  and '_group_new' in x ]
             tc_keys  = [x for x in storeInTC.keys() if falgo in x and '_tc' in x]
+
             assert(len(seed_keys) == len(tc_keys))
 
             radiusCoeffB = kw['CoeffB']
             empty_seeds = 0
-
+            # each key is an event
             for key1, key2 in zip(tc_keys, seed_keys):
                 tc = storeInTC[key1]
 
                 tc_cols = list(tc.attrs['columns'])
 
-                # check columns via `tc.attrs['columns']`
                 radiusCoeffA = np.array( [kw['CoeffA'][int(xi)-1]
                                           for xi in tc[:, common.get_column_idx(tc_cols, 'tc_layer')]] )
                 minDist = ( radiusCoeffA +
@@ -100,7 +86,7 @@ def cluster(pars, **kw):
                                                  axis=-1 )
 
                 tc = tc[:][pass_threshold]
-                ####breakpoint()
+
                 res = np.concatenate((tc, seeds_indexes, seeds_energies), axis=1)
 
                 key = key1.replace('_tc', '_cl')
@@ -120,8 +106,6 @@ def cluster(pars, **kw):
                              'cl3d_pos_x_new', 'cl3d_pos_y_new',
                              'cl3d_pos_z',
                              'tc_mipPt', 'tc_pt']
-
-                ##breakpoint()
 
                 cl3d = df.groupby(['seed_idx']).sum()[cl3d_cols]
 
@@ -154,6 +138,8 @@ def cluster(pars, **kw):
                 search_str = '{}_([0-9]{{1,7}})_tc'
                 search_str = search_str.format(kw['FesAlgos'][0])
                 event_number = re.search(search_str, key1)
+
+                # event_number.group(1) is still a member of the gen_cl3d_tc events
                 if not event_number:
                     m = 'The event number was not extracted!'
                     raise ValueError(m)
@@ -167,16 +153,22 @@ def cluster(pars, **kw):
                 else:
                     dfout = pd.concat((dfout,cl3d[cl3d_cols+['event']]), axis=0)
 
+                # At this point dfout contains events that are still a subset of those in gen_cl3d_tc
             if kw['ForEnergy']:
-                def get_val(arr):
-                    return next((i for i in arr if i is not None),0.0)
-
+                dfout.event = dfout.event.astype(int)
                 coef = 'coef_'+str(kw['CoeffA'][0]).replace('.','p')
                 outenergy = common.fill_path(kw['EnergyOut'], **pars)
 
                 # THIS MUST BE CHECKED (with __ as ___ is throwing an error)
                 EnOut = pd.HDFStore(outenergy, mode='a')
-                EnOut.put(coef,dfout)
+                GenFile = pd.HDFStore('data/gen_cl3d_tc.hdf5', mode='r') # this file is created by matching_v3
+
+                en_df = dfout.join(GenFile[kw['FesAlgos'][0]], on='event', how='inner')
+
+                sub_df = en_df[['event','etanew','phinew','en','genpart_exphi','genpart_exeta','genpart_energy']].drop_duplicates()
+
+                #EnOut.put(coef,en_df)
+                EnOut.put(coef,sub_df)
                 EnOut.close()
 
             print('[clustering step with param={}] There were {} events without seeds.'

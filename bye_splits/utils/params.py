@@ -128,5 +128,30 @@ energy_kw = set_dictionary(
       'Coeffs': (0.0,0.05,50), #tuple containing (coeff_start, coeff_end, num_coeffs)
       'EnergyIn': cluster_kw['EnergyOut'],
       'RecoIn': cluster_kw['RecoOut'],
-      'genFile': validation_kw['FillOutComp']}
+      'BestMatch': True,
+      'MatchFile': False}
+)
+
+ntuple_template = 'Floatingpoint{fe}Genclustersntuple/HGCalTriggerNtuple'
+algo_trees = {}
+for fe in base_kw['FesAlgos']:
+    algo_trees[fe] = ntuple_template.format(fe=fe)
+    #assert(algo_trees[fe] == gen_tree) #remove ass soon as other algorithms are considered
+
+coefs = [(coef,0)*52 for coef in np.linspace(energy_kw['Coeffs'][0], energy_kw['Coeffs'][1], energy_kw['Coeffs'][2])]
+coef_dict = {}
+for i,coef in enumerate(coefs):
+    coef_key = 'coef_'+str(i)
+    coef_dict[coef_key] = coef
+
+match_kw = set_dictionary(
+    { 'Files': ['/data_CMS/cms/alves/TriggerCells/hadd.root'],
+      'Threshold': energy_kw['Coeffs'][1],
+      'GenTree': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple',
+      'AlgoTrees': algo_trees,
+      'MatchOut': 'gen_match',
+      'BestMatch': False,
+      'ReachedEE': 2, #0 converted photons; 1: photons that missed HGCAL; 2: photons that hit HGCAL
+      'CreateDF': False,
+      'CoeffAlgos': coef_dict}
 )

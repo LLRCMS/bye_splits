@@ -41,6 +41,8 @@ def seed(pars, debug=False, **kwargs):
     inseeding = common.fill_path(kwargs['SeedIn'], **pars)
     outseeding = common.fill_path(kwargs['SeedOut'], **pars)
     with h5py.File(inseeding,  mode='r') as storeIn, h5py.File(outseeding, mode='w') as storeOut:
+        #Helpful for quickly verifying which events are considered
+        event_list = [[int(s) for s in key.split("_") if s.isdigit()][0] for key in list(storeIn.keys())]
 
         for falgo in kwargs['FesAlgos']:
             keys = [x for x in storeIn.keys() if falgo in x]
@@ -120,6 +122,7 @@ def seed(pars, debug=False, **kwargs):
                           .format(len(res[0]),res[0],res[1],res[2]))
 
                 storeOut[key] = res
+
                 storeOut[key].attrs['columns'] = ['seedEn',
                                                   'seedX', 'seedY',
                                                   # 'seedXnew', 'seedYnew'
@@ -135,4 +138,5 @@ if __name__ == "__main__":
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
     assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
-    seed(vars(FLAGS), **params.cluster_kw)
+    seed(vars(FLAGS), **params.seed_kw)
+    #seed(vars(FLAGS), **params.cluster_kw)

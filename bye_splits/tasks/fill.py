@@ -20,6 +20,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
     Fills split clusters information according to the Stage2 FPGA fixed binning.
     """
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
+
     for fe in kwargs['FesAlgos']:
         infill = common.fill_path(kwargs['FillIn'])
         simAlgoFiles[fe] = [ infill ]
@@ -36,6 +37,8 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
     if debug:
         print('Input HDF5 keys:')
         print(simAlgoNames)
+
+    #simAlgoDFs contains the 29535 events in gen_cl3d_tc (produced by matching_v3.py)
 
     ### Data Processing ######################################################
     outfillplot = common.fill_path(kwargs['FillOutPlot'], **pars)
@@ -86,6 +89,8 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             storeComp[fe + '_gen'] = df.filter(regex='^gen.*')
 
             df = df.drop(['matches', 'best_match', 'cl3d_layer_pt'], axis=1)
+
+            # At this point we have 485 events that are still a subset of the gen_cl3d_tc events
 
             # random pick some events (fixing the seed for reproducibility)
             if nevents == -1:
@@ -165,11 +170,12 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
 
             simAlgoPlots[fe] = (split_3d, split_tc)
 
+    # split_3d still contains the 485 event subset of the gen_cl3d_tc events
+    # split_tc contains 24508 events that are also a subset of the gen_cl3d_tc events
     ### Event Processing ######################################################
     outfill = common.fill_path(kwargs['FillOut'], **pars)
 
     with h5py.File(outfill, mode='w') as store:
-
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
             for ev in df_tc['event'].unique().astype('int'):
                 branches  = ['cl3d_layer_pt', 'event',
@@ -178,7 +184,6 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 ev_3d = df_3d[ df_3d.event == ev ]
                 if debug:
                     print(ev_3d.filter(items=branches))
-
                 _simCols_tc = ['tc_phi_bin_old', 'tc_phi_bin_new',
                                'Rz_bin', 'tc_layer',
                                'tc_x', 'tc_y',
@@ -263,15 +268,26 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                     group_tot_new = pd.concat((group_tot_new,
                                                group_new[:]), axis=0)
 
+    # we still have the 485 event subset of gen_cl3d_tc
     return group_tot_old, group_tot_new
 
 if __name__ == "__main__":
     import argparse
     from bye_splits.utils import params, parsing
+    from bye_splits import iterative_optimization as itopt
 
     parser = argparse.ArgumentParser(description='Filling standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
     assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
 
-    fill(vars(FLAGS), tc_map, **params.fill_kw)
+    pars_d = {'sel'           : FLAGS.sel,
+              'reg'           : FLAGS.reg,
+              'seed_window'   : FLAGS.seed_window,
+              'smooth_kernel' : FLAGS.smooth_kernel,
+              'cluster_algo'  : FLAGS.cluster_algo }
+    pars_d.update({'ipar': FLAGS.ipar})
+
+    tc_map = itopt.optimization(pars_d, **params.opt_kw)
+
+    fill(vars(FLAGS), -1, tc_map, **params.fill_kw)

@@ -8,6 +8,7 @@ from bye_splits import utils
 from bye_splits import tasks
 from bye_splits.utils import common
 from bye_splits.tasks import cluster
+from bye_splits.scripts import matching_v3 as match
 
 import re
 import numpy as np
@@ -17,11 +18,71 @@ import h5py
 import math
 import itertools
 
+def deltar(df):
+    df['deta']=df['etanew']-df['genpart_exeta']
+    df['dphi']=np.abs(df['phinew']-df['genpart_exphi'])
+    sel=df['dphi']>np.pi
+    df['dphi']-=sel*(2*np.pi)
+    return(np.sqrt(df['dphi']*df['dphi']+df['deta']*df['deta']))
+
+def matching(event):
+    # If there are no clusters within the threshold, return the one with the highest energy
+    if event.matches.sum()==0:
+        return event.en==event.en.max()
+    # If there are multiple clusters within the threshold, take the maximum energy _*of these clusters*_
+    else:
+        cond_a = event.matches==True
+        cond_b = event.en==event[cond_a].en.max()
+        return (cond_a&cond_b)
+
+def matched_file(pars,**kw):
+    start, end, tot = kw['Coeffs']
+    coefs = np.linspace(start, end, tot)
+
+    # Create list of mean cluster energy from cluster_energy... file
+    infile = common.fill_path(kw['EnergyIn'], **pars)
+    outfile = common.fill_path(input('Enter Output File Base Name: '), **pars)
+
+    with pd.HDFStore(infile,'r') as InFile, pd.HDFStore(outfile,'w') as OutFile:
+
+        coef_keys = ['/coef_' + str(coef).replace('.','p') for coef in coefs]
+        #
+        for coef in coef_keys[1:]:
+            threshold = 0.05
+            df_current = InFile[coef]
+
+            df_current['deltar'] = deltar(df_current)
+
+            df_current['matches'] = df_current.deltar<=threshold
+
+            group=df_current.groupby('event')
+
+            best_matches = group.apply(matching).to_frame()
+
+            df_current = df_current.set_index('event',append=True)
+
+            df_current = df_current.join(best_matches, rsuffix='_max')
+
+            df_current['event'] = df_current.index.get_level_values(1)
+            df_current.index = df_current.index.get_level_values(0)
+
+            df_current = df_current.rename(columns={0: "en_max"})
+
+            if kw['BestMatch']:
+                sel=df_current['en_max']==True
+                df_current = df_current[sel]
+
+            df_current = df_current.dropna()
+            OutFile[coef] = df_current
+            print("{} has been added to {}\n.".format(coef,outfile))
+
+        print("{} has finished being filled.".format(outfile))
+
+
 def energy(pars, **kw):
 
     start, end, tot = kw['Coeffs']
     coefs = np.linspace(start, end, tot)
-    #energies = np.array([])
     normed_energies = np.array([])
     cell_nums = np.array([])
 
@@ -34,64 +95,58 @@ def energy(pars, **kw):
             clust_params['CoeffA'] = (coef,0)*52 #28(EM)+24(FH+BH)
             cluster.cluster(pars, **clust_params)
 
-    # Create list of mean cluster energy from cluster_energy... file
-    infile = common.fill_path(kw['EnergyIn'], **pars)
-    genFile = common.fill_path(kw['genFile'], **pars)
-    outfile = common.fill_path('normed_energy', **pars)
-    with pd.HDFStore(infile,'r') as InFile, pd.HDFStore(genFile,'r') as GenFile, pd.HDFStore(outfile,'w') as OutFile:
+    if kw['MatchFile']:
+        matched_file(pars, **kw)
 
-        coef_keys = ['/coef_' + str(coef).replace('.','p') for coef in coefs]
+    file = common.fill_path(input('Input File Base Name: '), **pars)
+    with pd.HDFStore(file,'r') as File:
+        coefs = File.keys()
+        max = File[coefs[-1]].set_index('event').drop(columns=['matches', 'en_max'])
+        for i, coef in enumerate(coefs):
 
-        #for coef in coef_keys[1:]:
-        for coef in coef_keys:
+            if coef != coefs[-1]:
+                df_current = File[coef].set_index('event').drop(columns=['matches', 'en_max'])
 
-            df_current = InFile[coef]
-            df_final = InFile[coef_keys[-1]]
+                df_joined = df_current.join(max,how='left',rsuffix='_max')
+                df_joined = df_joined.T.drop_duplicates().T
 
-            df_current['seed_idx'] = df_current.index
-            df_final['seed_idx'] = df_final.index
-
-            combined_df = df_current.set_index(['event','seed_idx']).join(df_final.set_index(['event','seed_idx']), how='inner', lsuffix='_current', rsuffix='_max')
-
-            combined_df['normed_en'] = combined_df['en_current']/combined_df['en_max']
-
-            if coef == coef_keys[0]:
-                mean_normed_en = 0.0
+                df_joined['normed_energies'] = df_joined['en']/df_joined['en_max']
+                mean_energy = df_joined['normed_energies'].mean()
             else:
-                mean_normed_en = combined_df['normed_en'].mean()
+                mean_energy = 1.0
 
-            normed_energies = np.append(normed_energies,mean_normed_en)
+            normed_energies = np.append(normed_energies,mean_energy)
 
-            OutFile[coef] = combined_df.drop(columns=['en_max','xnew_max','ynew_max','z_max','Rz_max','etanew_max','phinew_max','Ncells_max'])
+    one_line = np.full(tot-1,1.0)
 
+    fig, ax = plt.subplots()
+    ax.plot(coefs,normed_energies,color='blue')
+    ax.plot(coefs,one_line,color='green')
+    ax.set_xlabel('Radius From Seed (x/z)')
+    ax.set_ylabel('Normalized Cluster Energy')
+    ax.set_title('Normalized Cluster Energy vs. Radius From Seed')
 
+    plt.savefig(input('Output Figure Name: ') + '.png')
 
-    one_line = np.full(coefs.shape,1.0)
+    '''output_file('NormalizedClusterEnergy_Matched.html')
 
-    p = figure(title='Normalized Cluster Energy vs. Radius From Seed', y_range=(0.0,1.2),y_axis_label='Cluster Energy/Max Cluster Energy')
+    one_line = np.full(tot-1,1.0)
+
+    p = figure(title='Normalized Cluster Energy vs. Radius From Seed', x_axis_label = 'Distance From Seed (x/z)', y_axis_label='Cluster Energy/Max Cluster Energy')
 
     p.line(coefs,normed_energies,color='blue',line_dash = 'solid')
     p.line(coefs,one_line,color='green',line_dash='dashed')
 
-    #p.extra_y_ranges = {'y2': Range1d(start = 0, end=90)}
-    #p.add_layout(LinearAxis(y_range_name= 'y2',axis_label='Number of Cells'), 'right')
-    #p.line(coefs,cell_nums,color='red',line_dash = 'solid', y_range_name='y2')
-
-    #p.title.text = 'Normalized Cluster Energy vs. Radius From Seed'
-    p.xaxis.axis_label = 'Distance From Seed (x/z)'
-    #p.yaxis.axis_label = 'Cluster Energy/Max Cluster Energy'
-    show(p)
-
+    show(p)'''
 
 
 if __name__ == "__main__":
     import argparse
     from bye_splits.utils import params, parsing
-    from bokeh.plotting import figure, output_file, show
-    from bokeh.util.compiler import TypeScript
-    from bokeh.models import LinearAxis, Range1d
-
-    output_file('ClusterEnergy.html')
+    import matplotlib.pyplot as plt
+    #from bokeh.plotting import figure, output_file, show, save
+    #from bokeh.util.compiler import TypeScript
+    #from bokeh.models import LinearAxis, Range1d
 
     parser = argparse.ArgumentParser(description='Clustering standalone step.')
     parsing.add_parameters(parser)

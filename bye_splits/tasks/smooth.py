@@ -132,13 +132,12 @@ def smooth(pars, **kwargs):
     insmooth = common.fill_path(kwargs['SmoothIn'], **pars)
     outsmooth = common.fill_path(kwargs['SmoothOut'], **pars)
     with h5py.File(insmooth,  mode='r') as storeIn, h5py.File(outsmooth, mode='w') as storeOut :
-
         for falgo in kwargs['FesAlgos']:
             keys_old = [x for x in storeIn.keys()
                         if falgo in x and '_group_old' in x]
             keys_new = [x for x in storeIn.keys()
                         if falgo in x and '_group_new' in x]
-
+            # Note that each key represents an event
             for kold,knew in zip(keys_old,keys_new):
                 opts = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
                 energies_old = createHistogram(storeIn[kold][:,[0,1,2]], *opts)
