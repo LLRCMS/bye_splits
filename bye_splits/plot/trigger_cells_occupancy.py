@@ -12,6 +12,7 @@ to describe the full phase space and the one defined ("selected") by `pars["regi
 _all_ = [ ]
 
 import os
+from pathlib import Path
 import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
@@ -65,14 +66,14 @@ def plot_trigger_cells_occupancy(pars,
 
     SHIFTH, SHIFTV = 3*binDistPhi, binDistRz
 
-    tcDataPath = Path(kw['BasePath']) / params.DataFolder / 'test_triggergeom.root'
+    tcDataPath = Path(kw['BasePath']) / 'test_triggergeom.root'
     tcFile = up.open(tcDataPath)
 
     tcFolder = 'hgcaltriggergeomtester'
     tcTreeName = 'TreeTriggerCells'
     tcTree = tcFile[ os.path.join(tcFolder, tcTreeName) ]
 
-    simDataPath = Path(kw['BasePath']) / params.DataFolder / 'gen_cl3d_tc.hdf5'
+    simDataPath = Path(kw['BasePath']) / 'gen_cl3d_tc.hdf5'
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
 
     for fe in kw['FesAlgos']:
@@ -226,8 +227,10 @@ def plot_trigger_cells_occupancy(pars,
                        y_axis_type='linear')
 
         p_full = figure(**fig_opt)
+        p_full.output_backend = 'svg'
         p_full.toolbar.logo = None
         p_sel  = figure(**fig_opt)
+        p_sel.output_backend = 'svg'
         p_sel.toolbar.logo = None
 
         rect_opt = dict(x='phi_center', y='Rz_center',
@@ -476,6 +479,7 @@ def plot_trigger_cells_occupancy(pars,
 
             for it in range(len(t_d.keys())):
                 figs.append( figure(title=t_d[it], **fig_opt) )
+                figs[-1].output_backend = 'svg'
                 figs[-1].toolbar.logo = None
 
                 map_opt = dict( low= group_d[it][ hvar_d[it] ].min(),
