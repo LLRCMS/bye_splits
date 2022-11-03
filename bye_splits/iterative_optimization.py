@@ -403,6 +403,7 @@ if __name__ == "__main__":
               'smooth_kernel' : FLAGS.smooth_kernel,
               'cluster_algo'  : FLAGS.cluster_algo }
     pars_d.update({'ipar': FLAGS.ipar})
+
     outcsv = common.fill_path(params.opt_kw['OptCSVOut'], ext='csv', **pars_d)
     outresen  = common.fill_path(params.opt_kw['OptEnResOut'],  **pars_d)
     outrespos = common.fill_path(params.opt_kw['OptPosResOut'], **pars_d)

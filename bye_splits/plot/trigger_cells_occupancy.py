@@ -158,7 +158,7 @@ def plot_trigger_cells_occupancy(pars,
         #full
         grps_f.append( tcData_full[ (tcData_full.layer>lmin) &
                                     (tcData_full.layer<=lmax) ] )
-       groupby_full = grps_f[-1].groupby(['Rz_center', 'phi_center'],
+        groupby_full = grps_f[-1].groupby(['Rz_center', 'phi_center'],
                                           as_index=False)
         grps_f[-1] = groupby_full.count()
         eta_mins = groupby_full.min()['eta']
