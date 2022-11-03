@@ -96,7 +96,7 @@ while [[ $# -gt 0 ]]; do
 			while [ $end_while -eq 0 ]; do
 				shift;
 				ITER_PARS+=("${1}");
-				if [[ "${2}" =~ ^--.+$  ]] || [[ "${2}" =~ ^-.+$  ]]; then
+				if [[ "${2}" =~ ^--.+$  ]] || [[ "${2}" =~ ^-.+$  ]] || [[ "${2}" == '' ]]; then
 					end_while=1
 				fi
 			done
