@@ -131,9 +131,7 @@ def optimization(pars, **kw):
         radiae = ld[:,idx_d_main.r]
         phi_old = ld[:,idx_d_main.phi]
 
-        run_algorithm = True
-        if rzslice not in kw['LayersToOptimize']:
-            run_algorithm = False
+        run_algorithm = True #this flag cna be used to apply the algo to a subset of the rzslices
    
         if run_algorithm:
             plot_obj.reset()
@@ -142,7 +140,7 @@ def optimization(pars, **kw):
             ncellstot = sum(lb)
             lastidx = kw['NbinsPhi']-1
              
-            plot_obj.save_orig_data( data=copy(lb), data_type='bins',
+            plot_obj.save_orig_data(data=copy(lb), data_type='bins',
                                     boundary_sizes=0 )
              
             # initial differences for stopping criterion
@@ -460,7 +458,6 @@ if __name__ == "__main__":
         if FLAGS.plot:
             this_file = os.path.basename(__file__).split('.')[0]
             plot_name = common.fill_path(this_file, ext='html', **pars_d)
-            print(plot_name)
             plot_trigger_cells_occupancy(pars_d,
                                          plot_name=plot_name,
                                          pos_endcap=True,

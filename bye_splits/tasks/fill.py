@@ -141,9 +141,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
 
             tc_map = tc_map.rename(columns={'id': 'tc_id'})
 
-            split_tc = split_tc.merge(tc_map,
-                                      on='tc_id',
-                                      how='right').dropna()
+            split_tc = split_tc.merge(tc_map, on='tc_id', how='right').dropna()
 
             assert not np.count_nonzero(split_tc.phi_old - split_tc.tc_phi)
 

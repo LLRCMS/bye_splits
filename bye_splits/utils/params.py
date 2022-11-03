@@ -16,7 +16,7 @@ MinROverZ = 0.076
 MaxROverZ = 0.58
 MinPhi = -np.pi
 MaxPhi = +np.pi
-DataFolder = 'data'
+DataFolder = 'data/tc_shift_studies'
 
 base_kw = {
     'NbinsRz': NbinsRz,
@@ -31,7 +31,7 @@ base_kw = {
     'LayerEdges': [0,42],
     'IsHCAL': False,
 
-    'DataFolder': DataFolder,
+    'DataFolder': Path(DataFolder),
     'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
     'BasePath': Path(__file__).parents[2] / DataFolder,
     'OutPath': Path(__file__).parents[2] / 'out',
@@ -67,7 +67,6 @@ opt_kw = set_dictionary(
       'OptCSVOut': 'stats',
       'FillOutPlot': fill_kw['FillOutPlot'],
       'Pretrained': False,
-      'LayersToOptimize': [x for x in range(9)],
     }
 )
 
