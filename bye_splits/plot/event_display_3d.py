@@ -29,4 +29,5 @@ def update_bar_chart(slider_range):
     return fig
 
 app.run_server(debug=True,
+               host='llruicms01.in2p3.fr',
                port=8004)
