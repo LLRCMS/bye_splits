@@ -288,6 +288,8 @@ if __name__ == "__main__":
               'cluster_algo'  : FLAGS.cluster_algo }
     pars_d.update({'ipar': FLAGS.ipar})
 
+    breakpoint()
+
     tc_map = itopt.optimization(pars_d, **params.opt_kw)
 
     fill(vars(FLAGS), -1, tc_map, **params.fill_kw)

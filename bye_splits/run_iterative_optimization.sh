@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-declare -a ITER_PARS=( $(seq 0. .1 1.) )
+declare -a ITER_PARS=( $(seq 0. 0.1 1.) )
 
 DRYRUN="0"
 REPROCESS="0"
@@ -23,6 +23,7 @@ REGION="Si"
 HELP_STR="Prints this help message."
 DRYRUN_STR="(Boolean) Prints all the commands to be launched but does not launch them. Defaults to ${DRYRUN}."
 REPROCESS_STR="(Boolean) Reprocesses the input dataset (slower). Defaults to '${REPROCESS}'."
+ITER_PARS_STR="(List) Parameters to be used by the iterative TC moving algorithm. Defaults to '${ITER_PARS}'"
 PLOT_TC_STR="(Boolean) plot shifted trigger cells instead of originals. Defaults to '${PLOT_TC}'."
 DO_FILLING_STR="(Boolean) run the filling task. Defaults to '${DO_FILLING}'."
 DO_SMOOTHING_STR="(Boolean) run the smoothing task. Defaults to '${DO_SMOOTHING}'."
@@ -30,6 +31,8 @@ DO_SEEDING_STR="(Boolean) run the seeding task. Defaults to '${DO_SEEDING}'."
 DO_CLUSTERING_STR="(Boolean) run the clustering task. Defaults to '${DO_CLUSTERING}'."
 SELECTION_STR="(String) Which initial data selection to apply. Values supported: ${SELECTIONS[*]}.  Defaults to '${SELECTION}'."
 REGION_STR="(String) Which initial region to consider. Values supported: ${REGIONS[*]}. Defaults to '${REGION}'."
+SMOOTH_KERNEL_STR="(String) Which smoothing kernel to apply. Values supported: ${SMOOTH_KERNELS[*]}.  Defaults to '${SMOOTH_KERNEL}'."
+CLUSTER_ALGO_STR="(String) Which smoothing kernel to apply. Values supported: ${CLUSTER_ALGOS[*]}.  Defaults to '${CLUSTER_ALGO}'."
 
 function print_usage_iter_opt {
     USAGE=" $(basename "$0") [-H] [--dry-run --resubmit -t -d -n --klub_tag --stitching_on]
@@ -37,10 +40,12 @@ function print_usage_iter_opt {
 	-h / --help			[ ${HELP_STR} ]
 	--dry-run			[ ${DRYRUN_STR} ]
 	-r / --reprocess	[ ${REPROCESS_STR} ]
+  --pars        [${ITER_PARS_STR}]
 	-p / --plot_tc	    [ ${PLOT_TC_STR} ]
 	--selection	     	[ ${SELECTION_STR} ]
 	--region			[ ${REGION_STR} ]
-	--cluster_algo		[ ${CLUSTER_ALGOS} ]
+  	--smooth_kernel		[ ${SMOOTH_KERNEL_STR} ]
+	--cluster_algo		[ ${CLUSTER_ALGO_STR} ]
 	--no_fill			[ ${DO_FILLING_STR} ]
 	--no_smooth			[ ${DO_SMOOTHING_STR} ]
 	--no_seed			[ ${DO_SEEDING_STR} ]
@@ -84,6 +89,18 @@ while [[ $# -gt 0 ]]; do
 				fi
 			fi
 			shift 2;;
+
+      --pars)
+			ITER_PARS=()
+			end_while=0
+			while [ $end_while -eq 0 ]; do
+				shift;
+				ITER_PARS+=("${1}");
+				if [[ "${2}" =~ ^--.+$  ]] || [[ "${2}" =~ ^-.+$  ]]; then
+					end_while=1
+				fi
+			done
+			shift;;
 
 		--cluster_algo)
 			if [ -n "$2" ]; then
@@ -160,6 +177,7 @@ done
 
 printf "===== Input Arguments =====\n"
 printf "Dry-run: %s\n" ${DRYRUN}
+echo "Iteration parameters:" ${ITER_PARS[*]}
 printf "Region: %s\n" ${REGION}
 printf "Selection: %s\n" ${SELECTION}
 printf "Cluster algo: %s\n" ${CLUSTER_ALGO}
@@ -167,6 +185,9 @@ printf "Seed window: %s\n" ${SEED_WINDOW}
 printf "Smooth kernel: %s\n" ${SMOOTH_KERNEL}
 printf "Reprocess trigger cell geometry data: %s\n" ${REPROCESS}
 printf "Perform filling: %s\n" ${DO_FILLING}
+printf "Perform smoothing: %s\n" ${DO_SMOOTHING}
+printf "Perform seeding: %s\n" ${DO_SEEDING}
+printf "Perform clustering: %s\n" ${DO_CLUSTERING}
 printf "Plot trigger cells: %s\n" ${PLOT_TC}
 printf "Number of events: %s\n" ${NEVENTS}
 printf "===========================\n"
@@ -186,8 +207,9 @@ fi
 
 ### Functions
 function run_parallel() {
-	comm="parallel -j -1 python bye_splits/iterative_optimization.py --ipar {} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
-	comm+="--cluster_algo ${CLUSTER_ALGO} --seed_window ${SEED_WINDOW} --smooth_kernel ${SMOOTH_KERNEL} "
+	#comm="parallel -j -1 python bye_splits/iterative_optimization.py --ipar {} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
+  comm="python bye_splits/iterative_optimization.py --ipar ${ITER_PARS} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
+  comm+="--cluster_algo ${CLUSTER_ALGO} --seed_window ${SEED_WINDOW} --smooth_kernel ${SMOOTH_KERNEL} "
 	if [ ${DO_FILLING} -eq 0 ]; then
 		echo "Do not run the filling step."
 		comm+="--no_fill "
@@ -210,6 +232,8 @@ function run_parallel() {
 	fi
 
 	comm+="$@"
+
+  echo "Running command: $comm"
 
 	[[ ${DRYRUN} -eq 1 ]] && echo ${comm} || ${comm}
 }

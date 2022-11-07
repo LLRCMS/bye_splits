@@ -9,6 +9,10 @@ parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
 import numpy as np
+from glob import glob
+import functools
+import operator
+import re
 
 NbinsRz = 42
 NbinsPhi = 216
@@ -48,9 +52,70 @@ if len(base_kw['FesAlgos'])!=1:
                      ' assumes there is only on algo.\n'
                      'The script must be adapted.')
 
+threshold = 0.05
+delta_r_coefs = (0.0,threshold,50)
+
+#ntuple_templates = {'photon': 'Floatingpoint{fe}Genclustersntuple/HGCalTriggerNtuple','pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+ntuple_templates = {'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+algo_trees = {}
+for fe in base_kw['FesAlgos']:
+    inner_trees = {}
+    for key, val in ntuple_templates.items():
+        inner_trees[key] = val.format(fe=fe)
+    algo_trees[fe] = inner_trees
+    #assert(algo_trees[fe] == gen_tree) #remove ass soon as other algorithms are considered
+
+coefs = [(coef,0)*52 for coef in np.linspace(delta_r_coefs[0], delta_r_coefs[1], delta_r_coefs[2])]
+coef_dict = {}
+for i,coef in enumerate(coefs):
+    coef_key = 'coef_'+str(i)
+    coef_dict[coef_key] = coef
+
+def transform(nested_list):
+    regular_list=[]
+    for ele in nested_list:
+        if type(ele) is list:
+            regular_list.append(ele)
+        else:
+            regular_list.append([ele])
+    return regular_list
+
+
+def create_out_names(files,trees):
+    #files = functools.reduce(operator.iconcat,transform(list(dict.values())),[])
+    #file_exts = [re.split('.root|/',file)[-2] for file in files]
+    output_file_names = {}
+    for key in files.keys():
+        if isinstance(files[key], str):
+            files[key] = [files[key]]
+        tree = trees[key]
+        output_file_names[key] = ['{}_gen_cl3d_tc_{}'.format(key,re.split('.root|/',file)[-2]) for file in files[key]]
+    #output_file_names = ['data/gen_cl3d_tc_{}.hdf5'.format(name) for name in file_exts]
+    return output_file_names
+
+#files = {'photon': '/data_CMS/cms/alves/TriggerCells/photon_0PU_truncation_hadd.root', 'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
+files = {'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
+#gen_trees = {'photon': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple', 'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+gen_trees = {'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+
+match_kw = set_dictionary(
+    { 'Files': files,
+      'GenTrees': gen_trees,
+      'AlgoTrees': algo_trees,
+      'File': None, # The following four values are chosen from their respective dicts in the matching process
+      'GenTree': None,
+      'AlgoTree': None,
+      'OutFile': None,
+      'BestMatch': False,
+      'ReachedEE': 2, #0 converted photons; 1: photons that missed HGCAL; 2: photons that hit HGCAL
+      'CoeffAlgos': coef_dict,
+      'Threshold': threshold}
+)
+
 # fill task
 fill_kw = set_dictionary(
-    {'FillIn'      : 'gen_cl3d_tc',
+    {'FillInFiles' : create_out_names(files, match_kw['GenTrees']),
+     'FillIn'      : None, # To be chosen during the fill process
      'FillOut'     : 'fill',
      'FillOutComp' : 'fill_comp',
      'FillOutPlot' : 'fill_plot' }
@@ -61,7 +126,8 @@ opt_kw = set_dictionary(
     { 'Epochs': 99999,
       'KernelSize': 10,
       'WindowSize': 3,
-      'OptIn': 'triggergeom_condensed',
+      'InFile': None,
+      'OptIn': 'triggergeom_condensed', #Needs to be adjusted because this will change for each starting file
       'OptEnResOut': 'opt_enres',
       'OptPosResOut': 'opt_posres',
       'OptCSVOut': 'stats',
@@ -125,33 +191,9 @@ energy_kw = set_dictionary(
     { 'ClusterIn': cluster_kw['ClusterOutValidation'],
       'Coeff': cluster_kw['CoeffA'],
       'ReInit': False, # If true, ../scripts/en_per_deltaR.py will create an .hdf5 file containing energy info.
-      'Coeffs': (0.0,0.05,50), #tuple containing (coeff_start, coeff_end, num_coeffs)
+      'Coeffs': delta_r_coefs, #tuple containing (coeff_start, coeff_end, num_coeffs)
       'EnergyIn': cluster_kw['EnergyOut'],
       'RecoIn': cluster_kw['RecoOut'],
       'BestMatch': True,
       'MatchFile': False}
-)
-
-ntuple_template = 'Floatingpoint{fe}Genclustersntuple/HGCalTriggerNtuple'
-algo_trees = {}
-for fe in base_kw['FesAlgos']:
-    algo_trees[fe] = ntuple_template.format(fe=fe)
-    #assert(algo_trees[fe] == gen_tree) #remove ass soon as other algorithms are considered
-
-coefs = [(coef,0)*52 for coef in np.linspace(energy_kw['Coeffs'][0], energy_kw['Coeffs'][1], energy_kw['Coeffs'][2])]
-coef_dict = {}
-for i,coef in enumerate(coefs):
-    coef_key = 'coef_'+str(i)
-    coef_dict[coef_key] = coef
-
-match_kw = set_dictionary(
-    { 'Files': ['/data_CMS/cms/alves/TriggerCells/hadd.root'],
-      'Threshold': energy_kw['Coeffs'][1],
-      'GenTree': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple',
-      'AlgoTrees': algo_trees,
-      'MatchOut': 'gen_match',
-      'BestMatch': False,
-      'ReachedEE': 2, #0 converted photons; 1: photons that missed HGCAL; 2: photons that hit HGCAL
-      'CreateDF': False,
-      'CoeffAlgos': coef_dict}
 )

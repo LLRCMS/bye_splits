@@ -23,6 +23,7 @@ import pandas as pd
 import uproot as up
 import h5py
 import sys
+import re
 #np.set_printoptions(threshold=sys.maxsize, linewidth=170)
 
 def is_sorted(arr, nbinsphi):
@@ -45,7 +46,7 @@ def process_trigger_cell_geometry_data(region, selection,
         print(tcTree.show())
         quit()
 
-    simDataPath = os.path.join(params.base_kw['BasePath'], 'gen_cl3d_tc.hdf5')
+    simDataPath = kw['InFile']
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
     fes = ['ThresholdDummyHistomaxnoareath20']
     for fe in fes:
@@ -70,7 +71,8 @@ def process_trigger_cell_geometry_data(region, selection,
     tcData_inv  = tcData[ ~subdetCond ]
 
     # save data for optimization task
-    inoptfile = common.fill_path(kw['OptIn'], sel=selection, reg=region)
+    which = re.split('gen_cl3d_tc_|_ThresholdDummy',kw['InFile'])[1]
+    inoptfile = common.fill_path('{}_{}'.format(kw['OptIn'],which), sel=selection, reg=region)
 
     with h5py.File(inoptfile, mode='w') as store:
         save_cols = ['R', 'Rz', 'phi', 'Rz_bin', 'phi_bin', 'id']
@@ -91,7 +93,8 @@ def process_trigger_cell_geometry_data(region, selection,
         store['data_main'].attrs['doc'] = doc_main
 
 def optimization(pars, **kw):
-    outresen = common.fill_path(kw['OptIn'], sel=pars['sel'], reg=pars['reg'])
+    #outresen = common.fill_path(kw['OptIn'], sel=pars['sel'], reg=pars['reg'])
+    outresen = kw['OptIn']
     store_in  = h5py.File(outresen, mode='r')
     plot_obj = utils.plotter.Plotter(**params.opt_kw)
     mode = 'variance'
@@ -390,11 +393,22 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--nevents', help=nevents_help,
                         default=-1, type=int)
     parsing.add_parameters(parser)
+
     FLAGS = parser.parse_args()
     assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
 
+    #input_files = ['{}_{}.hdf5'.format(re.split('pion_',file)[1],params.base_kw['FesAlgos'][0]) for file in params.fill_kw['FillInFiles']['pion']]
+    input_files = ['{}_{}.hdf5'.format(params.base_kw['FesAlgos'][0],re.split('pion_',file)[1]) for file in params.fill_kw['FillInFiles']['pion']]
+    simDataPaths = [os.path.join(params.base_kw['BasePath'], infile) for infile in input_files]
+    breakpoint()
     if FLAGS.process:
-        process_trigger_cell_geometry_data(region=FLAGS.reg,
+        # Do this for _each_ input file gen_cl3d_tc... and save to their own output files
+        # Note that this currently only works for the pion files
+        #input_files = ['{}_{}.hdf5'.format(re.split('pion_',file)[1],params.base_kw['FesAlgos'][0]) for file in params.fill_kw['FillInFiles']['pion']]
+        #simDataPaths = [os.path.join(params.base_kw['BasePath'], infile) for infile in input_files]
+        for path in simDataPaths:
+            params.opt_kw['InFile'] = path
+            process_trigger_cell_geometry_data(region=FLAGS.reg,
                                            selection=FLAGS.sel, **params.opt_kw)
 
     pars_d = {'sel'           : FLAGS.sel,
@@ -403,71 +417,86 @@ if __name__ == "__main__":
               'smooth_kernel' : FLAGS.smooth_kernel,
               'cluster_algo'  : FLAGS.cluster_algo }
     pars_d.update({'ipar': FLAGS.ipar})
-    outcsv = common.fill_path(params.opt_kw['OptCSVOut'], ext='csv', **pars_d)
-    outresen  = common.fill_path(params.opt_kw['OptEnResOut'],  **pars_d)
-    outrespos = common.fill_path(params.opt_kw['OptPosResOut'], **pars_d)
 
     print('Starting iterative parameter {}.'.format(FLAGS.ipar),
           flush=True)
 
-    with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
-        fieldnames = ['ipar', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
-                      'locrat1', 'locrat2', 'remrat1', 'remrat2']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
+    for file in input_files:
+        addit = re.split('gen_cl3d_tc_|_ThresholdDummy',file)[1]
+        outcsv = common.fill_path('{}_{}'.format(params.opt_kw['OptCSVOut'],addit), ext='csv', **pars_d)
+        outresen  = common.fill_path('{}_{}'.format(params.opt_kw['OptEnResOut'],addit),  **pars_d)
+        outrespos = common.fill_path('{}_{}'.format(params.opt_kw['OptPosResOut'],addit), **pars_d)
 
-        sys.stderr.flush()
+        with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
+            fieldnames = ['ipar', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
+                          'locrat1', 'locrat2', 'remrat1', 'remrat2']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
 
-        tc_map = optimization(pars_d, **params.opt_kw)
+            sys.stderr.flush()
 
-        if not FLAGS.no_fill:
-            tasks.fill.fill(pars_d, FLAGS.nevents, tc_map, **params.fill_kw)
+            params.opt_kw['InFile'] = file
+            params.opt_kw['OptIn'] = common.fill_path('{}_{}'.format(params.opt_kw['OptIn'],addit), sel=pars_d['sel'], reg=pars_d['reg'])
+            params.opt_kw['OptEnResOut'] = outresen
+            params.opt_kw['OptPosResOut'] = outrespos
+            params.opt_kw['OptCSVOut'] = outcsv
 
-        if not FLAGS.no_smooth:
-            tasks.smooth.smooth(pars_d, **params.smooth_kw)
+            tc_map = optimization(pars_d, **params.opt_kw)
 
-        if not FLAGS.no_seed:
-            tasks.seed.seed(pars_d, **params.seed_kw)
+            if not FLAGS.no_fill:
+                breakpoint()
+                params.fill_kw['FillIn'] = file
+                tasks.fill.fill(pars_d, FLAGS.nevents, tc_map, **params.fill_kw)
 
-        if not FLAGS.no_cluster:
-            tasks.cluster.cluster(pars_d, **params.cluster_kw)
+            if not FLAGS.no_smooth:
+                breakpoint()
+                tasks.smooth.smooth(pars_d, **params.smooth_kw)
 
-        res = tasks.validation.stats_collector(pars_d, **params.validation_kw)
+            if not FLAGS.no_seed:
+                breakpoint()
+                tasks.seed.seed(pars_d, **params.seed_kw)
 
-        writer.writerow({fieldnames[0] : FLAGS.ipar,
-                         fieldnames[1] : res[0],
-                         fieldnames[2] : res[1],
-                         fieldnames[3] : res[2],
-                         fieldnames[4] : res[3],
-                         fieldnames[5] : res[4],
-                         fieldnames[6] : res[5],
-                         fieldnames[7] : res[6],
-                         fieldnames[8] : res[7]})
+            if not FLAGS.no_cluster:
+                breakpoint()
+                tasks.cluster.cluster(pars_d, **params.cluster_kw)
 
-        assert len(params.opt_kw['FesAlgos']) == 1
+            breakpoint()
+            res = tasks.validation.stats_collector(pars_d, **params.validation_kw)
 
-        df_enres = pd.DataFrame({'enres_old': res[8],
-                                 'enres_new': res[9]})
-        df_posres = pd.DataFrame({'etares_old': res[10],
-                                  'etares_new': res[11],
-                                  'phires_old': res[12],
-                                  'phires_new': res[13]})
-        key = params.opt_kw['FesAlgos'][0] + '_data'
+            writer.writerow({fieldnames[0] : FLAGS.ipar,
+                             fieldnames[1] : res[0],
+                             fieldnames[2] : res[1],
+                             fieldnames[3] : res[2],
+                             fieldnames[4] : res[3],
+                             fieldnames[5] : res[4],
+                             fieldnames[6] : res[5],
+                             fieldnames[7] : res[6],
+                             fieldnames[8] : res[7]})
 
-        storeEnRes [key] = df_enres
-        storePosRes[key] = df_posres
+            assert len(params.opt_kw['FesAlgos']) == 1 # Be wary
 
-        if FLAGS.plot:
-            this_file = os.path.basename(__file__).split('.')[0]
-            plot_name = common.fill_path(this_file, ext='html', **pars_d)
-            print(plot_name)
-            plot_trigger_cells_occupancy(pars_d,
-                                         plot_name=plot_name,
-                                         pos_endcap=True,
-                                         layer_edges=[0,42],
-                                         nevents=1,
-                                         min_rz=params.opt_kw['MinROverZ'],
-                                         max_rz=params.opt_kw['MaxROverZ'],
-                                         **params.opt_kw)
+            df_enres = pd.DataFrame({'enres_old': res[8],
+                                     'enres_new': res[9]})
+            df_posres = pd.DataFrame({'etares_old': res[10],
+                                      'etares_new': res[11],
+                                      'phires_old': res[12],
+                                      'phires_new': res[13]})
+            key = params.opt_kw['FesAlgos'][0] + '_data'
+
+            storeEnRes [key] = df_enres
+            storePosRes[key] = df_posres
+
+            if FLAGS.plot:
+                this_file = os.path.basename(__file__).split('.')[0]
+                plot_name = common.fill_path(this_file, ext='html', **pars_d)
+                print(plot_name)
+                plot_trigger_cells_occupancy(pars_d,
+                                             plot_name=plot_name,
+                                             pos_endcap=True,
+                                             layer_edges=[0,42],
+                                             nevents=1,
+                                             min_rz=params.opt_kw['MinROverZ'],
+                                             max_rz=params.opt_kw['MaxROverZ'],
+                                             **params.opt_kw)
 
     print('Finished for iterative parameter {}.'.format(FLAGS.ipar), flush=True)

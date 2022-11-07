@@ -119,34 +119,31 @@ def energy(pars, **kw):
 
     one_line = np.full(tot-1,1.0)
 
+    coef_ticks = coefs[0::5]
+
+    coef_labels = [round(float(coef.split('_')[1].replace('p','.')),3) for coef in coefs]
+    coef_labels= coef_labels[0::5]
+
     fig, ax = plt.subplots()
     ax.plot(coefs,normed_energies,color='blue')
     ax.plot(coefs,one_line,color='green')
-    ax.set_xlabel('Radius From Seed (x/z)')
-    ax.set_ylabel('Normalized Cluster Energy')
+    ax.set_xlabel(r'$R_{coef}$')
+    ax.set_ylabel(r'$\frac{\bar{E}_{coef}}{\bar{E}_{max}}$')
     ax.set_title('Normalized Cluster Energy vs. Radius From Seed')
+    ax.set_xticks(coef_ticks)
+    ax.set_xticks(coefs, minor=True)
+    ax.set_xticklabels(coef_labels)
+    plt.setp(ax.get_xticklabels(), rotation=90)
+    plt.grid(which='major', alpha=0.5)
+    plt.grid(which='minor', alpha=0.2)
 
-    plt.savefig(input('Output Figure Name: ') + '.png')
-
-    '''output_file('NormalizedClusterEnergy_Matched.html')
-
-    one_line = np.full(tot-1,1.0)
-
-    p = figure(title='Normalized Cluster Energy vs. Radius From Seed', x_axis_label = 'Distance From Seed (x/z)', y_axis_label='Cluster Energy/Max Cluster Energy')
-
-    p.line(coefs,normed_energies,color='blue',line_dash = 'solid')
-    p.line(coefs,one_line,color='green',line_dash='dashed')
-
-    show(p)'''
+    plt.savefig(input('Output Figure Name: ') + '.png', dpi=300)
 
 
 if __name__ == "__main__":
     import argparse
     from bye_splits.utils import params, parsing
     import matplotlib.pyplot as plt
-    #from bokeh.plotting import figure, output_file, show, save
-    #from bokeh.util.compiler import TypeScript
-    #from bokeh.models import LinearAxis, Range1d
 
     parser = argparse.ArgumentParser(description='Clustering standalone step.')
     parsing.add_parameters(parser)
