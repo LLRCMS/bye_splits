@@ -29,4 +29,4 @@ def update_bar_chart(slider_range):
     return fig
 
 app.run_server(debug=True,
-               port=8003)
+               port=8004)

@@ -16,7 +16,8 @@ MinROverZ = 0.076
 MaxROverZ = 0.58
 MinPhi = -np.pi
 MaxPhi = +np.pi
-DataFolder = 'data/tc_shift_studies'
+DataFolder = 'data/new_algos'
+assert DataFolder in ('data/new_algos', 'data/tc_shift_studies')
 
 base_kw = {
     'NbinsRz': NbinsRz,
