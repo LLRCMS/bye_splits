@@ -49,8 +49,6 @@ class GeometryData:
 
     def store(self):
         data = self.select()
-        print(data)
-        
         with pd.HDFStore(self.outpath, mode='w') as s:
             s[self.dname] = data
 

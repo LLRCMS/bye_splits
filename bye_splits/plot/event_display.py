@@ -12,8 +12,10 @@ import argparse
 import numpy as np
 import uproot as up
 
-from bokeh.io import output_file, save
-from bokeh.plotting import figure
+#from bokeh.io import output_file, save
+#output_file('tmp.html')
+from bokeh.plotting import figure, curdoc
+doc = curdoc()
 from bokeh.util.hex import axial_to_cartesian
 from bokeh.models import (
     Div,
@@ -23,13 +25,13 @@ from bokeh.models import (
     Range1d,
     ColumnDataSource,
     HoverTool,
+    Button,
     Slider,
     CustomJS,
     CustomJSFilter,
     CDSView,
     )
 from bokeh.layouts import layout
-output_file('tmp.html')
 
 import utils
 from utils import params, common, parsing
@@ -48,17 +50,22 @@ def common_props(p, xlim=None, ylim=None):
         p.x_range = Range1d(xlim[0], xlim[1])
     if ylim is not None:
         p.y_range = Range1d(ylim[0], ylim[1])
+        
+width = int(1600/3)
+height = 400
 
-def display(reprocess):
-        width = int(1600/3)
-        height = 400
-         
-        tc_data = handle('geom').provide(reprocess)
-        tc_vars = handle('geom').variables()
-         
-        source = ColumnDataSource(tc_data)
-        slider  = Slider(start=tc_data.layer.min(), end=tc_data.layer.max(),
-                         value=tc_data.layer.min(), step=2, title='Layer',
+tc_vars = handle('geom').variables()
+
+def get_data():
+    return handle('geom').provide(True)
+
+def display():
+        source = ColumnDataSource(data=get_data())
+        def update():
+            source.data = get_data()
+        
+        slider  = Slider(start=source.data['layer'].min(), end=source.data['layer'].max(),
+                         value=source.data['layer'].min(), step=2, title='Layer',
                          bar_color='red', default_size=800,
                          background='white')
         callback = CustomJS(args=dict(s=source), code="""
@@ -106,17 +113,6 @@ def display(reprocess):
                   line_color='black',)
          
          
-        ##########################
-        # 3D plot
-        # x3d = np.arange(0, 300, 10)
-        # y3d = np.arange(0, 300, 10)
-        # xx3d, yy3d = np.meshgrid(x3d, y3d)
-        # xx3d = xx3d.ravel()
-        # yy3d = yy3d.ravel()
-        # value3d = np.sin(xx3d / 50) * np.cos(yy3d / 50) * 50 + 50
-         
-        # source3d = ColumnDataSource(data=dict(x=xx3d, y=yy3d, z=value3d))
-         
         surface = Surface3d(x='z', y='y', z='x', data_source=source)
         ##########################
          
@@ -147,15 +143,15 @@ def display(reprocess):
         #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
         p_yVSx.scatter(x=tc_vars['x'], y=tc_vars['y'], source=source)
          
-        blank = Div(width=1000, height=100, text='')
-        lay = layout([[slider],[p_uv,p_xy,surface],[blank],[p_xVSz,p_yVSz,p_yVSx]])
-        save(lay)
+        button = Button(label='Update', button_type='success')
+        button.on_click(update)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-r', '--reprocess',
-                        help='reprocess trigger cell geometry data',
-                        action='store_true')
-    FLAGS = parser.parse_args()
-    
-    display(FLAGS.reprocess)
+        blank = Div(width=1000, height=100, text='')
+        lay = layout([[button], [slider],[p_uv,p_xy,surface],[blank],[p_xVSz,p_yVSz,p_yVSx]])
+        #save(lay)
+
+        doc.add_root(lay)
+
+parser = argparse.ArgumentParser(description='')
+FLAGS = parser.parse_args()
+display()
