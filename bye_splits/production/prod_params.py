@@ -9,6 +9,12 @@ from glob import glob
 
 local = False #local machine vs server machine
 htcondor = False #whether to submit the script as multiple jobs to HTCondor
+particle = 'photon'
+algo = 'best_choice'
+pu = False
+assert particle in ('photon', 'pion', 'electron')
+assert mode in ('best_choice', 'truncation')
+
 if htcondor and local:
     raise ValueError('No submission is possible from your local machine!')
 
@@ -26,10 +32,16 @@ else:
     if htcondor:
         files_photons = glob.glob('/home/llr/cms/sauvan/DATA_UPG/HGCAL/Ntuples/study_autoencoder/3_22_1/SinglePhoton_PT2to200/GammaGun_Pt2_200_PU0_HLTWinter20_std_ae_xyseed/210430_091126/ntuple*.root')
     else:
-        files_photons = [ str(Path('/data_CMS') / 'cms' / os.environ['USER'] / 'TriggerCells' / 'hadd.root') ]
+        base = Path('/data_CMS') / 'cms' / 'alves' / 'TriggerCells'
+        files = {'photon'   : str(base / 'photon_0PU_bc_stc_hadd.root'),
+                 'electron' : str(base / 'electron_0PU_bc_stc_hadd.root'),
+                 'pion'     : str(base / 'pion_0PU_bc_stc_hadd.root')}
+        files = files[particle]
 
 # Pick one of the different algos trees to retrieve the gen information
-gen_tree = 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple'
+gen_tree = {'best_choice': 'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple',
+            'truncation': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple'}
+gen_tree = os.path.join(gen_tree[mode], 'HGCalTriggerNtuple')
 
 # Store only information on the best match; it removes duplicated clusters
 bestmatch_only = False
@@ -42,16 +54,5 @@ if htcondor:
 else:
     out_dir = params.base_kw['BasePath']
         
-out_name = 'gen_cl3d_tc.hdf5'
-
-# List of ECON algorithms
-fes = [ 'ThresholdDummyHistomaxnoareath20',
-        #'ThresholdTruncation120default'Histomax''
-        #'ThresholdTruncation120flat'Histomaxxydr015
-       ]
-
-ntuple_template = 'Floatingpoint{fe}Genclustersntuple/HGCalTriggerNtuple'
-algo_trees = {}
-for fe in fes:
-    algo_trees[fe] = ntuple_template.format(fe=fe)
-    assert(algo_trees[fe] == gen_tree) #remove ass soon as other algorithms are considered
+out_name = 'summ_{}_{}.hdf5'.format(particle, mode)
+algo_trees = [gen_tree]
