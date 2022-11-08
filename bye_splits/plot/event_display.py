@@ -149,6 +149,7 @@ def display():
                   [blank1],
                   [p_xVSz,p_yVSz,p_yVSx]])
     doc.add_root(lay) # save(lay)
+    doc.title = 'TC Visualization'
 
 parser = argparse.ArgumentParser(description='')
 FLAGS = parser.parse_args()

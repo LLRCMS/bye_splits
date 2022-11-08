@@ -3,6 +3,9 @@ import plotly.express as px
 
 app = Dash(__name__)
 
+def get_data():
+    return handle('geom').provide(True)
+
 app.layout = html.Div([
     html.H4('Iris XXXX filtered by petal width'),
     dcc.Graph(id="graph"),
