@@ -15,7 +15,6 @@ import uproot as up
 #from bokeh.io import output_file, save
 #output_file('tmp.html')
 from bokeh.plotting import figure, curdoc
-doc = curdoc()
 from bokeh.util.hex import axial_to_cartesian
 from bokeh.models import (
     Div,
@@ -55,6 +54,7 @@ def get_data():
     return handle('geom').provide(True)
 
 def display():
+    doc = curdoc()
     source = ColumnDataSource(data=get_data())
     def update():
         source.data = get_data()

@@ -43,7 +43,7 @@ class GeometryData:
             data = data.drop_duplicates(subset=[self.var.u, self.var.v, self.var.l])
             data[self.var.v] = data.waferv
             data[self.newvar.vs] = -1 * data.waferv
-            data[self.newvar.c] = 'firebrick'
+            data[self.newvar.c] = "#8a2be2"
             
         return data
 
