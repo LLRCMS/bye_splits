@@ -34,7 +34,6 @@ from bokeh.layouts import layout
 
 import utils
 from utils import params, common, parsing
-from surface_3d import Surface3d
 import data_handle
 from data_handle.data_handle import handle
 
@@ -50,8 +49,11 @@ def common_props(p, xlim=None, ylim=None):
     if ylim is not None:
         p.y_range = Range1d(ylim[0], ylim[1])
         
+# def get_data():
+#     return handle('geom').provide(True)
+
 def get_data():
-    return handle('geom').provide(True)
+    return handle('event').provide(True)
 
 def display():
     doc = curdoc()
@@ -109,8 +111,6 @@ def display():
               width_units='data', height_units='data',
               fill_color='color',
               line_color='black',)
-        
-    surface = Surface3d(x='z', y='y', z='x', data_source=source)
     
     # x VS z plots
     p_xVSz = figure(width=width, height=height,
@@ -145,7 +145,7 @@ def display():
     blank1 = Div(width=1000, height=100, text='')
     blank2 = Div(width=70, height=100, text='')
     lay = layout([[button, blank2, slider],
-                  [p_uv,p_xy,surface],
+                  [p_uv,p_xy],
                   [blank1],
                   [p_xVSz,p_yVSz,p_yVSx]])
     doc.add_root(lay) # save(lay)
