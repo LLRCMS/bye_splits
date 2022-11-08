@@ -51,106 +51,104 @@ def common_props(p, xlim=None, ylim=None):
     if ylim is not None:
         p.y_range = Range1d(ylim[0], ylim[1])
         
-width = int(1600/3)
-height = 400
-
-tc_vars = handle('geom').variables()
-
 def get_data():
     return handle('geom').provide(True)
 
 def display():
-        source = ColumnDataSource(data=get_data())
-        def update():
-            source.data = get_data()
+    source = ColumnDataSource(data=get_data())
+    def update():
+        source.data = get_data()
+
+    width = int(1600/3)
+    height = 400
+
+    tc_vars = handle('geom').variables()
+    
+    slider  = Slider(start=source.data['layer'].min(), end=source.data['layer'].max(),
+                     value=source.data['layer'].min(), step=2, title='Layer',
+                     bar_color='red', default_size=800,
+                     background='white')
+    callback = CustomJS(args=dict(s=source), code="""s.change.emit();""")
+    slider.js_on_change('value', callback) #value_throttled
         
-        slider  = Slider(start=source.data['layer'].min(), end=source.data['layer'].max(),
-                         value=source.data['layer'].min(), step=2, title='Layer',
-                         bar_color='red', default_size=800,
-                         background='white')
-        callback = CustomJS(args=dict(s=source), code="""
-            s.change.emit();
-        """)
-        slider.js_on_change('value', callback) #value_throttled
-         
-        filt = CustomJSFilter(args=dict(slider=slider), code="""
-                var indices = new Array(source.get_length());
-                var sval = slider.value;
-         
-                const subset = source.data['layer'];
-                for (var i=0; i < source.get_length(); i++) {
-                    indices[i] = subset[i] == sval;
-                }
-                return indices;
-                """)
-        view = CDSView(source=source, filters=[filt])
-         
-        p_uv = figure(width=width, height=height,
-                      tools='save,reset', toolbar_location='right')
-        p_uv.add_tools(BoxZoomTool(match_aspect=True))
-            
-        common_props(p_uv, xlim=(-20,20), ylim=(-20,20))
-        p_uv.hex_tile(q=tc_vars['u'], r=tc_vars['vs'],
-                      source=source, view=view,
-                      size=1, fill_color='color',
-                      line_color='black', line_width=1, alpha=1.)
-             
-        p_uv.add_tools(HoverTool(tooltips=[('u/v', '@'+tc_vars['u']+'/'+'@'+tc_vars['v']),]))
-         
-        # (x,y) plots
-        p_xy = figure(width=width, height=height,
-                      tools='save,reset', toolbar_location='right',
-                      output_backend='webgl')
-        p_xy.add_tools(BoxZoomTool(match_aspect=True))
-        p_xy.add_tools(HoverTool(tooltips=[('u/v', '@'+tc_vars['u']+'/'+'@'+tc_vars['v']),],))
-            
-        common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
-        p_xy.rect(x=tc_vars['u'], y=tc_vars['v'],
+    filt = CustomJSFilter(args=dict(slider=slider), code="""
+           var indices = new Array(source.get_length());
+           var sval = slider.value;
+    
+           const subset = source.data['layer'];
+           for (var i=0; i < source.get_length(); i++) {
+               indices[i] = subset[i] == sval;
+           }
+           return indices;
+           """)
+    view = CDSView(source=source, filters=[filt])
+        
+    p_uv = figure(width=width, height=height,
+                  tools='save,reset', toolbar_location='right')
+    p_uv.add_tools(BoxZoomTool(match_aspect=True))
+    
+    common_props(p_uv, xlim=(-20,20), ylim=(-20,20))
+    p_uv.hex_tile(q=tc_vars['u'], r=tc_vars['vs'],
                   source=source, view=view,
-                  width=1., height=1.,
-                  width_units='data', height_units='data',
-                  fill_color='color',
-                  line_color='black',)
-         
-         
-        surface = Surface3d(x='z', y='y', z='x', data_source=source)
-        ##########################
-         
-        # x VS z plots
-        p_xVSz = figure(width=width, height=height,
-                        tools='save,reset', toolbar_location='right')
-        p_xVSz.add_tools(BoxZoomTool(match_aspect=True))
-        #p_xy.add_tools(HoverTool(tooltips=[('u/v', '@u/@v'),],))
+                  size=1, fill_color='color',
+                  line_color='black', line_width=1, alpha=1.)
             
-        #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
-        p_xVSz.scatter(x=tc_vars['z'], y=tc_vars['x'], source=source)
-         
-        # y VS z plots
-        p_yVSz = figure(width=width, height=height,
-                        tools='save,reset', toolbar_location='right')
-        p_yVSz.add_tools(BoxZoomTool(match_aspect=True))
-        #p_xy.add_tools(HoverTool(tooltips=[('u/v', '@u/@v'),],))
-            
-        #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
-        p_yVSz.scatter(x=tc_vars['z'], y=tc_vars['y'], source=source)
-         
-        # y VS x plots
-        p_yVSx = figure(width=width, height=height,
-                        tools='save,reset', toolbar_location='right')
-        p_yVSx.add_tools(BoxZoomTool(match_aspect=True))
-        #p_xy.add_tools(HoverTool(tooltips=[('u/v', '@u/@v'),],))
-            
-        #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
-        p_yVSx.scatter(x=tc_vars['x'], y=tc_vars['y'], source=source)
-         
-        button = Button(label='Update', button_type='success')
-        button.on_click(update)
+    p_uv.add_tools(HoverTool(tooltips=[('u/v', '@'+tc_vars['u']+'/'+'@'+tc_vars['v']),]))
+        
+    # (x,y) plots
+    p_xy = figure(width=width, height=height,
+                  tools='save,reset', toolbar_location='right',
+                  output_backend='webgl')
+    p_xy.add_tools(BoxZoomTool(match_aspect=True))
+    p_xy.add_tools(HoverTool(tooltips=[('u/v', '@'+tc_vars['u']+'/'+'@'+tc_vars['v']),],))
+           
+    common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
+    p_xy.rect(x=tc_vars['u'], y=tc_vars['v'],
+              source=source, view=view,
+              width=1., height=1.,
+              width_units='data', height_units='data',
+              fill_color='color',
+              line_color='black',)
+        
+    surface = Surface3d(x='z', y='y', z='x', data_source=source)
+    
+    # x VS z plots
+    p_xVSz = figure(width=width, height=height,
+                    tools='save,reset', toolbar_location='right')
+    p_xVSz.add_tools(BoxZoomTool(match_aspect=True))
+    #p_xy.add_tools(HoverTool(tooltips=[('u/v', '@u/@v'),],))
+           
+    #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
+    p_xVSz.scatter(x=tc_vars['z'], y=tc_vars['x'], source=source)
+        
+    # y VS z plots
+    p_yVSz = figure(width=width, height=height,
+                    tools='save,reset', toolbar_location='right')
+    p_yVSz.add_tools(BoxZoomTool(match_aspect=True))
+    #p_xy.add_tools(HoverTool(tooltips=[('u/v', '@u/@v'),],))
+           
+    #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
+    p_yVSz.scatter(x=tc_vars['z'], y=tc_vars['y'], source=source)
+        
+    # y VS x plots
+    p_yVSx = figure(width=width, height=height,
+                    tools='save,reset', toolbar_location='right')
+    p_yVSx.add_tools(BoxZoomTool(match_aspect=True))
+    #p_xy.add_tools(HoverTool(tooltips=[('u/v', '@u/@v'),],))
+           
+    #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
+    p_yVSx.scatter(x=tc_vars['x'], y=tc_vars['y'], source=source)
+        
+    button = Button(label='Update', button_type='success', default_size=100)
+    button.on_click(update)
 
-        blank = Div(width=1000, height=100, text='')
-        lay = layout([[button], [slider],[p_uv,p_xy,surface],[blank],[p_xVSz,p_yVSz,p_yVSx]])
-        #save(lay)
-
-        doc.add_root(lay)
+    blank1 = Div(width=1000, height=100, text='')
+    blank2 = Div(width=70, height=100, text='')
+    lay = layout([[button, blank2, slider],
+                  [p_uv,p_xy,surface],
+                  [blank1],
+                  [p_xVSz,p_yVSz,p_yVSx]])
+    doc.add_root(lay) # save(lay)
 
 parser = argparse.ArgumentParser(description='')
 FLAGS = parser.parse_args()
