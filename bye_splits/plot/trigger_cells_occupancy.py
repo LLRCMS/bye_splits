@@ -73,7 +73,7 @@ def plot_trigger_cells_occupancy(pars,
     tcTreeName = 'TreeTriggerCells'
     tcTree = tcFile[ os.path.join(tcFolder, tcTreeName) ]
 
-    simDataPath = Path(kw['BasePath']) / 'gen_cl3d_tc.hdf5'
+    simDataPath = Path(kw['BasePath']) / 'summ_photon_truncation.hdf5'
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
 
     for fe in kw['FesAlgos']:

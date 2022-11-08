@@ -51,7 +51,7 @@ if len(base_kw['FesAlgos'])!=1:
 
 # fill task
 fill_kw = set_dictionary(
-    {'FillIn'      : 'gen_cl3d_tc',
+    {'FillIn'      : 'summ_photon_truncation',
      'FillOut'     : 'fill',
      'FillOutComp' : 'fill_comp',
      'FillOutPlot' : 'fill_plot' }

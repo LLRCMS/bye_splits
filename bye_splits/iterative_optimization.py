@@ -45,7 +45,7 @@ def process_trigger_cell_geometry_data(region, selection,
         print(tcTree.show())
         quit()
 
-    simDataPath = os.path.join(params.base_kw['BasePath'], 'gen_cl3d_tc.hdf5')
+    simDataPath = os.path.join(params.base_kw['BasePath'], 'summ_photon_truncation.hdf5')
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
     fes = ['ThresholdDummyHistomaxnoareath20']
     for fe in fes:
