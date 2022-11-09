@@ -62,7 +62,7 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE):
                 
             for ib,batch in enumerate(data.iterate(branches_tc, step_size=memsize_tc,
                                                    library='pd')):
-                
+                breakpoint()
                 batch = batch[ batch['tc_zside']==1 ] #positive endcap
                 batch = batch.drop(columns=['tc_zside'])
                 #remove layers not read by trigger cells
@@ -70,6 +70,7 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE):
                 #convert all the trigger cell hits in each event to a list
                 batch = batch.groupby(by=['event']).aggregate(lambda x: list(x))
                 batches_tc.append(batch)
+                breakpoint()
                 print('Step {}: +{} trigger cells data processed.'.format(ib,memsize_tc), flush=True)
 
     df_gen = pd.concat(batches_gen)
@@ -96,7 +97,7 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE):
     return (df_gen, df_algos, df_tc)
 
 def preprocessing():
-    files = prod_params.files_photons
+    files = prod_params.files
     gen, algo, tc = create_dataframes(files,
                                       prod_params.algo_trees, prod_params.gen_tree,
                                       prod_params.reachedEE)

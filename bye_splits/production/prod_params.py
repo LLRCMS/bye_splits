@@ -13,7 +13,7 @@ particle = 'photon'
 algo = 'best_choice'
 pu = False
 assert particle in ('photon', 'pion', 'electron')
-assert mode in ('best_choice', 'truncation')
+assert algo in ('best_choice', 'truncation')
 
 if htcondor and local:
     raise ValueError('No submission is possible from your local machine!')
@@ -33,15 +33,15 @@ else:
         files_photons = glob.glob('/home/llr/cms/sauvan/DATA_UPG/HGCAL/Ntuples/study_autoencoder/3_22_1/SinglePhoton_PT2to200/GammaGun_Pt2_200_PU0_HLTWinter20_std_ae_xyseed/210430_091126/ntuple*.root')
     else:
         base = Path('/data_CMS') / 'cms' / 'alves' / 'TriggerCells'
-        files = {'photon'   : str(base / 'photon_0PU_bc_stc_hadd.root'),
-                 'electron' : str(base / 'electron_0PU_bc_stc_hadd.root'),
-                 'pion'     : str(base / 'pion_0PU_bc_stc_hadd.root')}
+        files = {'photon'   : [str(base / 'photon_0PU_bc_stc_hadd.root')],
+                 'electron' : [str(base / 'electron_0PU_bc_stc_hadd.root')],
+                 'pion'     : [str(base / 'pion_0PU_bc_stc_hadd.root')]}
         files = files[particle]
 
 # Pick one of the different algos trees to retrieve the gen information
 gen_tree = {'best_choice': 'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple',
             'truncation': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple'}
-gen_tree = os.path.join(gen_tree[mode], 'HGCalTriggerNtuple')
+gen_tree = os.path.join(gen_tree[algo], 'HGCalTriggerNtuple')
 
 # Store only information on the best match; it removes duplicated clusters
 bestmatch_only = False
@@ -54,5 +54,5 @@ if htcondor:
 else:
     out_dir = params.base_kw['BasePath']
         
-out_name = 'summ_{}_{}.hdf5'.format(particle, mode)
+out_name = 'summ_{}_{}.hdf5'.format(particle, algo)
 algo_trees = [gen_tree]

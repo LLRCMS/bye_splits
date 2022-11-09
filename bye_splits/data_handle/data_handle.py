@@ -16,7 +16,7 @@ def handle(mode):
     if mode == modes[0]:
         obj = GeometryData(inname='test_triggergeom.root', outname='geom.hdf5')
     elif mode == modes[1]:
-        obj = EventData('XXXX.root')
+        obj = EventData(inname='photon_0PU_bc_stc_hadd.root', outname='geom.hdf5')
     else:
         raise ValueError('Mode {} not supported. Pick one of the following: {}'.format(mode, modes))
     return obj
