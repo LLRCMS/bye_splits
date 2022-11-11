@@ -13,3 +13,6 @@
 /.env
 */data/
 */out/
+*.o
+*.exe
+*.deps*
