@@ -9,7 +9,7 @@ INCDIR  := $(BUILDIR)/include
 DEPDIR  := $(BUILDIR)/.deps
 
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
-DEBUG_LEVEL := -g -fdiagnostics-color=never
+DEBUG_LEVEL := -g -fdiagnostics-color=always
 EXTRA_CCFLAGS := -Wall -std=c++11 -O -pedantic -pedantic-errors \
 	-Wformat-security \
 	-Wformat-y2k \
@@ -42,8 +42,8 @@ $(EXEC): $(OBJS)
 	$(CC) $(CCFLAGS) $^ $(EXTRAFLAGS) -o $@
 	@echo Executable $(EXEC) created.
 
-$(BUILDIR)/%.o: $(BUILDIR)/%.cc #rewrite implicit rules
-$(BUILDIR)/%.o: $(BUILDIR)/%.cc Makefile
+$(BUILDIR)%.o: $(BUILDIR)%.cc #rewrite implicit rules
+$(BUILDIR)%.o: $(BUILDIR)%.cc Makefile
 	$(CC) $(DEPFLAGS) $(CCFLAGS) -c $< $(EXTRAFLAGS) -I$(BASEDIR)/$(BUILDIR) -I $(BASEDIR)/yaml-cpp-yaml-cpp-0.7.0/include -o $@
 
 $(SRCDIR)/%.o: $(SRCDIR)/%.cc $(DEPDIR)/%.d | $(DEPDIR)

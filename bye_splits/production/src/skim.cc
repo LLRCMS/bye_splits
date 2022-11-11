@@ -1,6 +1,18 @@
 #include "include/skim.h"
 
 void skim(std::string tn, std::string inf, std::string outf) {
+
+  YAML::Node config = YAML::LoadFile("bye_splits/production/prod_params.yaml");
+  std::vector<int> vec;
+  if (config["disconnectedTriggerLayers"]) {
+	vec = config["disconnectedTriggerLayers"].as<std::vector<int>>();
+  }
+  for(auto& x : vec)
+	std::cout << x << std::endl;
+  std::exit(0);
+
+
+ 
   ROOT::EnableImplicitMT();
   ROOT::RDataFrame df(tn, inf);
 
