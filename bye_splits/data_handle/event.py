@@ -13,7 +13,7 @@ import pandas as pd
 
 from utils import params, common
 
-class GeometryData:
+class EventData:
     def __init__(self, inname, outname):
         self.inpath = (Path(__file__).parent.absolute().parent.parent /
                      params.DataFolder / inname )

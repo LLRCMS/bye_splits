@@ -32,8 +32,8 @@ else:
     if htcondor:
         files_photons = glob.glob('/home/llr/cms/sauvan/DATA_UPG/HGCAL/Ntuples/study_autoencoder/3_22_1/SinglePhoton_PT2to200/GammaGun_Pt2_200_PU0_HLTWinter20_std_ae_xyseed/210430_091126/ntuple*.root')
     else:
-        base = Path('/data_CMS') / 'cms' / 'alves' / 'TriggerCells'
-        files = {'photon'   : [str(base / 'photon_0PU_bc_stc_hadd.root')],
+        base = Path('/grid_mnt/vol_home/llr/cms/') / 'alves' / 'CMSSW_12_5_0_pre1' / 'src/bye_splits/data/new_algos/'
+        files = {'photon'   : [str(base / 'skim_photon_0PU_bc_stc_hadd.root')],
                  'electron' : [str(base / 'electron_0PU_bc_stc_hadd.root')],
                  'pion'     : [str(base / 'pion_0PU_bc_stc_hadd.root')]}
         files = files[particle]
