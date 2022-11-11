@@ -24,7 +24,7 @@ void skim(std::string tn, std::string inf, std::string outf) {
   std::vector<std::string> clvars = {
 	"cl3d_energy", "cl3d_pt", "cl3d_eta", "cl3d_phi"
   };
-  std::string condcl = "cl3d_energy > -1"; //dummy selection
+  std::string condcl = "cl3d_eta > 0"; //dummy selection
   dd = dd.Define("good_cl", condcl);
   for(auto& v : clvars)
 	dd = dd.Define("good_" + v, v + "[good_cl]");

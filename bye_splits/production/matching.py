@@ -52,13 +52,6 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE):
             #print( data.num_entries_for(memsize, expressions=branches_tc) )
             for ib,batch in enumerate(data.iterate(branches_gen, step_size=memsize_gen,
                                                    library='pd')):
-                # reachedEE=2: photons that hit HGCAL
-                #batch = batch[ batch['genpart_reachedEE']==reachedEE ]
-                #batch = batch[ batch['genpart_gen']!=-1 ]
-                #batch = batch[ batch['genpart_pid']==22 ]
-                #batch = batch.drop(columns=['genpart_reachedEE', 'genpart_gen', 'genpart_pid'])
-                #batch = batch.drop(columns=['genpart_gen', 'genpart_pid'])
-                #batch = batch[ batch['genpart_exeta']>0  ] #positive endcap only
                 batch.set_index('event', inplace=True)
 
                 batches_gen.append(batch)
@@ -66,9 +59,6 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE):
                 
             for ib,batch in enumerate(data.iterate(branches_tc, step_size=memsize_tc,
                                                    library='pandas')):
-                #batch = batch[ batch['tc_zside']==1 ] #positive endcap
-                #batch = batch.drop(columns=['tc_zside'])
-                #remove layers not read by trigger cells            
                 batch = batch[ ~batch['good_tc_layer'].isin(params.disconnectedTriggerLayers) ]
                 #convert all the trigger cell hits in each event to a list
                 batch = batch.groupby(by=['event']).aggregate(lambda x: list(x))
@@ -107,9 +97,6 @@ def preprocessing():
     algo_clean = {}
 
     for algo_name,df_algo in algo.items():
-        # consider positive endcap only for simplicity
-        algo_pos = df_algo[ df_algo['cl3d_eta']>0  ]
-        
         #set the indices
         algo_pos.set_index('event', inplace=True)
 
@@ -120,7 +107,7 @@ def preprocessing():
         algo_pos_merged['deltar']=deltar(algo_pos_merged)
 
         #could be better:
-        algo_pos_merged['matches'] = algo_pos_merged.deltar<=prod_params.threshold
+        algo_pos_merged['matches'] = algo_pos_merged.deltar <= prod_params.threshold
 
         # matching
         # LP: but then, we want to remove only clusters that aren't "best match"

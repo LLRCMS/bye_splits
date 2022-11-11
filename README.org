@@ -2,11 +2,46 @@
 #+NAME:   fig:license
 [[https://img.shields.io/github/license/bfonta/bye_splits.svg]]
 
-*** Goal
+This repository reproduces the CMS HGCAL L1 Stage2 reconstruction chain in Python por quick testing. It includes code capable of generating an event visualization app. It was originally used for understanding and fixing the observed cluster splitting.
 
-Understand and fix the observed cluster splitting in the CMS L1 Stage 2 reconstruction on FPGAs.
+*** Installation & Setup
+**** Data production
+This framework relies on photon-, electron- and pion-gun samples produced via CRAB. The most up to date versions are currently stored under:
 
-*** Setup
+| Photons PU(0)   | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoublePhoton_FlatPt-1To100/GammaGun_Pt1_100_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221025_153226/0000/~        |
+| Electrons (PU0) | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoubleElectron_FlatPt-1To100/ElectronGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_102633/0000/~ |
+| Pions (PU0)     | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/SinglePion_PT0to200/SinglePion_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_103211/0000~              |
+
+The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users.
+
+*** Skimming
+To make the size of the files more manageable, a skimming step was implemented in =C++=. It depends on the =yaml-cpp= package ([[https://github.com/jbeder/yaml-cpp][source]], version =0.7.0=). The instructions on the =README= page of the projet are a bit criptic. Below follows a step-by-step guide:
+
+#+BEGIN_SRC shell
+# 1) Download the 0.7.0 '.zip' release
+# 2) Unzip it
+unzip yaml-cpp-yaml-cpp-0.7.0.zip
+# 3) The package uses CMake for compilation. To avoid cluttering the same folder with many CMake-related files, create a new folder and build the project there
+mkdir build; cd build
+# 4) Compile using a static library (for a dynamic one use the '-DYAML_BUILD_SHARED_LIBS=ON' option before '..'.
+cmake ..
+# 5) Build the package
+cmake --build .
+# 6) Verify the library 'libyaml-cpp.a' was created
+ls -l
+# 7) Check the package was correctly installed by compiling a test example (this assumes you have g++ installed):
+g++ bye_splits/tests/test_yaml_cpp.cc -I <installation_path_yaml_cpp>/yaml-cpp-yaml-cpp-0.7.0/include/ -L <installation_path_yaml_cpp>/yaml-cpp-yaml-cpp-0.7.0/build/ -std=c++11 -lyaml-cpp -o test_yaml_cpp.o
+# 8) Run the executable
+./test_yaml_cpp.o
+#+END_SRC
+
+The above should print the contents stored in =bye_splits/tests/params.yaml=.
+
+To run the skimming step, you will need to compile the =C++= files stored under =bye_splits/production=.
+
+TO BE CONTINUED
+
+**** Reconstruction Chain
 Start by getting this repository on your work directory. You will need to include a generated public SSH key on GitHub.
 
 #+BEGIN_SRC shell
@@ -20,6 +55,11 @@ conda install -c bokeh bokeh
 #+END_SRC
 
 Run ~conda activate <EnvName>~ to enter the environment and ~conda deactivate~ to exit it.
+
+**** Visualization
+The repository creates two web apps that can be visualized in a browser. The code is stored under =bye_splits/plot=.
+
+TO BE CONTINUED
 
 *** Execute
 
