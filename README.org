@@ -14,16 +14,17 @@ This framework relies on photon-, electron- and pion-gun samples produced via CR
 
 The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users.
 
-*** Skimming
-To make the size of the files more manageable, a skimming step was implemented in =C++=. It depends on the =yaml-cpp= package ([[https://github.com/jbeder/yaml-cpp][source]], version =0.7.0=). The instructions on the =README= page of the projet are a bit criptic. Below follows a step-by-step guide:
+**** Skimming: install =yaml-cpp= dependency
+To make the size of the files more manageable, a skimming step was implemented in =C++=. It depends on the =yaml-cpp= package ([[https://github.com/jbeder/yaml-cpp][source]],  [[https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.7.0][release used]]: version =0.7.0=). The instructions on the =README= page of the project are a bit cryptic. Below follows a step-by-step guide:
 
 #+BEGIN_SRC shell
 # 1) Download the 0.7.0 '.zip' release
 # 2) Unzip it
 unzip yaml-cpp-yaml-cpp-0.7.0.zip
 # 3) The package uses CMake for compilation. To avoid cluttering the same folder with many CMake-related files, create a new folder and build the project there
-mkdir build; cd build
-# 4) Compile using a static library (for a dynamic one use the '-DYAML_BUILD_SHARED_LIBS=ON' option before '..'.
+mkdir build
+cd build
+# 4) Compile a static library (for a dynamic one use the '-DYAML_BUILD_SHARED_LIBS=ON' option before '..'.
 cmake ..
 # 5) Build the package
 cmake --build .
@@ -37,18 +38,20 @@ g++ bye_splits/tests/test_yaml_cpp.cc -I <installation_path_yaml_cpp>/yaml-cpp-y
 
 The above should print the contents stored in =bye_splits/tests/params.yaml=.
 
+**** Skimming: run
 To run the skimming step, you will need to compile the =C++= files stored under =bye_splits/production=.
+
+An additional matching step might be required:
+
+#+BEGIN_SRC shell
+python bye_splits/production/matching.py
+#+END_SRC
 
 TO BE CONTINUED
 
 **** Reconstruction Chain
-Start by getting this repository on your work directory. You will need to include a generated public SSH key on GitHub.
+The chain is implemented in Python. I recommend creating a separate =conda= environment for running the code.
 
-#+BEGIN_SRC shell
-git clone git@github.com:bfonta/bye_splits.git
-#+END_SRC
-
-I recommend creating a separate =conda= environment for running the code.
 #+BEGIN_SRC shell
 create -n <EnvName> python=3.9 pandas uproot pytables h5py
 conda install -c bokeh bokeh
@@ -56,23 +59,7 @@ conda install -c bokeh bokeh
 
 Run ~conda activate <EnvName>~ to enter the environment and ~conda deactivate~ to exit it.
 
-**** Visualization
-The repository creates two web apps that can be visualized in a browser. The code is stored under =bye_splits/plot=.
-
-TO BE CONTINUED
-
-*** Execute
-
-- Start from =hadd.root= file which gathers trigger cell, cluster and generated information of single photon events without PU [the code required to create this file will be added in this repo in due time]
-  
-- Produce an intermediated skimmed file with matching applied. This steps is not required if matching is not necessary, but speeds up the folloing step significantly.
-
-#+BEGIN_SRC shell
-python bye_splits/production/matching.py
-#+END_SRC
-
-
-- To run the L1 reconstruction chain:
+You must start from the output of the skimming step above. To replicate the study of TC shifting run the following:
 
 #+BEGIN_SRC shell
 bash bye_splits/run_iterative_optimization.sh
@@ -80,10 +67,15 @@ bash bye_splits/run_iterative_optimization.sh
 
 where one can use the =-h= flag to visualize available options.
 
-- For plotting results as a function of the optimization trigger cell parameter:
+For plotting results as a function of the optimization trigger cell parameter:
 
 #+BEGIN_SRC shell
 python plot/meta_algorithm.py
 #+END_SRC
 
 The above will create =html= files with interactive outputs.
+
+**** Event Visualization
+The repository creates two web apps that can be visualized in a browser. The code is stored under =bye_splits/plot=.
+
+TO BE CONTINUED
