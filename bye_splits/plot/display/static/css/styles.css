@@ -1,0 +1,22 @@
+.content{
+    background-color: #0080FF;
+    color: #0080FF;      
+    width: 40%;
+    height: 140px;
+}
+
+.name{
+    font-size: 15pt;      
+}
+
+.number{
+    font-size: 56pt;      
+}
+
+.percentage{
+    font-size: 36pt;
+}
+
+.number-display{
+    width: 200px;       
+}

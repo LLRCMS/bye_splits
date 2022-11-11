@@ -35,42 +35,44 @@ def matching(event):
 def create_dataframes(files, algo_trees, gen_tree, reachedEE):
     print('Input file: {}'.format(files), flush=True)
 
-    branches_gen = [ 'event', 'genpart_reachedEE', 'genpart_pid', 'genpart_gen',
-                     'genpart_exphi', 'genpart_exeta', 'genpart_energy' ]
-    branches_cl3d = [ 'event', 'cl3d_energy','cl3d_pt','cl3d_eta','cl3d_phi' ]
-    branches_tc = [ 'event', 'tc_zside', 'tc_energy', 'tc_mipPt', 'tc_pt', 'tc_layer',
-                    'tc_x', 'tc_y', 'tc_z', 'tc_phi', 'tc_eta', 'tc_id' ]
+    # branches_gen = [ 'event', 'genpart_reachedEE', 'genpart_pid', 'genpart_gen',
+    #                  'genpart_exphi', 'genpart_exeta', 'genpart_energy' ]
+    # branches_cl3d = [ 'event', 'cl3d_energy','cl3d_pt','cl3d_eta','cl3d_phi' ]
+    # branches_tc = [ 'event', 'tc_zside', 'tc_energy', 'tc_mipPt', 'tc_pt', 'tc_layer',
+    #                 'tc_x', 'tc_y', 'tc_z', 'tc_phi', 'tc_eta', 'tc_id' ]
+    branches_gen = [ 'event', 'good_genpart_exphi', 'good_genpart_exeta', 'good_genpart_energy' ]
+    branches_cl3d = [ 'event', 'good_cl3d_energy','good_cl3d_pt','good_cl3d_eta','good_cl3d_phi' ]
+    branches_tc = [ 'event', 'good_tc_energy', 'good_tc_mipPt', 'good_tc_pt', 'good_tc_layer',
+                    'good_tc_x', 'good_tc_y', 'good_tc_z', 'good_tc_phi', 'good_tc_eta' ]
     
     batches_gen, batches_tc = ([] for _ in range(2))
-    memsize_gen, memsize_tc = '128 MB', '64 MB'
+    memsize_gen, memsize_tc = '128 MB', 50000#'64 MB'
     for filename in files:
         with uproot.open(filename + ':' + gen_tree) as data:
             #print( data.num_entries_for(memsize, expressions=branches_tc) )
             for ib,batch in enumerate(data.iterate(branches_gen, step_size=memsize_gen,
                                                    library='pd')):
                 # reachedEE=2: photons that hit HGCAL
-                batch = batch[ batch['genpart_reachedEE']==reachedEE ]
-                batch = batch[ batch['genpart_gen']!=-1 ]
-                batch = batch[ batch['genpart_pid']==22 ]
+                #batch = batch[ batch['genpart_reachedEE']==reachedEE ]
+                #batch = batch[ batch['genpart_gen']!=-1 ]
+                #batch = batch[ batch['genpart_pid']==22 ]
                 #batch = batch.drop(columns=['genpart_reachedEE', 'genpart_gen', 'genpart_pid'])
-                batch = batch.drop(columns=['genpart_gen', 'genpart_pid'])
-                batch = batch[ batch['genpart_exeta']>0  ] #positive endcap only
+                #batch = batch.drop(columns=['genpart_gen', 'genpart_pid'])
+                #batch = batch[ batch['genpart_exeta']>0  ] #positive endcap only
                 batch.set_index('event', inplace=True)
 
                 batches_gen.append(batch)
                 print('Step {}: +{} generated data processed.'.format(ib,memsize_gen), flush=True)
                 
             for ib,batch in enumerate(data.iterate(branches_tc, step_size=memsize_tc,
-                                                   library='pd')):
-                breakpoint()
-                batch = batch[ batch['tc_zside']==1 ] #positive endcap
-                batch = batch.drop(columns=['tc_zside'])
-                #remove layers not read by trigger cells
-                batch = batch[ ~batch['tc_layer'].isin(params.disconnectedTriggerLayers) ]
+                                                   library='pandas')):
+                #batch = batch[ batch['tc_zside']==1 ] #positive endcap
+                #batch = batch.drop(columns=['tc_zside'])
+                #remove layers not read by trigger cells            
+                batch = batch[ ~batch['good_tc_layer'].isin(params.disconnectedTriggerLayers) ]
                 #convert all the trigger cell hits in each event to a list
                 batch = batch.groupby(by=['event']).aggregate(lambda x: list(x))
                 batches_tc.append(batch)
-                breakpoint()
                 print('Step {}: +{} trigger cells data processed.'.format(ib,memsize_tc), flush=True)
 
     df_gen = pd.concat(batches_gen)

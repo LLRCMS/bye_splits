@@ -5,7 +5,7 @@ _all_ = [ ]
 import os
 from pathlib import Path
 import sys
-parent_dir = os.path.abspath(__file__ + 2 * '/..')
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
 import argparse
@@ -49,11 +49,11 @@ def common_props(p, xlim=None, ylim=None):
     if ylim is not None:
         p.y_range = Range1d(ylim[0], ylim[1])
         
-# def get_data():
-#     return handle('geom').provide(True)
-
 def get_data():
-    return handle('event').provide(True)
+    return handle('geom').provide(True)
+
+# def get_data():
+#     return handle('event').provide(True)
 
 def display():
     doc = curdoc()
@@ -144,6 +144,7 @@ def display():
 
     blank1 = Div(width=1000, height=100, text='')
     blank2 = Div(width=70, height=100, text='')
+
     lay = layout([[button, blank2, slider],
                   [p_uv,p_xy],
                   [blank1],
