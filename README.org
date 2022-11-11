@@ -22,10 +22,11 @@ To make the size of the files more manageable, a skimming step was implemented i
 # 2) Unzip it
 unzip yaml-cpp-yaml-cpp-0.7.0.zip
 # 3) The package uses CMake for compilation. To avoid cluttering the same folder with many CMake-related files, create a new folder and build the project there
+cd yaml-cpp-yaml-cpp-0.7.0
 mkdir build
 cd build
-# 4) Compile a static library (for a dynamic one use the '-DYAML_BUILD_SHARED_LIBS=ON' option before '..'.
-cmake ..
+# 4) Compile a static library (the flag removes a -Werror issue)
+cmake -DYAML_CPP_BUILD_TESTS=OFF ..
 # 5) Build the package
 cmake --build .
 # 6) Verify the library 'libyaml-cpp.a' was created
