@@ -2,7 +2,7 @@
 #+NAME:   fig:license
 [[https://img.shields.io/github/license/bfonta/bye_splits.svg]]
 
-This repository reproduces the CMS HGCAL L1 Stage2 reconstruction chain in Python por quick testing. It includes code capable of generating an event visualization app. It was originally used for understanding and fixing the observed cluster splitting.
+This repository reproduces the CMS HGCAL L1 Stage2 reconstruction chain in Python for quick testing. It can generate an event visualization app. It was originally used for understanding and fixing the observed cluster splitting.
 
 *** Installation & Setup
 **** Data production
@@ -76,7 +76,38 @@ python plot/meta_algorithm.py
 
 The above will create =html= files with interactive outputs.
 
-**** Event Visualization
+*** Event Visualization
 The repository creates two web apps that can be visualized in a browser. The code is stored under =bye_splits/plot=.
+
+**** Visualization in a local browser
+Since browser usage directly in the server will necessarily be slow, we can forward it to our local machines via =ssh=. To establish a connection between the local machine and the remote =llruicms01= server, passing by the gate, use:
+
+#+BEGIN_SRC shell
+ssh -L <port>:llruicms01.in2p3.fr:<port> -N <llr_username>@llrgate01.in2p3.fr
+# for instance: ssh -L 8080:lruicms01.in2p3.fr:8080 -N alves@llrgate01.in2p3.fr
+#+END_SRC
+
+The two ports do not have to be the same, but it avoids possible confusion. Leave the terminal open and running (it will not produce any output), and in a new terminal window go to =llruicms01= and launch one of the apps, for instance:
+
+#+BEGIN_SRC shell
+bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port>
+#+END_SRC
+
+This uses the server-creation capabilities of =bokeh=, a =python= package for interactive visualization ([[https://docs.bokeh.org/en/latest/index.html][docs]]). Note the port number must match. For further customisation of =bokeh serve= see [[https://docs.bokeh.org/en/latest/docs/reference/command/subcommands/serve.html][the serve documentation]].
+The above command should give access to the visualization under =http://localhost:8080/display=.
+
+**** Visualization online
+
+We use the [[https://docs.openshift.com/container-platform/3.11/creating_images/s2i.html][S2I]] (Source to Image) service via CERN's [[https://paas.docs.cern.ch/][PaaS]] (Platform-as-a-Service) to deploy and host web apps in the CERN computing environment [[https://paas.cern.ch/][here]]. There are three ways to deploys such an app: S2I represents the easiest (but less flexible) of the three; instructions [[https://paas.docs.cern.ch/2._Deploy_Applications/Deploy_From_Git_Repository/2-deploy-s2i-app/][here]]. It effectively abstracts away the need for Dockerfiles. We will S2I's simplest configuration possible under =app.sh=.
+
+From [[https://cloud.google.com/kubernetes-engine/docs/concepts/pod][this reference]]:
+
+#+BEGIN_QUOTE
+Pods are the smallest, most basic deployable objects in Kubernetes. A Pod represents a single instance of a running process in your cluster.
+
+Pods contain one or more containers, such as Docker containers. When a Pod runs multiple containers, the containers are managed as a single entity and share the Pod's resources. Generally, running multiple containers in a single Pod is an advanced use case.
+#+END_QUOTE
+
+bokeh serve bye_splits/plot/display/ --address 0.0.0.0 --port 8080
 
 TO BE CONTINUED
