@@ -158,10 +158,12 @@ def cluster(pars, **kw):
                 dfout.event = dfout.event.astype(int)
                 coef = 'coef_'+str(kw['CoeffA'][0]).replace('.','p')
                 outenergy = common.fill_path(kw['EnergyOut'], **pars)
+                genlev = 'data/'+kw['File']+'.hdf5'
 
                 # THIS MUST BE CHECKED (with __ as ___ is throwing an error)
                 EnOut = pd.HDFStore(outenergy, mode='a')
-                GenFile = pd.HDFStore('data/gen_cl3d_tc.hdf5', mode='r') # this file is created by matching_v3
+                GenFile = pd.HDFStore(genlev, mode='r')
+                #GenFile = pd.HDFStore('data/gen_cl3d_tc.hdf5', mode='r') # this file is created by matching_v3
 
                 en_df = dfout.join(GenFile[kw['FesAlgos'][0]], on='event', how='inner')
 

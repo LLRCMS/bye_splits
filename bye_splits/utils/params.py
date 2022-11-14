@@ -55,8 +55,8 @@ if len(base_kw['FesAlgos'])!=1:
 threshold = 0.05
 delta_r_coefs = (0.0,threshold,50)
 
-#ntuple_templates = {'photon': 'Floatingpoint{fe}Genclustersntuple/HGCalTriggerNtuple','pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
-ntuple_templates = {'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+ntuple_templates = {'photon': 'Floatingpoint{fe}Genclustersntuple/HGCalTriggerNtuple','pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+#ntuple_templates = {'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
 algo_trees = {}
 for fe in base_kw['FesAlgos']:
     inner_trees = {}
@@ -82,21 +82,19 @@ def transform(nested_list):
 
 
 def create_out_names(files,trees):
-    #files = functools.reduce(operator.iconcat,transform(list(dict.values())),[])
-    #file_exts = [re.split('.root|/',file)[-2] for file in files]
     output_file_names = {}
     for key in files.keys():
         if isinstance(files[key], str):
             files[key] = [files[key]]
         tree = trees[key]
-        output_file_names[key] = ['{}_gen_cl3d_tc_{}'.format(key,re.split('.root|/',file)[-2]) for file in files[key]]
-    #output_file_names = ['data/gen_cl3d_tc_{}.hdf5'.format(name) for name in file_exts]
+        #output_file_names[key] = ['{}_gen_cl3d_tc_{}'.format(key,re.split('.root|/',file)[-2]) for file in files[key]]
+        output_file_names[key] = ['gen_cl3d_tc_{}_{}'.format(base_kw['FesAlgos'][0],re.split('.root|/',file)[-2]) for file in files[key]]
     return output_file_names
 
-#files = {'photon': '/data_CMS/cms/alves/TriggerCells/photon_0PU_truncation_hadd.root', 'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
-files = {'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
-#gen_trees = {'photon': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple', 'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
-gen_trees = {'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+files = {'photon': '/data_CMS/cms/alves/TriggerCells/photon_0PU_truncation_hadd.root', 'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
+#files = {'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
+gen_trees = {'photon': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple', 'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+#gen_trees = {'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
 
 match_kw = set_dictionary(
     { 'Files': files,
@@ -165,8 +163,8 @@ seed_kw = set_dictionary(
 cluster_kw = set_dictionary(
     { 'ClusterInTC': fill_kw['FillOut'],
       'ClusterInSeeds': seed_kw['SeedOut'],
-      'ClusterOutPlot': 'cluster_validation',
-      'ClusterOutValidation': 'cluster_plot',
+      'ClusterOutPlot': 'cluster_plot',
+      'ClusterOutValidation': 'cluster_validation',
       'CoeffA': ( (0.015,)*7 + (0.020,)*7 + (0.030,)*7 + (0.040,)*7 + #EM
                   (0.040,)*6 + (0.050,)*6 + # FH
                   (0.050,)*12 ), # BH
@@ -175,7 +173,6 @@ cluster_kw = set_dictionary(
       'PtC3dThreshold': 0.5,
       'ForEnergy': False,
       'EnergyOut': 'cluster_energy',
-      'RecoOut': 'reco_eff',
       'GenPart': fill_kw['FillIn']}
 )
 
@@ -193,7 +190,9 @@ energy_kw = set_dictionary(
       'ReInit': False, # If true, ../scripts/en_per_deltaR.py will create an .hdf5 file containing energy info.
       'Coeffs': delta_r_coefs, #tuple containing (coeff_start, coeff_end, num_coeffs)
       'EnergyIn': cluster_kw['EnergyOut'],
-      'RecoIn': cluster_kw['RecoOut'],
+      'EnergyOut': 'energy_out',
+      'EnergyPlot': 'energy_plot',
       'BestMatch': True,
-      'MatchFile': False}
+      'MatchFile': False,
+      'MakePlot': True}
 )

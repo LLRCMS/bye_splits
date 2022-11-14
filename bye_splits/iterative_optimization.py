@@ -17,13 +17,14 @@ from plot.trigger_cells_occupancy import plot_trigger_cells_occupancy
 import csv
 import argparse
 import random; random.seed(10)
-from copy import copy
+from copy import copy, deepcopy
 import numpy as np
 import pandas as pd
 import uproot as up
 import h5py
 import sys
 import re
+import itertools
 #np.set_printoptions(threshold=sys.maxsize, linewidth=170)
 
 def is_sorted(arr, nbinsphi):
@@ -93,8 +94,7 @@ def process_trigger_cell_geometry_data(region, selection,
         store['data_main'].attrs['doc'] = doc_main
 
 def optimization(pars, **kw):
-    #outresen = common.fill_path(kw['OptIn'], sel=pars['sel'], reg=pars['reg'])
-    outresen = kw['OptIn']
+    outresen = common.fill_path(kw['OptIn'], sel=pars['sel'], reg=pars['reg'])
     store_in  = h5py.File(outresen, mode='r')
     plot_obj = utils.plotter.Plotter(**params.opt_kw)
     mode = 'variance'
@@ -111,7 +111,8 @@ def optimization(pars, **kw):
     data_opt = dict(nbins_phi=kw['NbinsPhi'], nbins_rz=kw['NbinsRz'],
                     window_size=window_size, normalize=False)
     data_main, bins_main, _, _, idx_d_main = dp.preprocess( data=store_in['data_main'], **data_opt)
-    data_inv, bins_inv, _, _, idx_d_inv = dp.preprocess( data=store_in['data_inv'], **data_opt)
+    if pars['reg'] != 'All':
+        data_inv, bins_inv, _, _, idx_d_inv = dp.preprocess( data=store_in['data_inv'], **data_opt)
 
     store_in.close()
 
@@ -349,15 +350,15 @@ def optimization(pars, **kw):
 
         df_total = df if rzslice==0 else pd.concat((df_total,df), axis=0)
 
+    if pars['reg'] != 'All':
+        for rzslice, (ldata_inv, lbins_inv) in enumerate(zip(data_inv, bins_inv)):
+            ld_inv = np.array(ldata_inv)
+            lb_inv = np.array(ldata_inv)
+            phi_inv = ld_inv[:,idx_d_inv.phi]
 
-    for rzslice, (ldata_inv, lbins_inv) in enumerate(zip(data_inv, bins_inv)):
-        ld_inv = np.array(ldata_inv)
-        lb_inv = np.array(ldata_inv)
-        phi_inv = ld_inv[:,idx_d_inv.phi]
-
-        df_inv = pd.DataFrame(dict(phi=phi_inv,
-                                    id=np.uint32(ld_inv[:,idx_d_inv.tc_id])))
-        df_inv_total = df_inv if rzslice==0 else pd.concat((df_inv_total,df_inv), axis=0)
+            df_inv = pd.DataFrame(dict(phi=phi_inv,
+                                        id=np.uint32(ld_inv[:,idx_d_inv.tc_id])))
+            df_inv_total = df_inv if rzslice==0 else pd.concat((df_inv_total,df_inv), axis=0)
 
         # end loop over the layers
 
@@ -366,14 +367,17 @@ def optimization(pars, **kw):
                             tab_names = [''+str(x) for x in range(len(ldata_main))],
                             show_html=False)
 
-    assert not set(df_total.id) & set(df_inv_total.id)
-    df_merge = df_inv_total.merge(df_total, how='outer', on='id')
-    not_null = df_merge.phi.notnull()
-    not_null_phis = df_merge.loc[df_merge.phi.notnull() == True, 'phi']
-    df_merge.loc[not_null, 'phi_new'] = not_null_phis
-    df_merge.loc[not_null, 'phi_old'] = not_null_phis
+    if pars['reg'] != 'All':
+        assert not set(df_total.id) & set(df_inv_total.id)
+        df_merge = df_inv_total.merge(df_total, how='outer', on='id')
+        not_null = df_merge.phi.notnull()
+        not_null_phis = df_merge.loc[df_merge.phi.notnull() == True, 'phi']
+        df_merge.loc[not_null, 'phi_new'] = not_null_phis
+        df_merge.loc[not_null, 'phi_old'] = not_null_phis
 
-    df_merge = df_merge.drop(['phi'], axis=1)
+        df_merge = df_merge.drop(['phi'], axis=1)
+    else:
+        df_merge = df_total
 
     return df_merge
 
@@ -397,15 +401,14 @@ if __name__ == "__main__":
     FLAGS = parser.parse_args()
     assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
 
-    #input_files = ['{}_{}.hdf5'.format(re.split('pion_',file)[1],params.base_kw['FesAlgos'][0]) for file in params.fill_kw['FillInFiles']['pion']]
-    input_files = ['{}_{}.hdf5'.format(params.base_kw['FesAlgos'][0],re.split('pion_',file)[1]) for file in params.fill_kw['FillInFiles']['pion']]
-    simDataPaths = [os.path.join(params.base_kw['BasePath'], infile) for infile in input_files]
-    breakpoint()
+    #input_files = [re.split('pion_',file)[1] for file in params.fill_kw['FillInFiles']['pion']]
+    input_files = params.fill_kw['FillInFiles']
+    #input_files = [['{}_{}{}'.format(re.split(r'(gen_cl3d_tc)',file)[1],params.base_kw['FesAlgos'][0],re.split(r'(gen_cl3d_tc)',file)[2]) for file in input_files[key]] for key in input_files.keys()]
+    #input_files = ['{}_{}{}'.format(re.split(r'(gen_cl3d_tc)',f)[1],params.base_kw['FesAlgos'][0],re.split(r'(gen_cl3d_tc)',f)[2]) for f in input_files]
+    simDataPaths = [[os.path.join(params.base_kw['BasePath'], infile) for infile in input_files[key]] for key in input_files.keys()]
+    simDataPaths = list(itertools.chain(*simDataPaths))
+
     if FLAGS.process:
-        # Do this for _each_ input file gen_cl3d_tc... and save to their own output files
-        # Note that this currently only works for the pion files
-        #input_files = ['{}_{}.hdf5'.format(re.split('pion_',file)[1],params.base_kw['FesAlgos'][0]) for file in params.fill_kw['FillInFiles']['pion']]
-        #simDataPaths = [os.path.join(params.base_kw['BasePath'], infile) for infile in input_files]
         for path in simDataPaths:
             params.opt_kw['InFile'] = path
             process_trigger_cell_geometry_data(region=FLAGS.reg,
@@ -421,11 +424,12 @@ if __name__ == "__main__":
     print('Starting iterative parameter {}.'.format(FLAGS.ipar),
           flush=True)
 
-    for file in input_files:
-        addit = re.split('gen_cl3d_tc_|_ThresholdDummy',file)[1]
-        outcsv = common.fill_path('{}_{}'.format(params.opt_kw['OptCSVOut'],addit), ext='csv', **pars_d)
-        outresen  = common.fill_path('{}_{}'.format(params.opt_kw['OptEnResOut'],addit),  **pars_d)
-        outrespos = common.fill_path('{}_{}'.format(params.opt_kw['OptPosResOut'],addit), **pars_d)
+    for path in simDataPaths:
+        # Get file addition
+        file = re.split('gen_cl3d_tc_|_ThresholdDummy',path)[1]
+        outcsv = common.fill_path('{}_{}'.format(params.opt_kw['OptCSVOut'],file), ext='csv', **pars_d)
+        outresen  = common.fill_path('{}_{}'.format(params.opt_kw['OptEnResOut'],file),  **pars_d)
+        outrespos = common.fill_path('{}_{}'.format(params.opt_kw['OptPosResOut'],file), **pars_d)
 
         with open(outcsv, 'w', newline='') as csvfile, pd.HDFStore(outresen, mode='w') as storeEnRes, pd.HDFStore(outrespos, mode='w') as storePosRes:
             fieldnames = ['ipar', 'c_loc1', 'c_loc2', 'c_rem1', 'c_rem2',
@@ -435,33 +439,25 @@ if __name__ == "__main__":
 
             sys.stderr.flush()
 
-            params.opt_kw['InFile'] = file
-            params.opt_kw['OptIn'] = common.fill_path('{}_{}'.format(params.opt_kw['OptIn'],addit), sel=pars_d['sel'], reg=pars_d['reg'])
-            params.opt_kw['OptEnResOut'] = outresen
-            params.opt_kw['OptPosResOut'] = outrespos
-            params.opt_kw['OptCSVOut'] = outcsv
+            # Set file specific parameters
+            file_pars = common.dict_per_file(params,path)
 
-            tc_map = optimization(pars_d, **params.opt_kw)
+            tc_map = optimization(pars_d, **file_pars['opt'])
 
             if not FLAGS.no_fill:
-                breakpoint()
-                params.fill_kw['FillIn'] = file
-                tasks.fill.fill(pars_d, FLAGS.nevents, tc_map, **params.fill_kw)
+                tasks.fill.fill(pars_d, FLAGS.nevents, tc_map, **file_pars['fill'])
 
             if not FLAGS.no_smooth:
-                breakpoint()
-                tasks.smooth.smooth(pars_d, **params.smooth_kw)
+                tasks.smooth.smooth(pars_d, **file_pars['smooth'])
 
             if not FLAGS.no_seed:
-                breakpoint()
-                tasks.seed.seed(pars_d, **params.seed_kw)
+                tasks.seed.seed(pars_d, **file_pars['seed'])
 
             if not FLAGS.no_cluster:
-                breakpoint()
-                tasks.cluster.cluster(pars_d, **params.cluster_kw)
+                tasks.cluster.cluster(pars_d, **file_pars['cluster'])
 
-            breakpoint()
-            res = tasks.validation.stats_collector(pars_d, **params.validation_kw)
+            # Validation currently failing (specifically line 202 of tasks/validation.py)
+            '''res = tasks.validation.stats_collector(pars_d, **file_pars['validation'])
 
             writer.writerow({fieldnames[0] : FLAGS.ipar,
                              fieldnames[1] : res[0],
@@ -484,7 +480,7 @@ if __name__ == "__main__":
             key = params.opt_kw['FesAlgos'][0] + '_data'
 
             storeEnRes [key] = df_enres
-            storePosRes[key] = df_posres
+            storePosRes[key] = df_posres'''
 
             if FLAGS.plot:
                 this_file = os.path.basename(__file__).split('.')[0]

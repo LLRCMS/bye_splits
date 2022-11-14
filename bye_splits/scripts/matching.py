@@ -71,9 +71,7 @@ def create_dataframes(pars, **kw):
     batches_gen, batches_tc = ([] for _ in range(2))
     memsize_gen, memsize_tc = '128 MB', '64 MB'
 
-    #with uproot.open(filename + ':' + kw['GenTree'][key]) as data:
     with uproot.open(kw['File'] + ':' + kw['GenTree']) as data:
-        #breakpoint()
         #print( data.num_entries_for(memsize, expressions=branches_tc) )
         for ib,batch in enumerate(data.iterate(branches_gen, step_size=memsize_gen,
                                                library='pd')):
@@ -170,10 +168,6 @@ def preprocessing(pars, **kw):
             algo_pos_merged = algo_pos_merged.join(best_matches)
             algo_pos_merged = algo_pos_merged.rename(columns={0: 'best_match'})
 
-        #algo_pos_merged['best_match']=group.apply(matching).array
-        #group=algo_neg_merged.groupby('event')
-        #algo_neg_merged['best_match']=group.apply(matching).array
-
         #keep matched clusters only
         if kw['BestMatch']:
             sel=algo_pos_merged['best_match']==True
@@ -210,7 +204,6 @@ def match(pars, **kw):
                 #print('Reading data from {} and creating file {}.'.format(file,outfile))
                 preprocessing(pars, **kw)
 
-#Run with: `python scripts/matching_v3.py
 if __name__=='__main__':
     import argparse
     import itertools

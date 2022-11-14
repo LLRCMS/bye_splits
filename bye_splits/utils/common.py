@@ -13,6 +13,9 @@ import os
 import numpy as np
 import pandas as pd
 
+import re
+from copy import deepcopy
+
 def binConv(vals, dist, amin):
     """
     Converts bin indexes back to values (central values in the bin).
@@ -88,6 +91,8 @@ def get_detector_region_mask(df, region):
         subdetCond = (df.subdet == 1)
     elif region == 'HCAL':
         subdetCond = (df.subdet == 2) | (df.subdet == 10)
+    elif region == 'All':
+        subdetCond = (df.subdet == 1) | (df.subdet == 2) | (df.subdet == 10)
     elif region == 'MaxShower':
         subdetCond = ( (df.subdet == 1) &
                        (df.layer >= 8) & (df.layer <= 15) )
@@ -114,3 +119,65 @@ def tc_base_selection(df, region, pos_endcap, range_rz):
 
     df, subdetCond = get_detector_region_mask(df, region)
     return df, subdetCond
+
+def dict_per_file(pars,file):
+    # This will need to be changed eventually
+    addit = re.split('gen_cl3d_tc_|_ThresholdDummy',file)[1]
+
+    file_pars = {'opt': deepcopy(pars.opt_kw),
+                 'fill': deepcopy(pars.fill_kw),
+                 'smooth': deepcopy(pars.smooth_kw),
+                 'seed': deepcopy(pars.seed_kw),
+                 'cluster': deepcopy(pars.cluster_kw),
+                 'validation': deepcopy(pars.validation_kw),
+                 'energy': deepcopy(pars.energy_kw)}
+
+    # Optimization pars
+    file_pars['opt']['InFile'] = '{}.hdf5'.format(file)
+    file_pars['opt']['OptIn'] = '{}_{}'.format(pars.opt_kw['OptIn'],addit)
+    file_pars['opt']['OptEnResOut'] = '{}_{}'.format(pars.opt_kw['OptEnResOut'],addit)
+    file_pars['opt']['OptPosResOut'] = '{}_{}'.format(pars.opt_kw['OptPosResOut'],addit)
+    file_pars['opt']['OptCSVOut'] = '{}_{}'.format(pars.opt_kw['OptCSVOut'],addit)
+    pars.set_dictionary(file_pars['opt'])
+
+    # Fill pars
+    file_pars['fill']['FillIn'] = file
+    file_pars['fill']['FillOutPlot'] = '{}_{}'.format(pars.fill_kw['FillOutPlot'],addit)
+    file_pars['fill']['FillOutComp'] = '{}_{}'.format(pars.fill_kw['FillOutComp'],addit)
+    file_pars['fill']['FillOut'] = '{}_{}'.format(pars.fill_kw['FillOut'],addit)
+    pars.set_dictionary(file_pars['fill'])
+
+    # Smooth pars
+    file_pars['smooth']['SmoothIn'] = '{}_{}'.format(pars.fill_kw['FillOut'],addit)
+    file_pars['smooth']['SmoothOut'] = '{}_{}'.format(pars.smooth_kw['SmoothOut'],addit)
+    pars.set_dictionary(file_pars['smooth'])
+
+    # Seed pars
+    file_pars['seed']['SeedIn'] = '{}_{}'.format(pars.smooth_kw['SmoothOut'],addit)
+    file_pars['seed']['SeedOut'] = '{}_{}'.format(pars.seed_kw['SeedOut'],addit)
+    pars.set_dictionary(file_pars['seed'])
+
+    # Cluster pars
+    file_pars['cluster']['ClusterInTC'] = '{}_{}'.format(pars.fill_kw['FillOut'],addit)
+    file_pars['cluster']['ClusterInSeeds'] = '{}_{}'.format(pars.seed_kw['SeedOut'],addit)
+    file_pars['cluster']['ClusterOutPlot'] = '{}_{}'.format(pars.cluster_kw['ClusterOutPlot'],addit)
+    file_pars['cluster']['ClusterOutValidation'] = '{}_{}'.format(pars.cluster_kw['ClusterOutValidation'],addit)
+    file_pars['cluster']['EnergyOut'] = '{}_{}'.format(pars.cluster_kw['EnergyOut'],addit)
+    file_pars['cluster']['GenPart'] = '{}_{}'.format(file,addit)
+    file_pars['cluster']['File'] = file
+    pars.set_dictionary(file_pars['cluster'])
+
+    # Validation pars
+    file_pars['validation']['ClusterOutValidation'] = '{}_{}'.format(pars.cluster_kw['ClusterOutValidation'],addit)
+    file_pars['validation']['FillOutComp'] = '{}_{}'.format(pars.fill_kw['FillOutComp'],addit)
+    file_pars['validation']['FillOut'] = '{}_{}'.format(pars.fill_kw['FillOut'],addit)
+    pars.set_dictionary(file_pars['validation'])
+
+    # Energy pars
+    file_pars['energy']['ClusterIn'] = '{}_{}'.format(pars.cluster_kw['ClusterOutValidation'],addit)
+    file_pars['energy']['EnergyIn'] = '{}_{}'.format(pars.cluster_kw['EnergyOut'],addit)
+    file_pars['energy']['EnergyOut'] = '{}_{}'.format(pars.energy_kw['EnergyOut'],addit)
+    file_pars['energy']['EnergyPlot'] = '{}_{}'.format(pars.energy_kw['EnergyPlot'],addit)
+    file_pars['energy']['File'] = file
+
+    return file_pars

@@ -25,7 +25,7 @@ class DataProcessing:
         self.bin_bounds = bin_bounds
         self.a_norm_bin = self.diff_bound / (self.bin_bounds[1] - self.bin_bounds[0])
         self.b_norm_bin = self.max_bound - self.a_norm_bin * self.bin_bounds[1]
-        
+
     def preprocess( self, data,
                     nbins_phi,
                     nbins_rz,
@@ -78,6 +78,7 @@ class DataProcessing:
 
             # `np.diff` catches all `data` indexes where the sorted bin changes
             data = np.split( data, np.where(np.diff(data[:,sort_index])<0)[0]+1 )
+
             assert len(data) == len(rz_slices)
 
             # data correct sorting check
@@ -149,7 +150,7 @@ class DataProcessing:
             #normalization
             if normalize:
                 tmp = self.a_norm_bin * tmp + self.b_norm_bin
-            
+
             bins.append(tmp)
 
         # remove items from index dict

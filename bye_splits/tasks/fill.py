@@ -147,7 +147,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                                       on='tc_id',
                                       how='right').dropna()
 
-            assert not np.count_nonzero(split_tc.phi_old - split_tc.tc_phi)
+            #assert not np.count_nonzero(split_tc.phi_old - split_tc.tc_phi)
 
             split_tc['tc_x_new'] = split_tc.R * np.cos(split_tc.phi_new)
             split_tc['tc_y_new'] = split_tc.R * np.sin(split_tc.phi_new)
@@ -288,8 +288,6 @@ if __name__ == "__main__":
               'cluster_algo'  : FLAGS.cluster_algo }
     pars_d.update({'ipar': FLAGS.ipar})
 
-    breakpoint()
-
-    tc_map = itopt.optimization(pars_d, **params.opt_kw)
+    #tc_map = itopt.optimization(pars_d, **params.opt_kw)
 
     fill(vars(FLAGS), -1, tc_map, **params.fill_kw)
