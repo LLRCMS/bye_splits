@@ -110,6 +110,6 @@ Pods are the smallest, most basic deployable objects in Kubernetes. A Pod repres
 Pods contain one or more containers, such as Docker containers. When a Pod runs multiple containers, the containers are managed as a single entity and share the Pod's resources. Generally, running multiple containers in a single Pod is an advanced use case.
 #+END_QUOTE
 
-We are currently running a pod at https://viz-hgcal-event-display.app.cern.ch/. The port being served by =bokeh= in =app.sh= must match the one the pod is listening to, specified at configuration time before deployment in the [[https://paas.cern.ch/][OpenShift management console]] at CERN.
+We are currently running a pod at https://viz-hgcal-event-display.app.cern.ch/. The port being served by =bokeh= in =app.sh= must match the one the pod is listening to, specified at configuration time before deployment in the [[https://paas.cern.ch/][OpenShift management console]] at CERN. The [[https://paas.docs.cern.ch/5._Exposing_The_Application/2-network-visibility/][network visibility]] was also updated to allow access from outside the CERN network.
 
 

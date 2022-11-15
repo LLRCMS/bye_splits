@@ -18,7 +18,6 @@ from bokeh.plotting import figure, curdoc
 from bokeh.util.hex import axial_to_cartesian
 from bokeh.models import (
     Div,
-    Panel,
     Tabs,
     BoxZoomTool,
     Range1d,
