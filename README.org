@@ -12,7 +12,7 @@ This framework relies on photon-, electron- and pion-gun samples produced via CR
 | Electrons (PU0) | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoubleElectron_FlatPt-1To100/ElectronGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_102633/0000/~ |
 | Pions (PU0)     | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/SinglePion_PT0to200/SinglePion_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_103211/0000~              |
 
-The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users.
+The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users and under =/eos/user/b/bfontana/FPGAs/new_algos/=, accessible to all lxplus and LLR users. The lat is used since it is well interfaced with CERN services.
 
 **** Skimming: install =yaml-cpp= dependency
 To make the size of the files more manageable, a skimming step was implemented in =C++=. It depends on the =yaml-cpp= package ([[https://github.com/jbeder/yaml-cpp][source]],  [[https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.7.0][release used]]: version =0.7.0=). The instructions on the =README= page of the project are a bit cryptic. Below follows a step-by-step guide:
@@ -96,20 +96,16 @@ bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port>
 This uses the server-creation capabilities of =bokeh=, a =python= package for interactive visualization ([[https://docs.bokeh.org/en/latest/index.html][docs]]). Note the port number must match. For further customisation of =bokeh serve= see [[https://docs.bokeh.org/en/latest/docs/reference/command/subcommands/serve.html][the serve documentation]].
 The above command should give access to the visualization under =http://localhost:8080/display=.
 
-**** CANCELLED Visualization with OpenShift OKD4
+**** Visualization with OpenShift OKD4
 
 We use the [[https://docs.openshift.com/container-platform/3.11/creating_images/s2i.html][S2I]] (Source to Image) service via CERN's [[https://paas.docs.cern.ch/][PaaS]] (Platform-as-a-Service) suing OpenShift to deploy and host web apps in the CERN computing environment [[https://paas.cern.ch/][here]]. There are three ways to deploys such an app: S2I represents the easiest (but less flexible) of the three; instructions [[https://paas.docs.cern.ch/2._Deploy_Applications/Deploy_From_Git_Repository/2-deploy-s2i-app/][here]]. It effectively abstracts away the need for Dockerfiles.
 
 We will S2I's simplest configuration possible under =app.sh=. The image is created alongside the packages specified in =requirements.txt=. The two latter definitions are documented [[https://github.com/kubesphere/s2i-python-container/blob/master/2.7/README.md#source-repository-layout][here]].
 
-From [[https://cloud.google.com/kubernetes-engine/docs/concepts/pod][this reference]]:
-
-#+BEGIN_QUOTE
-Pods are the smallest, most basic deployable objects in Kubernetes. A Pod represents a single instance of a running process in your cluster.
-
-Pods contain one or more containers, such as Docker containers. When a Pod runs multiple containers, the containers are managed as a single entity and share the Pod's resources. Generally, running multiple containers in a single Pod is an advanced use case.
-#+END_QUOTE
-
 We are currently running a pod at https://viz-hgcal-event-display.app.cern.ch/. The port being served by =bokeh= in =app.sh= must match the one the pod is listening to, specified at configuration time before deployment in the [[https://paas.cern.ch/][OpenShift management console]] at CERN. The [[https://paas.docs.cern.ch/5._Exposing_The_Application/2-network-visibility/][network visibility]] was also updated to allow access from outside the CERN network.
+
+***** Additional information
++ [[https://cloud.google.com/kubernetes-engine/docs/concepts/pod][What is a pod]]?
++ [[https://paas.docs.cern.ch/3._Storage/eos/][How to mount =/eos= at CERN so that it is accessible by a pod?]]
 
 
