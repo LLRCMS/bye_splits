@@ -1,6 +1,6 @@
 python_version>="3.6"
+pytables
 numpy>="1.23.4"
 pandas>="1.5.1"
 bokeh>="3.0.0"
 uproot>="4.3.7"
-pytables
