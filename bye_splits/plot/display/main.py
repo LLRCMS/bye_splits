@@ -67,12 +67,12 @@ def display():
     
     slider  = Slider(start=source.data['layer'].min(), end=source.data['layer'].max(),
                      value=source.data['layer'].min(), step=2, title='Layer',
-                     bar_color='red', default_size=800,
+                     bar_color='red', width=800,
                      background='white')
     callback = CustomJS(args=dict(s=source), code="""s.change.emit();""")
     slider.js_on_change('value', callback) #value_throttled
         
-    filt = CustomJSFilter(args=dict(slider=slider), code="""
+    view = CDSView(filter=CustomJSFilter(args=dict(slider=slider), code="""
            var indices = new Array(source.get_length());
            var sval = slider.value;
     
@@ -81,8 +81,7 @@ def display():
                indices[i] = subset[i] == sval;
            }
            return indices;
-           """)
-    view = CDSView(source=source, filters=[filt])
+           """))
         
     p_uv = figure(width=width, height=height,
                   tools='save,reset', toolbar_location='right')
@@ -138,7 +137,7 @@ def display():
     #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
     p_yVSx.scatter(x=tc_vars['x'], y=tc_vars['y'], source=source)
         
-    button = Button(label='Update', button_type='success', default_size=100)
+    button = Button(label='Update', button_type='success', width=100)
     button.on_click(update)
 
     blank1 = Div(width=1000, height=100, text='')

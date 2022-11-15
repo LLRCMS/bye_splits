@@ -19,8 +19,8 @@ class BaseData(abc.ABC):
         #                params.DataFolder / inname )
         # self.outpath = (Path(__file__).parent.absolute().parent.parent /
         #                 params.DataFolder / outname )
-        self.inpath = "/eos/user/b/bfontana/FPGAs/new_algos/"
-        self.outpath = "/eos/user/b/bfontana/FPGAs/new_algos/"
+        self.inpath = Path('/eos/user/b/bfontana/FPGAs/new_algos/') / inname
+        self.outpath = Path('/eos/user/b/bfontana/FPGAs/new_algos/') / outname
         self.dname = 'tc'
         self.var = common.dot_dict({'u': 'waferu', 'v': 'waferv', 'l': 'layer',
                                     'x': 'x', 'y': 'y', 'z': 'z',
