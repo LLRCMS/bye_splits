@@ -104,9 +104,9 @@ The above command should give access to the visualization under =http://localhos
 
 **** Visualization with OpenShift OKD4
 
-We use the [[https://docs.openshift.com/container-platform/3.11/creating_images/s2i.html][S2I]] (Source to Image) service via CERN's [[https://paas.docs.cern.ch/][PaaS]] (Platform-as-a-Service) suing OpenShift to deploy and host web apps in the CERN computing environment [[https://paas.cern.ch/][here]]. There are three ways to deploys such an app: S2I represents the easiest (but less flexible) of the three; instructions [[https://paas.docs.cern.ch/2._Deploy_Applications/Deploy_From_Git_Repository/2-deploy-s2i-app/][here]]. It effectively abstracts away the need for Dockerfiles.
+We use the [[https://docs.openshift.com/container-platform/3.11/creating_images/s2i.html][S2I]] (Source to Image) service via CERN's [[https://paas.docs.cern.ch/][PaaS]] (Platform-as-a-Service) using OpenShift to deploy and host web apps in the CERN computing environment [[https://paas.cern.ch/][here]]. There are three ways to deploys such an app: S2I represents the easiest (but less flexible) of the three; instructions [[https://paas.docs.cern.ch/2._Deploy_Applications/Deploy_From_Git_Repository/2-deploy-s2i-app/][here]]. It effectively abstracts away the need for Dockerfiles.
 
-We will S2I's simplest configuration possible under =app.sh=. The image is created alongside the packages specified in =requirements.txt=. The two latter definitions are documented [[https://github.com/kubesphere/s2i-python-container/blob/master/2.7/README.md#source-repository-layout][here]].
+We will use S2I's simplest configuration possible under =app.sh=. The image is created alongside the packages specified in =requirements.txt=. The two latter definitions are documented [[https://github.com/kubesphere/s2i-python-container/blob/master/2.7/README.md#source-repository-layout][here]].
 
 We are currently running a pod at https://viz-hgcal-event-display.app.cern.ch/. The port being served by =bokeh= in =app.sh= must match the one the pod is listening to, specified at configuration time before deployment in the [[https://paas.cern.ch/][OpenShift management console]] at CERN. The [[https://paas.docs.cern.ch/5._Exposing_The_Application/2-network-visibility/][network visibility]] was also updated to allow access from outside the CERN network.
 

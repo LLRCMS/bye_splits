@@ -33,6 +33,8 @@ from bokeh.models import (
     CDSView,
     )
 from bokeh.layouts import layout
+from bokeh.settings import settings
+settings.ico_path = 'none'
 
 import utils
 from utils import params, common, parsing
@@ -52,10 +54,11 @@ def common_props(p, xlim=None, ylim=None):
         p.y_range = Range1d(ylim[0], ylim[1])
         
 def get_data(particle):
-    return handle('event', particle).provide(True), handle('geom').provide(True)
+    ds = handle('event', particle).provide(True)
+    return ds, handle('geom').provide(True) 
 
-sources = {'photons'   : ColumnDataSource(data=get_data('photons')),
-           'electrons' : ColumnDataSource(data=get_data('electrons')),
+sources = {'photons'   : ColumnDataSource(data=get_data('photons')[0]),
+           'electrons' : ColumnDataSource(data=get_data('electrons')[0]),
            }
 elements = {'photons'   : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
             'electrons' : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
@@ -65,10 +68,11 @@ assert sources.keys() == elements.keys()
 def display():
     def text_callback(attr, old, new, source, particle):
         print('running ', particle)
-        source.data = get_data(particle)
+        source.data = get_data(particle)[0]
 
     doc = curdoc()
     doc.title = 'TC Visualization'
+    
     width, height = int(1600/3), 400
     tabs = []
     
@@ -95,7 +99,8 @@ def display():
         ####### (u,v) plots ################################################################
         p_uv = figure(width=width, height=height,
                       tools='save,reset', toolbar_location='right')
-        p_uv.add_tools(BoxZoomTool(match_aspect=True))
+        p_uv.add_tools(WheelZoomTool(),
+                       BoxZoomTool(match_aspect=True))
         common_props(p_uv, xlim=(-20,20), ylim=(-20,20))
         p_uv.hex_tile(q=tc_vars['u'], r=tc_vars['vs'], source=vsrc, view=view,
                       size=1, fill_color='color', line_color='black', line_width=1, alpha=1.)    
