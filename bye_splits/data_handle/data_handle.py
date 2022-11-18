@@ -11,12 +11,20 @@ sys.path.insert(0, parent_dir)
 from data_handle.geometry import GeometryData
 from data_handle.event import EventData
 
-def handle(mode):
+def handle(mode, particle=None):
     modes = ('geom', 'event')
+    if mode != 'geom' and particle is not None:
+        raise ValueError('Please provide the particle type.')
+
+    datasets = {'photons'  : {'in': 'skim_photon_0PU_bc_stc_hadd.root',
+                              'out': 'out_photon_0PU_bc_stc_hadd.hdf5'},
+                'electrons': {'in': 'skim_electron_0PU_bc_stc_hadd.root',
+                              'out': 'out_electron_0PU_bc_stc_hadd.hdf5'},
+                }
     if mode == modes[0]:
         obj = GeometryData(inname='test_triggergeom.root', outname='geom.hdf5')
     elif mode == modes[1]:
-        obj = EventData(inname='photon_0PU_bc_stc_hadd.root', outname='geom.hdf5')
+        obj = EventData(inname=datasets['n'][particle], outname=datasets['out'][particle])
     else:
         raise ValueError('Mode {} not supported. Pick one of the following: {}'.format(mode, modes))
     return obj

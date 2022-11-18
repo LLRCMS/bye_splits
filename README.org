@@ -12,7 +12,7 @@ This framework relies on photon-, electron- and pion-gun samples produced via CR
 | Electrons (PU0) | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoubleElectron_FlatPt-1To100/ElectronGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_102633/0000/~ |
 | Pions (PU0)     | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/SinglePion_PT0to200/SinglePion_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_103211/0000~              |
 
-The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users and under =/eos/user/b/bfontana/FPGAs/new_algos/=, accessible to all lxplus and LLR users. The lat is used since it is well interfaced with CERN services.
+The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users and under =/eos/user/b/bfontana/FPGAs/new_algos/=, accessible to all lxplus and LLR users. The latter is used since it is well interfaced with CERN services.
 
 **** Skimming: install =yaml-cpp= dependency
 To make the size of the files more manageable, a skimming step was implemented in =C++=. It depends on the =yaml-cpp= package ([[https://github.com/jbeder/yaml-cpp][source]],  [[https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.7.0][release used]]: version =0.7.0=). The instructions on the =README= page of the project are a bit cryptic. Below follows a step-by-step guide:
@@ -38,6 +38,7 @@ g++ bye_splits/tests/test_yaml_cpp.cc -I <installation_path_yaml_cpp>/yaml-cpp-y
 #+END_SRC
 
 The above should print the contents stored in =bye_splits/tests/params.yaml=.
+Occasionally the following error message is printed: ~relocation R_X86_64_32 against symbol `_ZTVN4YAML9ExceptionE' can not be used when making a PIE object; recompile with -fPIE~. This is currently not understood but removing the =yaml-cpp-yaml-cpp-0.7.0= folder (=rm -rf=) and running the above from scratch solves the issue.
 
 **** Skimming: run
 To run the skimming step, you will need to compile the =C++= files stored under =bye_splits/production=.
@@ -48,7 +49,12 @@ An additional matching step might be required:
 python bye_splits/production/matching.py
 #+END_SRC
 
-TO BE CONTINUED
+Finally, run the following, specifying the particle type:
+
+#+BEGIN_SRC shell
+make
+./produce.exe electrons
+#+END_SRC
 
 **** Reconstruction Chain
 The chain is implemented in Python. I recommend creating a separate =conda= environment for running the code.

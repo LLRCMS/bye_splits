@@ -8,6 +8,7 @@ import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
+from functools import partial
 import argparse
 import numpy as np
 import uproot as up
@@ -23,7 +24,9 @@ from bokeh.models import (
     Range1d,
     ColumnDataSource,
     HoverTool,
-    Button,
+    TextInput,
+    TabPanel,
+    Tabs,
     Slider,
     CustomJS,
     CustomJSFilter,
@@ -48,31 +51,37 @@ def common_props(p, xlim=None, ylim=None):
     if ylim is not None:
         p.y_range = Range1d(ylim[0], ylim[1])
         
-def get_data():
-    return handle('geom').provide(True)
+def get_data(particle):
+    return handle('event', particle).provide(True), handle('geom').provide(True)
 
-# def get_data():
-#     return handle('event').provide(True)
+sources = {'photons'   : ColumnDataSource(data=get_data('photons')),
+           'electrons' : ColumnDataSource(data=get_data('electrons')),
+           }
+elements = {'photons'   : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
+            'electrons' : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
+            }
+assert sources.keys() == elements.keys()
 
 def display():
+    def text_callback(attr, old, new, source, particle):
+        print('running ', particle)
+        source.data = get_data(particle)
+
     doc = curdoc()
-    source = ColumnDataSource(data=get_data())
-    def update():
-        source.data = get_data()
-
-    width = int(1600/3)
-    height = 400
-
-    tc_vars = handle('geom').variables()
+    doc.title = 'TC Visualization'
+    width, height = int(1600/3), 400
+    tabs = []
     
-    slider  = Slider(start=source.data['layer'].min(), end=source.data['layer'].max(),
-                     value=source.data['layer'].min(), step=2, title='Layer',
-                     bar_color='red', width=800,
-                     background='white')
-    callback = CustomJS(args=dict(s=source), code="""s.change.emit();""")
-    slider.js_on_change('value', callback) #value_throttled
+    for ksrc,vsrc in sources.items():
+        tc_vars = handle('geom').variables()
         
-    view = CDSView(filter=CustomJSFilter(args=dict(slider=slider), code="""
+        slider = Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
+                        value=vsrc.data['layer'].min(), step=2, title='Layer',
+                        bar_color='red', width=800, background='white')
+        slider_callback = CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
+        slider.js_on_change('value', slider_callback) #value_throttled
+
+        view = CDSView(filter=CustomJSFilter(args=dict(slider=slider), code="""
            var indices = new Array(source.get_length());
            var sval = slider.value;
     
@@ -82,74 +91,64 @@ def display():
            }
            return indices;
            """))
+
+        ####### (u,v) plots ################################################################
+        p_uv = figure(width=width, height=height,
+                      tools='save,reset', toolbar_location='right')
+        p_uv.add_tools(BoxZoomTool(match_aspect=True))
+        common_props(p_uv, xlim=(-20,20), ylim=(-20,20))
+        p_uv.hex_tile(q=tc_vars['u'], r=tc_vars['vs'], source=vsrc, view=view,
+                      size=1, fill_color='color', line_color='black', line_width=1, alpha=1.)    
+        p_uv.add_tools(HoverTool(tooltips=[('u/v', '@'+tc_vars['u']+'/'+'@'+tc_vars['v']),]))
         
-    p_uv = figure(width=width, height=height,
-                  tools='save,reset', toolbar_location='right')
-    p_uv.add_tools(BoxZoomTool(match_aspect=True))
+        ####### (x,y) plots ################################################################
+        p_xy = figure(width=width, height=height,
+                    tools='save,reset', toolbar_location='right',
+                    output_backend='webgl')
+        p_xy.add_tools(BoxZoomTool(match_aspect=True))
+        p_xy.add_tools(HoverTool(tooltips=[('u/v', '@'+tc_vars['u']+'/'+'@'+tc_vars['v']),],))       
+        common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
+        p_xy.rect(x=tc_vars['u'], y=tc_vars['v'], source=vsrc, view=view,
+                  width=1., height=1., width_units='data', height_units='data',
+                  fill_color='color', line_color='black',)
     
-    common_props(p_uv, xlim=(-20,20), ylim=(-20,20))
-    p_uv.hex_tile(q=tc_vars['u'], r=tc_vars['vs'],
-                  source=source, view=view,
-                  size=1, fill_color='color',
-                  line_color='black', line_width=1, alpha=1.)
-            
-    p_uv.add_tools(HoverTool(tooltips=[('u/v', '@'+tc_vars['u']+'/'+'@'+tc_vars['v']),]))
+        ####### x vs. z plots ################################################################
+        p_xVSz = figure(width=width, height=height, tools='save,reset', toolbar_location='right')
+        p_xVSz.add_tools(BoxZoomTool(match_aspect=True))
+        p_xVSz.scatter(x=tc_vars['z'], y=tc_vars['x'], source=vsrc)
+        common_props(p_xVSz)
         
-    # (x,y) plots
-    p_xy = figure(width=width, height=height,
-                  tools='save,reset', toolbar_location='right',
-                  output_backend='webgl')
-    p_xy.add_tools(BoxZoomTool(match_aspect=True))
-    p_xy.add_tools(HoverTool(tooltips=[('u/v', '@'+tc_vars['u']+'/'+'@'+tc_vars['v']),],))
-           
-    common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
-    p_xy.rect(x=tc_vars['u'], y=tc_vars['v'],
-              source=source, view=view,
-              width=1., height=1.,
-              width_units='data', height_units='data',
-              fill_color='color',
-              line_color='black',)
+        ####### y vs. z plots ################################################################
+        p_yVSz = figure(width=width, height=height, tools='save,reset', toolbar_location='right')
+        p_yVSz.add_tools(BoxZoomTool(match_aspect=True))
+        p_yVSz.scatter(x=tc_vars['z'], y=tc_vars['y'], source=vsrc)
+        common_props(p_yVSz)
+        
+        ####### y vs. x plots ################################################################
+        p_yVSx = figure(width=width, height=height, tools='save,reset', toolbar_location='right')
+        p_yVSx.add_tools(BoxZoomTool(match_aspect=True))
+        p_yVSx.scatter(x=tc_vars['x'], y=tc_vars['y'], source=vsrc)
+        common_props(p_yVSx)
+        
+        ####### text input ###################################################################
+        elements[ksrc]['textinput'].on_change('value', partial(text_callback, particle=ksrc, source=vsrc))
+
+        ####### define layout ################################################################
+        blank1 = Div(width=1000, height=100, text='')
+        blank2 = Div(width=70, height=100, text='')
+
+        lay = layout([[elements[ksrc]['textinput'], blank2, slider],
+                      [p_uv,p_xy],
+                      [blank1],
+                      [p_xVSz,p_yVSz,p_yVSx]],
+                      toolbar_options={'logo': None})
+
+        tab = TabPanel(child=lay, title=ksrc)
+        tabs.append(tab)
+        # end for loop
+
+    doc.add_root(Tabs(tabs=tabs))
     
-    # x VS z plots
-    p_xVSz = figure(width=width, height=height,
-                    tools='save,reset', toolbar_location='right')
-    p_xVSz.add_tools(BoxZoomTool(match_aspect=True))
-    #p_xy.add_tools(HoverTool(tooltips=[('u/v', '@u/@v'),],))
-           
-    #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
-    p_xVSz.scatter(x=tc_vars['z'], y=tc_vars['x'], source=source)
-        
-    # y VS z plots
-    p_yVSz = figure(width=width, height=height,
-                    tools='save,reset', toolbar_location='right')
-    p_yVSz.add_tools(BoxZoomTool(match_aspect=True))
-    #p_xy.add_tools(HoverTool(tooltips=[('u/v', '@u/@v'),],))
-           
-    #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
-    p_yVSz.scatter(x=tc_vars['z'], y=tc_vars['y'], source=source)
-        
-    # y VS x plots
-    p_yVSx = figure(width=width, height=height,
-                    tools='save,reset', toolbar_location='right')
-    p_yVSx.add_tools(BoxZoomTool(match_aspect=True))
-    #p_xy.add_tools(HoverTool(tooltips=[('u/v', '@u/@v'),],))
-           
-    #common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
-    p_yVSx.scatter(x=tc_vars['x'], y=tc_vars['y'], source=source)
-        
-    button = Button(label='Update', button_type='success', width=100)
-    button.on_click(update)
-
-    blank1 = Div(width=1000, height=100, text='')
-    blank2 = Div(width=70, height=100, text='')
-
-    lay = layout([[button, blank2, slider],
-                  [p_uv,p_xy],
-                  [blank1],
-                  [p_xVSz,p_yVSz,p_yVSx]])
-    doc.add_root(lay) # save(lay)
-    doc.title = 'TC Visualization'
-
 parser = argparse.ArgumentParser(description='')
 FLAGS = parser.parse_args()
 display()
