@@ -13,7 +13,7 @@ from data_handle.event import EventData
 
 def handle(mode, particle=None):
     modes = ('geom', 'event')
-    if mode != 'geom' and particle is not None:
+    if mode != 'geom' and particle is None:
         raise ValueError('Please provide the particle type.')
 
     datasets = {'photons'  : {'in': 'skim_photon_0PU_bc_stc_hadd.root',

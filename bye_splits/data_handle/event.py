@@ -16,7 +16,7 @@ from utils import params, common
 class EventData:
     def __init__(self, inname, outname):
         self.inpath = (Path(__file__).parent.absolute().parent.parent /
-                     params.DataFolder / inname )
+                       params.DataFolder / inname )
         self.outpath = (Path(__file__).parent.absolute().parent.parent /
                         params.DataFolder / outname )
         self.dname = 'tc'
@@ -34,9 +34,12 @@ class EventData:
 
     def select(self):
         with up.open(self.inpath) as f:
-            tree = f[ os.path.join('hgcaltriggergeomtester', 'TreeTriggerCells') ]
+            tree = f[ os.path.join('FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple',
+                                   'HGCalTriggerNtuple') ]
             #print(tree.show())
-            data = tree.arrays(self.var.values(), library='pd')
+            data = tree.arrays(self.var.values())
+            print(data)
+            breakpoint()
             sel = (data.zside==1) & (data.subdet==1)
             data = data[sel].drop([self.var.side, self.var.subd], axis=1)
             data = data.loc[~data.layer.isin(params.disconnectedTriggerLayers)]
