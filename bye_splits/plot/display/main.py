@@ -12,6 +12,7 @@ from functools import partial
 import argparse
 import numpy as np
 import uproot as up
+import awkward as ak
 
 #from bokeh.io import output_file, save
 #output_file('tmp.html')
@@ -31,6 +32,7 @@ from bokeh.models import (
     CustomJS,
     CustomJSFilter,
     CDSView,
+    WheelZoomTool,
     )
 from bokeh.layouts import layout
 from bokeh.settings import settings
@@ -55,10 +57,12 @@ def common_props(p, xlim=None, ylim=None):
         
 def get_data(particle):
     ds = handle('event', particle).provide(True)
-    return ds, handle('geom').provide(True) 
+    return ds, handle('geom').provide(True)
+ddd = get_data('photons')[1]
+breakpoint()
 
-sources = {'photons'   : ColumnDataSource(data=get_data('photons')[0]),
-           'electrons' : ColumnDataSource(data=get_data('electrons')[0]),
+sources = {'photons'   : ColumnDataSource(data=get_data('photons')[1]),
+           'electrons' : ColumnDataSource(data=get_data('electrons')[1]),
            }
 elements = {'photons'   : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
             'electrons' : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
@@ -116,24 +120,24 @@ def display():
         p_xy.rect(x=tc_vars['u'], y=tc_vars['v'], source=vsrc, view=view,
                   width=1., height=1., width_units='data', height_units='data',
                   fill_color='color', line_color='black',)
-    
+
         ####### x vs. z plots ################################################################
-        p_xVSz = figure(width=width, height=height, tools='save,reset', toolbar_location='right')
-        p_xVSz.add_tools(BoxZoomTool(match_aspect=True))
-        p_xVSz.scatter(x=tc_vars['z'], y=tc_vars['x'], source=vsrc)
-        common_props(p_xVSz)
+        # p_xVSz = figure(width=width, height=height, tools='save,reset', toolbar_location='right')
+        # p_xVSz.add_tools(BoxZoomTool(match_aspect=True))
+        # p_xVSz.scatter(x=tc_vars['z'], y=tc_vars['x'], source=vsrc)
+        # common_props(p_xVSz)
         
         ####### y vs. z plots ################################################################
-        p_yVSz = figure(width=width, height=height, tools='save,reset', toolbar_location='right')
-        p_yVSz.add_tools(BoxZoomTool(match_aspect=True))
-        p_yVSz.scatter(x=tc_vars['z'], y=tc_vars['y'], source=vsrc)
-        common_props(p_yVSz)
+        # p_yVSz = figure(width=width, height=height, tools='save,reset', toolbar_location='right')
+        # p_yVSz.add_tools(BoxZoomTool(match_aspect=True))
+        # p_yVSz.scatter(x=tc_vars['z'], y=tc_vars['y'], source=vsrc)
+        # common_props(p_yVSz)
         
         ####### y vs. x plots ################################################################
-        p_yVSx = figure(width=width, height=height, tools='save,reset', toolbar_location='right')
-        p_yVSx.add_tools(BoxZoomTool(match_aspect=True))
-        p_yVSx.scatter(x=tc_vars['x'], y=tc_vars['y'], source=vsrc)
-        common_props(p_yVSx)
+        # p_yVSx = figure(width=width, height=height, tools='save,reset', toolbar_location='right')
+        # p_yVSx.add_tools(BoxZoomTool(match_aspect=True))
+        # p_yVSx.scatter(x=tc_vars['x'], y=tc_vars['y'], source=vsrc)
+        # common_props(p_yVSx)
         
         ####### text input ###################################################################
         elements[ksrc]['textinput'].on_change('value', partial(text_callback, particle=ksrc, source=vsrc))
@@ -145,9 +149,8 @@ def display():
         lay = layout([[elements[ksrc]['textinput'], blank2, slider],
                       [p_uv,p_xy],
                       [blank1],
-                      [p_xVSz,p_yVSz,p_yVSx]],
-                      toolbar_options={'logo': None})
-
+                      # [p_xVSz,p_yVSz,p_yVSx]
+                      ])
         tab = TabPanel(child=lay, title=ksrc)
         tabs.append(tab)
         # end for loop

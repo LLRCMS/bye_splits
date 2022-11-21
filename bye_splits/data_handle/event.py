@@ -25,6 +25,11 @@ class EventData(BaseData):
                          'tcx': 'good_tc_x', 'tcy': 'good_tc_y', 'tcz': 'good_tc_z'})
         self.newvar.update({'vs': 'tcwv_shift', 'c': 'color'})
 
+    def provide(self, reprocess=False):
+        if not os.path.exists(self.outpath) or reprocess:
+            self.store()
+        return ak.from_parquet(self.tag + '.parquet')
+
     def select(self):
         with up.open(self.inpath) as f:
             tree = f[ os.path.join('FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple',
@@ -36,6 +41,10 @@ class EventData(BaseData):
             # data[self.newvar.c] = "#8a2be2"
             
         return data
+
+    def store(self):
+        data = self.select()
+        ak.to_parquet(data, self.tag + '.parquet')
 
     def variables(self):
         res = self.var.copy()

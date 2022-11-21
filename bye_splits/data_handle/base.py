@@ -22,20 +22,10 @@ class BaseData(abc.ABC):
         self.var = common.dot_dict({})
         self.newvar = common.dot_dict({})
 
-    def provide(self, reprocess=False):
-        if not os.path.exists(self.outpath) or reprocess:
-            self.store()
-        return ak.from_parquet(self.tag + '.parquet')
-
     @abc.abstractmethod
     def select(self):
         raise NotImplementedError()
     
-    def store(self):
-        data = self.select()
-        ak.to_parquet(data, self.tag + '.parquet')
-        quit()
-
     def variables(self):
         res = self.var.copy()
         res.update(self.newvar)
