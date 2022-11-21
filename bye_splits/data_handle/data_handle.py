@@ -24,7 +24,8 @@ def handle(mode, particle=None):
     if mode == modes[0]:
         obj = GeometryData(inname='test_triggergeom.root', outname='geom.hdf5')
     elif mode == modes[1]:
-        obj = EventData(inname=datasets[particle]['in'], outname=datasets[particle]['out'])
+        obj = EventData(inname=datasets[particle]['in'], outname=datasets[particle]['out'],
+                        tag=particle)
     else:
         raise ValueError('Mode {} not supported. Pick one of the following: {}'.format(mode, modes))
     return obj

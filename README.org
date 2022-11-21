@@ -59,6 +59,7 @@ make
 **** Reconstruction Chain
 The chain is implemented in Python. I recommend creating a separate =conda= environment for running the code.
 
+#+NAME:conda_install
 #+BEGIN_SRC shell
 create -n <EnvName> python=3.9 pandas uproot pytables h5py
 conda install -c bokeh bokeh
@@ -84,6 +85,13 @@ The above will create =html= files with interactive outputs.
 
 *** Event Visualization
 The repository creates two web apps that can be visualized in a browser. The code is stored under =bye_splits/plot=.
+
+Please install the following from within the =conda= environment you [[conda_install][should have already created]]:
+
+#+BEGIN_SRC shell
+conda install -c conda-forge pyarrow
+#if the above fails: python -m pip install pyarrow
+#+END_SRC
 
 **** Visualization in a local browser
 Since browser usage directly in the server will necessarily be slow, we can forward it to our local machines via =ssh=. To establish a connection between the local machine and the remote =llruicms01= server, passing by the gate, use:

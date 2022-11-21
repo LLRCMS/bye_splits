@@ -15,8 +15,14 @@ from data_handle.base import BaseData
 
 class GeometryData(BaseData):
     def __init__(self, inname, outname):
-        super().__init__(inname, outname)
-        
+        super().__init__(inname, outname, '')
+        self.var.update({
+            'u': 'waferu', 'v': 'waferv', 'l': 'layer',
+            'x': 'x', 'y': 'y', 'z': 'z',
+            'side': 'zside', 'subd': 'subdet'})
+        self.newvar.update({
+            'vs': 'waferv_shift', 'c': 'color'})
+
     def select(self):
         with up.open(self.inpath) as f:
             tree = f[ os.path.join('hgcaltriggergeomtester', 'TreeTriggerCells') ]
