@@ -18,12 +18,12 @@ class GeometryData(BaseData):
     def __init__(self, inname, outname):
         super().__init__(inname, outname, '')
         self.var.update({
-            'u': 'waferu', 'v': 'waferv', 'l': 'layer',
+            'wu': 'waferu', 'wv': 'waferv', 'l': 'layer',
             'cu': 'triggercellu', 'cv': 'triggercellv',
             'x': 'x', 'y': 'y', 'z': 'z',
             'side': 'zside', 'subd': 'subdet'})
         self.newvar.update({
-            'vs': 'waferv_shift', 'c': 'color'})
+            'wvs': 'waferv_shift', 'c': 'color'})
 
     def provide(self, reprocess=False):
         if not os.path.exists(self.outpath) or reprocess:
@@ -40,9 +40,9 @@ class GeometryData(BaseData):
             sel = (data.zside==1) & (data.subdet==1)
             data = data[sel].drop([self.var.side, self.var.subd], axis=1)
             data = data.loc[~data.layer.isin(params.disconnectedTriggerLayers)]
-            #data = data.drop_duplicates(subset=[self.var.u, self.var.v, self.var.l])
-            data[self.var.v] = data.waferv
-            data[self.newvar.vs] = -1 * data.waferv
+            data = data.drop_duplicates(subset=[self.var.wu, self.var.wv, self.var.l])
+            data[self.var.wv] = data.waferv
+            data[self.newvar.wvs] = -1 * data.waferv
             data[self.newvar.c] = "#8a2be2"
             
         return data

@@ -20,9 +20,10 @@ class EventData(BaseData):
         super().__init__(inname, outname, tag)
         
         self.dname = 'tc'
-        self.var.update({'tcwu': 'good_tc_waferu', 'tcwv': 'good_tc_waferv',
-                         'tcl': 'good_tc_layer',
-                         'tcx': 'good_tc_x', 'tcy': 'good_tc_y', 'tcz': 'good_tc_z'})
+        self.var.update({'event': 'event',
+                         'wu': 'good_tc_waferu', 'wv': 'good_tc_waferv',
+                         'l': 'good_tc_layer',
+                         'cv': 'good_tc_cellu', 'cu': 'good_tc_cellv'})
         self.newvar.update({'vs': 'tcwv_shift', 'c': 'color'})
 
     def provide(self, reprocess=False):
@@ -30,12 +31,22 @@ class EventData(BaseData):
             self.store()
         return ak.from_parquet(self.tag + '.parquet')
 
+    def provide_event(self, event, reprocess=False):
+        if not os.path.exists(self.outpath) or reprocess:
+            self.store()
+        ds = ak.from_parquet(self.tag + '.parquet')
+        fields = ds.fields
+        fields.remove('event')
+        ds_short = ds[ds.event==event][fields]
+        return ak.to_pandas(ds_short).reset_index().drop(['entry', 'subentry'], axis=1)
+
     def select(self):
         with up.open(self.inpath) as f:
             tree = f[ os.path.join('FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple',
                                    'HGCalTriggerNtuple') ]
             #print(tree.show())
             data = tree.arrays(self.var.values())
+            
             # data[self.var.v] = data.waferv
             # data[self.newvar.vs] = -1 * data.waferv
             # data[self.newvar.c] = "#8a2be2"
