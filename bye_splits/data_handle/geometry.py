@@ -40,7 +40,7 @@ class GeometryData(BaseData):
             sel = (data.zside==1) & (data.subdet==1)
             data = data[sel].drop([self.var.side, self.var.subd], axis=1)
             data = data.loc[~data.layer.isin(params.disconnectedTriggerLayers)]
-            data = data.drop_duplicates(subset=[self.var.wu, self.var.wv, self.var.l])
+            #data = data.drop_duplicates(subset=[self.var.cu, self.var.cv, self.var.l])
             data[self.var.wv] = data.waferv
             data[self.newvar.wvs] = -1 * data.waferv
             data[self.newvar.c] = "#8a2be2"

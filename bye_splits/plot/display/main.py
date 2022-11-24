@@ -57,15 +57,16 @@ def common_props(p, xlim=None, ylim=None):
         p.y_range = Range1d(ylim[0], ylim[1])
         
 def convert_cells_to_xy(df, avars):
-    d, d4 = 1, 1
-    cos30, sin30 = np.sqrt(3)/2, 1/2
-    conversion = {'UL': (lambda v: cos30 * d4 * v,
-                        lambda u,v: sin30 * d4 * (2*(u-1)-v)),
-                  'UR': (lambda v: 4*cos30 + cos30 * d4 * (v-4),
-                         lambda u,v: 2 + sin30 * d4 * (2*(u-4)-(v-4))),
-                  'B':  (lambda v: cos30 * d4 * v,
-                         lambda u,v: sin30 * d4 * (2*u-v))
-                         } #up-right, up-left and bottom
+    c30, s30 = np.sqrt(3)/2, 1/2
+    d, d4 = 1./c30, 1./c30
+    conversion = {
+        'UL': (lambda wu,wv,cv: 2*wu - wv + c30 * d4 * cv,
+               lambda wv,cu,cv: c30*wv + s30 * d4 * (2*(cu-1)-cv)),
+        'UR': (lambda wu,wv,cv: 2*wu - wv + 4*c30 + c30 * d4 * (cv-4),
+               lambda wv,cu,cv: c30*wv + 2 + s30 * d4 * (2*(cu-4)-(cv-4))),
+        'B':  (lambda wu,wv,cv: 2*wu - wv + c30 * d4 * cv,
+               lambda wv,cu,cv: c30*wv + s30 * d4 * (2*cu-cv))
+    } #up-right, up-left and bottom
 
     masks = {'UL': (((df[avars['cu']]>=1) & (df[avars['cu']]<=4) & (df[avars['cv']]==0)) |
                     ((df[avars['cu']]>=2) & (df[avars['cu']]<=5) & (df[avars['cv']]==1)) |
@@ -78,22 +79,26 @@ def convert_cells_to_xy(df, avars):
     x0, x1, x2, x3 = ({} for _ in range(4))
     y0, y1, y2, y3 = ({} for _ in range(4))
     xaxis, yaxis = ({} for _ in range(2))
+
     for key,val in masks.items():
-        x0.update({key: conversion[key][0](df[avars['cv']][masks[key]])})
-        x1.update({key: x0[key][:] + cos30})
+        x0.update({key: conversion[key][0](df[avars['wu']][masks[key]],
+                                           df[avars['wv']][masks[key]],
+                                           df[avars['cv']][masks[key]])})
+        x1.update({key: x0[key][:] + c30})
         if key in ('UL', 'UR'):
             x2.update({key: x1[key][:]})
             x3.update({key: x0[key][:]})
         else:
-            x2.update({key: x1[key][:] + cos30})
+            x2.update({key: x1[key][:] + c30})
             x3.update({key: x1[key][:]})
      
-        y0.update({key: conversion[key][1](df[avars['cu']][masks[key]],
+        y0.update({key: conversion[key][1](df[avars['wv']][masks[key]],
+                                           df[avars['cu']][masks[key]],
                                            df[avars['cv']][masks[key]])})
         if key in ('UR', 'B'):
-            y1.update({key: y0[key][:] - sin30})
+            y1.update({key: y0[key][:] - s30})
         else:
-            y1.update({key: y0[key][:] + sin30})
+            y1.update({key: y0[key][:] + s30})
         if key in ('B'):
             y2.update({key: y0[key][:]})
         else:
@@ -101,18 +106,20 @@ def convert_cells_to_xy(df, avars):
         if key in ('UL', 'UR'):
             y3.update({key: y0[key][:] + d})
         else:
-            y3.update({key: y0[key][:] + sin30})
+            y3.update({key: y0[key][:] + s30})
 
-        xaxis.update({key: np.stack([x0[key],x1[key],x2[key],x3[key]],
-                                    axis=1).reshape((-1,4))})
-        yaxis.update({key: np.stack([y0[key],y1[key],y2[key],y3[key]],
-                                    axis=1).reshape((-1,4))})
+        xaxis.update({key: pd.concat([x0[key],x1[key],x2[key],x3[key]], axis=1)})
+        yaxis.update({key: pd.concat([y0[key],y1[key],y2[key],y3[key]], axis=1)})
+        xaxis[key]['new'] = xaxis[key].values.tolist()
+        yaxis[key]['new'] = yaxis[key].values.tolist()
+        xaxis[key] = xaxis[key]['new']
+        yaxis[key] = yaxis[key]['new']
 
-    tc_polyg_x = np.concatenate([v for v in xaxis.values()], axis=0)
-    tc_polyg_x = pd.DataFrame(tc_polyg_x).groupby(df.index).agg(list).sum(axis=1).agg(lambda x: [[x]])
-    
-    tc_polyg_y = np.concatenate([v for v in yaxis.values()], axis=0)
-    tc_polyg_y = pd.DataFrame(tc_polyg_y).groupby(df.index).agg(list).sum(axis=1).agg(lambda x: [[x]])
+    tc_polyg_x = pd.concat(xaxis.values())
+    tc_polyg_y = pd.concat(yaxis.values())
+    tc_polyg_x = tc_polyg_x.groupby(tc_polyg_x.index).agg(lambda k: [k])
+    tc_polyg_y = tc_polyg_y.groupby(tc_polyg_y.index).agg(lambda k: [k])
+
     res = pd.concat([tc_polyg_x, tc_polyg_y], axis=1)
     res.columns = ['tc_polyg_x', 'tc_polyg_y']
     df.rename(columns = {avars['l']: 'layer'}, inplace=True)
@@ -122,12 +129,12 @@ def get_data(particle):
     event = 179855 if particle == 'photons' else 92004
     ev_vars = handle('event', particle).variables()
     geom_vars = handle('geom').variables()
-
+        
     ds_ev = handle('event', particle).provide_event(event, True)
     ds_ev = convert_cells_to_xy(ds_ev, ev_vars)
     ds_geom = handle('geom').provide(True)
     ds_geom = convert_cells_to_xy(ds_geom, geom_vars)
-    breakpoint()
+    ds_geom = ds_geom[(ds_geom[geom_vars['wu']]==4) & (ds_geom[geom_vars['wv']]==4) ]
     return ds_ev, ds_geom 
 
 sources = {'photons'   : ColumnDataSource(data=get_data('photons')[1]),
