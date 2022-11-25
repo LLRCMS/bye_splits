@@ -16,22 +16,24 @@ from utils import params
 from data_handle.base import BaseData
 
 class EventData(BaseData):
-    def __init__(self, inname, outname, tag):
+    def __init__(self, inname='', outname='', tag=None):
         super().__init__(inname, outname, tag)
         
         self.dname = 'tc'
-        self.var.update({'event': 'event',
-                         'wu': 'good_tc_waferu', 'wv': 'good_tc_waferv',
-                         'l': 'good_tc_layer',
-                         'cv': 'good_tc_cellu', 'cu': 'good_tc_cellv'})
-        self.newvar.update({'vs': 'tcwv_shift', 'c': 'color'})
+        self.var = {'event': 'event',
+                    'wu': 'good_tc_waferu', 'wv': 'good_tc_waferv',
+                    'l': 'good_tc_layer',
+                    'cv': 'good_tc_cellu', 'cu': 'good_tc_cellv',
+                    'en': 'good_tc_energy'}
 
     def provide(self, reprocess=False):
+        assert self.tag is not None
         if not os.path.exists(self.outpath) or reprocess:
             self.store()
         return ak.from_parquet(self.tag + '.parquet')
 
     def provide_event(self, event, reprocess=False):
+        assert self.tag is not None
         if not os.path.exists(self.outpath) or reprocess:
             self.store()
         ds = ak.from_parquet(self.tag + '.parquet')
@@ -56,8 +58,3 @@ class EventData(BaseData):
     def store(self):
         data = self.select()
         ak.to_parquet(data, self.tag + '.parquet')
-
-    def variables(self):
-        res = self.var.copy()
-        res.update(self.newvar)
-        return res

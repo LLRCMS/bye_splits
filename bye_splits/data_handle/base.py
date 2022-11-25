@@ -22,11 +22,11 @@ class BaseData(abc.ABC):
         self.var = common.dot_dict({})
         self.newvar = common.dot_dict({})
 
+    @property
+    def variables(self):
+        return self.var
+
     @abc.abstractmethod
     def select(self):
         raise NotImplementedError()
     
-    def variables(self):
-        res = self.var.copy()
-        res.update(self.newvar)
-        return res
