@@ -17,12 +17,14 @@ import pandas as pd
 import h5py
 import itertools
 
+from progress.bar import IncrementalBar
+
 def cluster(pars, **kw):
     inclusteringseeds = common.fill_path(kw['ClusterInSeeds'], **pars)
     inclusteringtc = common.fill_path(kw['ClusterInTC'], **pars)
-    outclusteringvalidation = common.fill_path(kw['ClusterOutValidation'], **pars)
+    #outclusteringvalidation = common.fill_path(kw['ClusterOutValidation'], **pars)
 
-    with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut:
+    with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC:
         # Note that the 498 events in storeInSeeds and storeInTC are a subset of the gen_cl3d_tc events
         for falgo in kw['FesAlgos']:
             seed_keys = [x for x in storeInSeeds.keys() if falgo in x  and '_group_new' in x ]
@@ -33,6 +35,7 @@ def cluster(pars, **kw):
             radiusCoeffB = kw['CoeffB']
             empty_seeds = 0
             # each key is an event
+            bar = IncrementalBar("Loading",max=len(tc_keys))
             for key1, key2 in zip(tc_keys, seed_keys):
                 tc = storeInTC[key1]
 
@@ -146,27 +149,29 @@ def cluster(pars, **kw):
                 cl3d['event'] = event_number.group(1)
                 cl3d_cols = ['en', 'xnew', 'ynew', 'z', 'Rz',
                              'etanew', 'phinew', 'Ncells']
-                storeOut[key] = cl3d[cl3d_cols]
+                #storeOut[key] = cl3d[cl3d_cols]
                 if key1 == tc_keys[0] and key2 == seed_keys[0]:
                     dfout = cl3d[cl3d_cols+['event']]
                 else:
                     dfout = pd.concat((dfout,cl3d[cl3d_cols+['event']]), axis=0)
 
+                bar.next()
+            bar.finish()
+
             if kw['ForEnergy']:
                 dfout.event = dfout.event.astype(int)
                 coef = 'coef_'+str(kw['CoeffA'][0]).replace('.','p')
-                #outenergy = common.fill_path(kw['EnergyOut'], **pars)
+                outenergy = common.fill_path(kw['EnergyOut'], **pars)
                 genlev = 'data/'+kw['File']+'.hdf5'
 
                 # THIS MUST BE CHECKED (with __ as ___ is throwing an error)
-                #EnOut = pd.HDFStore(outenergy, mode='a')
+                EnOut = pd.HDFStore(outenergy, mode='a')
                 GenFile = pd.HDFStore(genlev, mode='r')
 
                 en_df = dfout.join(GenFile[kw['FesAlgos'][0]], on='event', how='inner')
 
-                sub_df = en_df[['event','etanew','phinew','en','genpart_exphi','genpart_exeta','genpart_energy']].drop_duplicates()
+                sub_df = en_df[['event','etanew','phinew','en','cl3d_pt','genpart_exphi','genpart_exeta','genpart_energy','genpart_pt']].drop_duplicates()
 
-                #EnOut.put(coef,en_df)
                 EnOut.put(coef,sub_df)
                 EnOut.close()
 

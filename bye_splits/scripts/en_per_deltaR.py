@@ -8,7 +8,7 @@ from bye_splits import utils
 from bye_splits import tasks
 from bye_splits.utils import common
 from bye_splits.tasks import cluster
-from bye_splits.scripts import matching_v3 as match
+from bye_splits.tasks import cluster_test
 
 import re
 import numpy as np
@@ -41,23 +41,30 @@ def matched_file(pars,**kw):
 
     # Create list of mean cluster energy from cluster_energy... file
     infile = common.fill_path(kw['EnergyIn'], **pars)
+    #outfile = common.fill_path(kw['EnergyOut']+'_with_pt', **pars)
     outfile = common.fill_path(kw['EnergyOut'], **pars)
 
     with pd.HDFStore(infile,'r') as InFile, pd.HDFStore(outfile,'w') as OutFile:
+    #with pd.HDFStore(infile,'r') as InFile:
 
         coef_keys = ['/coef_' + str(coef).replace('.','p') for coef in coefs]
 
-        for coef in coef_keys[1:]:
+        #for i, coef in enumerate(coef_keys[1:]):
+        for coef in coef_keys:
             threshold = 0.05
-            df_current = InFile[coef]
+            df_current = InFile[coef].reset_index(drop=True)
 
             df_current['deltar'] = deltar(df_current)
 
             df_current['matches'] = df_current.deltar<=threshold
 
+            #breakpoint()
+
             group=df_current.groupby('event')
 
-            best_matches = group.apply(matching).to_frame()
+            best_matches = group.apply(matching)
+            if not isinstance(best_matches, pd.DataFrame):
+                best_matches = best_matches.to_frame()
 
             df_current = df_current.set_index('event',append=True)
 
@@ -78,36 +85,57 @@ def matched_file(pars,**kw):
 
         print("{} has finished being filled.".format(outfile))
 
-def plot_norm(pars, init_files, normby='gen'):
+def effrms(df, c=0.68):
+    """Compute half-width of the shortest interval
+    containing a fraction 'c' of items in a 1D array.
+    """
+    out = {}
+    x = np.sort(df, kind='mergesort')
+    m = int(c *len(x)) + 1
+    out = [np.min(x[m:] - x[:-m]) / 2.0]
+
+    return out
+
+def plot_norm(pars, init_files, normby='pt'):
+    #min_eta = 1.6
     plot_dict = {}
-    normed_energies = dict.fromkeys(init_files.keys(),None)
+    normed_energies = dict.fromkeys(init_files.keys(),[0.0]) # Initialize at 0 since we only consider coefs[1:] (coefs[0] is an empty dataframe)
+    rms_en_normed = dict.fromkeys(init_files.keys(),[0.0])
+    eff_rms_en_normed = dict.fromkeys(init_files.keys(),[0.0])
     start = params.energy_kw['EnergyOut']
     for key in init_files.keys():
+        #breakpoint()
         plot_dict[key] = [start+re.split('gen_cl3d_tc',file)[1] for file in init_files[key]]
         plot_dict[key] = [common.fill_path(file,**pars) for file in plot_dict[key]]
-        if isinstance(plot_dict[key],str):
-            with pd.HDFStore(plot_dict[key],'r') as File:
+        if len(plot_dict[key])==1:
+            with pd.HDFStore(plot_dict[key][0],'r') as File:
                 coef_strs = File.keys()
                 if normby=='max':
                     max = File[coef_strs[-1]].set_index('event').drop(columns=['matches','en_max'])
-                for coef in coef_strs:
+                for coef in coef_strs[1:]:
                     df = File[coef].set_index('event').drop(columns=['matches', 'en_max'])
                     if normby=='max':
-                        df = df.join(max, on='event',rsuffix='max')
+                        df = df.join(max, on='event',rsuffix='_max')
                         df['normed_energies'] = df['en']/df['en_max']
+                    elif normby=='pt':
+                        #df['normed_energies'] = df['en']/df['genpart_energy']
+                        df['normed_energies'] = df['cl3d_pt']/df['genpart_pt']
                     else:
                         df['normed_energies'] = df['en']/df['genpart_energy']
+
+                    #df = df[ df['genpart_exeta'] > min_eta ]
 
                     mean_energy = df['normed_energies'].mean()
 
                     normed_energies[key] = np.append(normed_energies[key],mean_energy)
+                    rms_en_normed[key] = np.append(rms_en_normed[key], df['normed_energies'].std()/mean_energy)
+                    eff_rms_en_normed[key] = np.append(eff_rms_en_normed[key], effrms(df['normed_energies'])/mean_energy)
         else:
             file_list = [pd.HDFStore(val,'r') for val in plot_dict[key]]
             coef_strs = file_list[0].keys()
             if normby=='max':
-                #max = File[coef_strs[-1]].set_index('event').drop(columns=['matches','en_max'])
                 max = pd.concat([file_list[i][coef_strs[-1]].set_index('event').drop(columns=['matches','en_max']) for i in range(len(file_list))])
-            for coef in coef_strs:
+            for coef in coef_strs[1:]:
                 df_list = [file_list[i][coef] for i in range(len(file_list))]
 
                 full_df = pd.concat(df_list)
@@ -116,52 +144,80 @@ def plot_norm(pars, init_files, normby='gen'):
                 if normby=='max':
                     full_df = full_df.join(max,rsuffix='_max')
                     full_df['normed_energies'] = full_df['en']/full_df['en_max']
+                elif normby=='pt':
+                    full_df['normed_energies'] = full_df['cl3d_pt']/full_df['genpart_pt']
                 else:
                     full_df['normed_energies'] = full_df['en']/full_df['genpart_energy']
 
+                #full_df = full_df[ full_df['genpart_exeta'] > min_eta ]
+
                 mean_energy = full_df['normed_energies'].mean()
+
                 normed_energies[key] = np.append(normed_energies[key], mean_energy)
+                rms_en_normed[key] = np.append(rms_en_normed[key], full_df['normed_energies'].std()/mean_energy)
+                eff_rms_en_normed[key] = np.append(eff_rms_en_normed[key], effrms(full_df['normed_energies'])/mean_energy)
+
             for file in file_list:
                 file.close()
-
-    for key,val in normed_energies.items():
-        normed_energies[key] = [num for num in val if num!=None]
 
     start, end, tot = params.energy_kw['Coeffs']
     coefs = np.linspace(start, end, tot)
 
-    one_line = np.full(tot-1,1.0)
+    #one_line = np.full(tot-1,1.0)
+    one_line = np.full(tot,1.0)
 
     coef_ticks = coefs[0::5]
 
     coef_labels = [round(coef,3) for coef in coefs]
     coef_labels= coef_labels[0::5]
 
-    fig, ax = plt.subplots()
-
     color_list = cm.rainbow(np.linspace(0,1,len(normed_energies)))
 
-    for part, col in zip(normed_energies,color_list):
+    for part,col in zip(normed_energies.keys(),color_list):
         en = normed_energies[part]
-        ax.plot(coefs[1:],en,label=part,color=col)
+        rms = rms_en_normed[part]
+        eff_rms = eff_rms_en_normed[part]
 
+        fig, ax = plt.subplots(2,1, constrained_layout=True)
+        fig.suptitle(part.replace('p','P'),fontsize=16)
 
-    ax.plot(coefs[1:],one_line,color='green',linestyle='dashed')
-    ax.legend()
-    ax.set_xlabel(r'$R_{coef}$')
-    if normby=='max':
-        ax.set_ylabel(r'$\frac{\bar{E}_{coef}}{\bar{E}_{max}}$')
-    else:
-        ax.set_ylabel(r'$\frac{\bar{E}_{coef}}{\bar{E}_{genpart}}$')
-    ax.set_title('Normalized Cluster Energy vs. Radius From Seed')
-    ax.set_xticks(coef_ticks)
-    ax.set_xticks(coefs, minor=True)
-    ax.set_xticklabels(coef_labels)
-    plt.setp(ax.get_xticklabels(), rotation=90)
-    plt.grid(which='major', alpha=0.5)
-    plt.grid(which='minor', alpha=0.2)
+        ax[0].plot(coefs,en,color=col)
+        ax[0].plot(coefs,one_line,color='green',linestyle='dashed')
 
-    plt.savefig(params.energy_kw['EnergyPlot'] + '_all_files_maxnormed.png', dpi=300)
+        ax[1].plot(coefs,rms,label='RMS', color=col)
+        ax[1].plot(coefs,eff_rms,label=r'$RMS_{Eff}$',color=col,linestyle='dashed')
+
+        ax[1].legend()
+
+        ax[1].set_xlabel(r'$R_{coef}$')
+
+        ax[0].set_title('Normalized Cluster Energy')
+        ax[1].set_title('(Effective) RMS')
+
+        ax[0].set_xticks(coef_ticks)
+        ax[0].set_xticks(coefs, minor=True)
+        ax[0].set_xticklabels([])
+
+        ax[1].set_xticks(coef_ticks)
+        ax[1].set_xticks(coefs, minor=True)
+        ax[1].set_xticklabels(coef_labels)
+
+        props = '\nalgo={}\nNormalization=genpart_{}'.format(pars['cluster_algo'],normby)
+
+        if 'above' in pars['sel']:
+            props = r'$\eta > 2.7$' + props
+        elif 'below' in pars['sel']:
+            props = r'$ 1.4 < \eta < 2.7$' + props
+
+        ax[0].annotate(props, xy=(0.65,0.73), xycoords='figure fraction')
+
+        plt.setp(ax[1].get_xticklabels(), rotation=90)
+
+        plt.grid(which='major', alpha=0.5)
+        plt.grid(which='minor', alpha=0.2)
+
+        plt.savefig('{}_{}_{}_gen_{}_{}.png'.format(params.energy_kw['EnergyPlot'],pars['sel'],pars['cluster_algo'],normby,part), dpi=300)
+        plt.close()
 
 
 def energy(pars, **kw):
@@ -177,7 +233,8 @@ def energy(pars, **kw):
         clust_params['ForEnergy'] = True
         for coef in coefs:
             clust_params['CoeffA'] = (coef,0)*52 #28(EM)+24(FH+BH)
-            cluster.cluster(pars, **clust_params) # Have put a breakpoint in cluster
+            print("Clustering with coef: ", coef)
+            cluster_test.cluster(pars, **clust_params)
 
     if kw['MatchFile']:
         matched_file(pars, **kw)
@@ -195,7 +252,7 @@ if __name__ == "__main__":
     assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
 
     FLAGS.reg = 'All'
-    FLAGS.sel = 'above_eta_2.7'
+    FLAGS.sel = 'below_eta_2.7'
 
     input_files = params.fill_kw['FillInFiles']
 
@@ -211,4 +268,4 @@ if __name__ == "__main__":
             energy(vars(FLAGS), **energy_pars)
 
     if params.energy_kw['MakePlot']:
-        plot_norm(vars(FLAGS),input_files,normby='max')
+        plot_norm(vars(FLAGS),input_files,normby='en')

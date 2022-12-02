@@ -40,7 +40,7 @@ base_kw = {
     'OutPath': Path(__file__).parents[2] / 'out',
 
     'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
-    'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
+    'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 )
 }
 
 def set_dictionary(adict):
@@ -88,13 +88,11 @@ def create_out_names(files,trees):
             files[key] = [files[key]]
         tree = trees[key]
         #output_file_names[key] = ['{}_gen_cl3d_tc_{}'.format(key,re.split('.root|/',file)[-2]) for file in files[key]]
-        output_file_names[key] = ['gen_cl3d_tc_{}_{}'.format(base_kw['FesAlgos'][0],re.split('.root|/',file)[-2]) for file in files[key]]
+        output_file_names[key] = ['gen_cl3d_tc_{}_{}_with_pt'.format(base_kw['FesAlgos'][0],re.split('.root|/',file)[-2]) for file in files[key]]
     return output_file_names
 
-files = {'photon': '/data_CMS/cms/alves/TriggerCells/photon_0PU_truncation_hadd.root', 'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
-#files = {'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
+files = {'photon': '/data_CMS/cms/alves/L1HGCAL/photon_0PU_truncation_hadd.root', 'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
 gen_trees = {'photon': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple', 'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
-#gen_trees = {'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
 
 match_kw = set_dictionary(
     { 'Files': files,
@@ -191,7 +189,7 @@ energy_kw = set_dictionary(
       'Coeffs': delta_r_coefs, #tuple containing (coeff_start, coeff_end, num_coeffs)
       'EnergyIn': cluster_kw['EnergyOut'],
       'EnergyOut': 'energy_out',
-      'EnergyPlot': 'energy_plot',
+      'EnergyPlot': 'plots/energy_plot',
       'BestMatch': True,
       'MatchFile': False,
       'MakePlot': True}

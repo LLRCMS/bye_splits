@@ -20,7 +20,6 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
     Fills split clusters information according to the Stage2 FPGA fixed binning.
     """
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
-
     for fe in kwargs['FesAlgos']:
         infill = common.fill_path(kwargs['FillIn'])
         simAlgoFiles[fe] = [ infill ]
@@ -38,7 +37,8 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
         print('Input HDF5 keys:')
         print(simAlgoNames)
 
-    #simAlgoDFs contains the 29535 events in gen_cl3d_tc (produced by matching_v3.py)
+    for i, fe in enumerate(kwargs['FesAlgos']):
+        df = simAlgoDFs[fe]
 
     ### Data Processing ######################################################
     outfillplot = common.fill_path(kwargs['FillOutPlot'], **pars)
@@ -47,6 +47,9 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
 
         for i,fe in enumerate(kwargs['FesAlgos']):
             df = simAlgoDFs[fe]
+
+
+
             if not pars['sel'].startswith('below_eta_'):
                 df = df[ (df['genpart_exeta']>1.7) & (df['genpart_exeta']<2.8) ]
             assert( df[ df['cl3d_eta']<0 ].shape[0] == 0 )
@@ -80,6 +83,8 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             else:
                 m = 'Selection {} is not supported.'.format(pars['sel'])
                 raise ValueError(m)
+
+
 
             if debug:
                 _events_all = list(df.index.unique())
@@ -176,8 +181,10 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
     outfill = common.fill_path(kwargs['FillOut'], **pars)
 
     with h5py.File(outfill, mode='w') as store:
+
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
             for ev in df_tc['event'].unique().astype('int'):
+
                 branches  = ['cl3d_layer_pt', 'event',
                              'genpart_reachedEE', 'enres']
                 ev_tc = df_tc[ df_tc.event == ev ]
@@ -202,6 +209,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 with common.SupressSettingWithCopyWarning():
                     ev_3d['cl3d_Roverz'] = common.calcRzFromEta(ev_3d.loc[:,'cl3d_eta'])
                     ev_3d['gen_Roverz']  = common.calcRzFromEta(ev_3d.loc[:,'genpart_exeta'])
+
 
                 cl3d_pos_rz  = ev_3d['cl3d_Roverz'].unique()
                 cl3d_pos_phi = ev_3d['cl3d_phi'].unique()
@@ -259,6 +267,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['columns'] = cols_to_keep
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['doc'] = 'Trigger Cells Info'
 
+
                 if ev == df_tc['event'].unique().astype('int')[0]:
                     group_tot_old = group_old[:]
                     group_tot_new = group_new[:]
@@ -267,6 +276,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                                                group_old[:]), axis=0)
                     group_tot_new = pd.concat((group_tot_new,
                                                group_new[:]), axis=0)
+
 
     # we still have the 485 event subset of gen_cl3d_tc
     return group_tot_old, group_tot_new
@@ -288,6 +298,6 @@ if __name__ == "__main__":
               'cluster_algo'  : FLAGS.cluster_algo }
     pars_d.update({'ipar': FLAGS.ipar})
 
-    #tc_map = itopt.optimization(pars_d, **params.opt_kw)
+    tc_map = itopt.optimization(pars_d, **params.opt_kw)
 
     fill(vars(FLAGS), -1, tc_map, **params.fill_kw)

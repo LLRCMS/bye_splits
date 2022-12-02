@@ -401,10 +401,7 @@ if __name__ == "__main__":
     FLAGS = parser.parse_args()
     assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
 
-    #input_files = [re.split('pion_',file)[1] for file in params.fill_kw['FillInFiles']['pion']]
     input_files = params.fill_kw['FillInFiles']
-    #input_files = [['{}_{}{}'.format(re.split(r'(gen_cl3d_tc)',file)[1],params.base_kw['FesAlgos'][0],re.split(r'(gen_cl3d_tc)',file)[2]) for file in input_files[key]] for key in input_files.keys()]
-    #input_files = ['{}_{}{}'.format(re.split(r'(gen_cl3d_tc)',f)[1],params.base_kw['FesAlgos'][0],re.split(r'(gen_cl3d_tc)',f)[2]) for f in input_files]
     simDataPaths = [[os.path.join(params.base_kw['BasePath'], infile) for infile in input_files[key]] for key in input_files.keys()]
     simDataPaths = list(itertools.chain(*simDataPaths))
 
@@ -445,16 +442,24 @@ if __name__ == "__main__":
             tc_map = optimization(pars_d, **file_pars['opt'])
 
             if not FLAGS.no_fill:
+                print("Starting filling step.")
                 tasks.fill.fill(pars_d, FLAGS.nevents, tc_map, **file_pars['fill'])
+                print("Finished filling step.")
 
             if not FLAGS.no_smooth:
+                print("Starting smoothing step.")
                 tasks.smooth.smooth(pars_d, **file_pars['smooth'])
+                print("Finished smoothing step.")
 
             if not FLAGS.no_seed:
+                print("Starting seeding step.")
                 tasks.seed.seed(pars_d, **file_pars['seed'])
+                print("Finished seeding step.")
 
             if not FLAGS.no_cluster:
+                print("Starting clustering step.")
                 tasks.cluster.cluster(pars_d, **file_pars['cluster'])
+                print("Finished clustering step.")
 
             # Validation currently failing (specifically line 202 of tasks/validation.py)
             '''res = tasks.validation.stats_collector(pars_d, **file_pars['validation'])

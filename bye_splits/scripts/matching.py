@@ -62,7 +62,7 @@ def create_dataframes(pars, **kw):
     print('Input file: {}'.format(kw['File']), flush=True)
 
     branches_gen = [ 'event', 'genpart_reachedEE', 'genpart_pid', 'genpart_gen',
-                     'genpart_exphi', 'genpart_exeta', 'genpart_energy' ]
+                     'genpart_exphi', 'genpart_exeta', 'genpart_energy','genpart_pt' ]
 
     branches_cl3d = [ 'event', 'cl3d_energy','cl3d_pt','cl3d_eta','cl3d_phi' ]
     branches_tc = [ 'event', 'tc_zside', 'tc_energy', 'tc_mipPt', 'tc_pt', 'tc_layer',
@@ -76,7 +76,7 @@ def create_dataframes(pars, **kw):
         for ib,batch in enumerate(data.iterate(branches_gen, step_size=memsize_gen,
                                                library='pd')):
             # reachedEE=2: photons that hit HGCAL
-            batch = batch[ batch['genpart_reachedEE']==kw['ReachedEE'] ]
+            batch = batch[ batch['genpart_reachedEE']==kw['ReachedEE'] ] # THIS IS WHAT INTRODUCES THE LOWER BOUND ON ETA!
             batch = batch[ batch['genpart_gen']!=-1 ]
             #batch = batch[ batch['genpart_pid']==22 ] # Set this to be the pid of each incoming particle
             #batch = batch.drop(columns=['genpart_reachedEE', 'genpart_gen', 'genpart_pid'])
@@ -120,6 +120,8 @@ def create_dataframes(pars, **kw):
 def preprocessing(pars, **kw):
 
     gen, algo, tc = create_dataframes(pars, **kw)
+
+    # Note that min(gen['genpart_eta']) is already ~ 1.5
 
     algo_clean={}
 
@@ -195,14 +197,16 @@ def match(pars, **kw):
         if isinstance(file_list, str):
             file_list = [file_list]
         for file in file_list:
+            print("Starting file: ", file)
             for tree in kw['AlgoTrees'].keys():
                 kw['File'] = file
-                outfile = 'data/gen_cl3d_tc_{}_{}.hdf5'.format(tree, re.split('.root|/',file)[-2])
+                outfile = 'data/gen_cl3d_tc_{}_{}_with_pt.hdf5'.format(tree, re.split('.root|/',file)[-2])
                 kw['OutFile'] = outfile
                 kw['AlgoTree'] = {tree: kw['AlgoTrees'][tree][key]}
                 kw['GenTree'] = kw['GenTrees'][key]
                 #print('Reading data from {} and creating file {}.'.format(file,outfile))
                 preprocessing(pars, **kw)
+            print("{} has finished processing.".format(file))
 
 if __name__=='__main__':
     import argparse
@@ -215,5 +219,8 @@ if __name__=='__main__':
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
     assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
+
+    FLAGS.reg = 'All'
+    FLAGS.sel = 'below_eta_2.7'
 
     match(vars(FLAGS), **params.match_kw)
