@@ -63,7 +63,7 @@ def validation(**kw):
                         print('\tRz difference: {}'.format(locRz[i] - cmsswRz[i]))
                         print('\tEn difference: {}'.format(locEn[i] - cmsswEn[i]))
 
-def stats_collector(pars, debug=False, **kw):
+def stats_collector(pars, debug=True, **kw):
     outclusteringvalidation = common.fill_path(kw['ClusterOutValidation'], **pars)
     outfilling = common.fill_path(kw['FillOut'], **pars)
     outfillingcomp = common.fill_path(kw['FillOutComp'], **pars)
@@ -109,7 +109,7 @@ def stats_collector(pars, debug=False, **kw):
                 local = storeInLocal[key1]
                 cmssw = storeInCMSSW[key2]
                 cmssw_cols = list(cmssw.attrs['columns'])
-                
+
                 locEtaNew = local['etanew'].to_numpy()
                 locPhiNew = local['phinew'].to_numpy()
                 locRz  = local['Rz'].to_numpy()

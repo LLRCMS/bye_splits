@@ -45,35 +45,39 @@ def cluster(pars, **kw):
 
                 seedEn, seedX, seedY = storeInSeeds[key2]
 
-                if pars['cluster_algo'] == 'min_distance':
-                    dRs = np.array([])
-                    projx = tc[:, common.get_column_idx(tc_cols, 'tc_x_new')]/tc[:, common.get_column_idx(tc_cols, 'tc_z')]
-                    projy = tc[:, common.get_column_idx(tc_cols, 'tc_y_new')]/tc[:, common.get_column_idx(tc_cols, 'tc_z')]
+                dRs = np.array([])
+                z_tmp = tc[:, common.get_column_idx(tc_cols, 'tc_z')]
+                projx = tc[:, common.get_column_idx(tc_cols, 'tc_x_new')] / z_tmp
+                projy = tc[:, common.get_column_idx(tc_cols, 'tc_y_new')] / z_tmp
 
-                    for iseed, (en, sx, sy) in enumerate(zip(seedEn, seedX, seedY)):
-                        dR = np.sqrt( (projx-sx)*(projx-sx) + (projy-sy)*(projy-sy) )
+                for iseed, (en, sx, sy) in enumerate(zip(seedEn, seedX, seedY)):
+                    dR = np.sqrt( (projx-sx)*(projx-sx) + (projy-sy)*(projy-sy) )
 
-                        if dRs.shape == (0,):
-                            dRs = np.expand_dims(dR, axis=-1)
-                        else:
-                            dRs = np.concatenate((dRs, np.expand_dims(dR, axis=-1)),
-                                                 axis=1)
+                    if dRs.shape == (0,):
+                        dRs = np.expand_dims(dR, axis=-1)
+                    else:
+                        dRs = np.concatenate((dRs, np.expand_dims(dR, axis=-1)),
+                                             axis=1)
 
-                    # checks if each seed has at least one seed which lies
-                    # below the threshold
-                    pass_threshold = dRs < np.expand_dims(minDist, axis=-1)
-                    pass_threshold = np.logical_or.reduce(pass_threshold, axis=1)
+                # checks if each event has at least one seed which lies
+                # below the threshold
+                pass_threshold = dRs < np.expand_dims(minDist, axis=-1)
+                pass_threshold = np.logical_or.reduce(pass_threshold, axis=1)
 
-                    try:
+                try:
+                    # assign TCs to the closest seed
+                    if pars['cluster_algo'] == 'min_distance':
                         seeds_indexes = np.argmin(dRs, axis=1)
-                    except np.AxisError:
-                        empty_seeds += 1
-                        continue
 
-                elif pars['cluster_algo'] == 'max_energy':
-                    seed_max = np.argmax(seedEn)
-                    seeds_indexes = np.full((tc.shape[0],), seed_max) # most energetic seed takes all
-                    pass_threshold = np.ones_like(seeds_indexes, dtype=bool) # always true
+                    # most energetic seed takes all
+                    elif pars['cluster_algo'] == 'max_energy':
+                        seed_max = np.argmax(seedEn)
+                        seeds_indexes = np.full((tc.shape[0],), seed_max)
+
+                except np.AxisError:
+                    empty_seeds += 1
+                    continue
+
 
                 seeds_energies = np.array( [seedEn[xi] for xi in seeds_indexes] )
                 # axis 0 stands for trigger cells
@@ -185,5 +189,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Clustering standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
     cluster(vars(FLAGS), **params.cluster_kw)

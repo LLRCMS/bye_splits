@@ -8,7 +8,7 @@ from copy import copy
 from bokeh.layouts import column
 from bokeh.models import CustomJS, Slider
 from bokeh.plotting import ColumnDataSource, figure, show, save
-from bokeh.models import Panel, Tabs, Label
+from bokeh.models import Tabs, Label#, Panel
 from bokeh.io import output_file
 
 class Plotter:
@@ -369,8 +369,8 @@ class Plotter:
                                                self.bin_tabs):
             #l = column(phitab, eucltab, arctab, bt)
             l = column(phitab, arctab, bt)
-            tb = Panel(child=l, title=name)
-            self.tabs.append( tb )
+            # tb = Panel(child=l, title=name)
+            # self.tabs.append( tb )
         
         layout = Tabs(tabs=self.tabs)
         if show_html:

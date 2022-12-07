@@ -18,6 +18,7 @@ import bokeh
 from bokeh import plotting
 from bokeh import io
 from bokeh import models
+from bokeh.models import Div
 
 def stats_plotter(pars, names_d):
     for par in pars:
@@ -29,7 +30,7 @@ def stats_plotter(pars, names_d):
         else:
             df = pd.concat((df,df_tmp))
 
-    fig_opt = dict(width=600,
+    fig_opt = dict(width=400,
                    height=300,
                    #x_range=models.Range1d(-0.1, 1.1),
                    #y_range=models.Range1d(-0.05, 1.05),
@@ -38,6 +39,7 @@ def stats_plotter(pars, names_d):
                    x_axis_type='linear',
                    y_axis_type='linear')
     p1 = plotting.figure(title='Ratio of split clusters', **fig_opt)
+    p1.output_backend = 'svg'
     base_circle_opt = dict(x=df.ipar, size=4, line_width=4)
     base_line_opt = dict(x=df.ipar,
                          line_width=2)
@@ -137,24 +139,30 @@ def resolution_plotter(pars, names_d):
         
             hist_opt = dict(density=False)
             hold, edgold = ([] for x in range(2))
-            _tmp = np.histogram(df_en['enres_old'], bins=50, range=(mins[0],maxs[0]), **hist_opt)
-            hold.append( _tmp[0] )
-            edgold.append( _tmp[1] )
-            for ii,x in enumerate(('etares_old', 'phires_old')):
-                _tmp = np.histogram(df_pos[x], bins=50,
-                                    range=(mins[ii+1],maxs[ii+1]), **hist_opt)
+
+            nbins = 50
+            for ix,x in enumerate(('enres_old', 'etares_old', 'phires_old')):
+                _tmp = np.histogram(df_en[x] if 'enres' in x else df_pos[x], bins=nbins,
+                                    range=(mins[ix],maxs[ix]), **hist_opt)
                 hold.append( _tmp[0] )
                 edgold.append( _tmp[1] )
             hnew, edgnew = ([] for x in range(2))
-            _tmp = np.histogram(df_en['enres_new'], bins=50, range=(mins[0],maxs[0]), **hist_opt)
-            hnew.append( _tmp[0] )
-            edgnew.append( _tmp[1] )
-            for ii,x in enumerate(('etares_new', 'phires_new')):
-                _tmp = np.histogram(df_pos[x], bins=50,
-                                    range=(mins[ii+1],maxs[ii+1]), **hist_opt)
+            for ix,x in enumerate(('enres_new', 'etares_new', 'phires_new')):
+                _tmp = np.histogram(df_en[x] if 'enres' in x else df_pos[x], bins=nbins,
+                                    range=(mins[ix],maxs[ix]), **hist_opt)
                 hnew.append( _tmp[0] )
                 edgnew.append( _tmp[1] )
- 
+                
+            hratio = [[(x/y if y!=0. else 1. if x==0. else 0.)
+                       for x,y in zip(v1,v2)] for v1,v2 in zip(hold,hnew)]
+            error_flag = -1
+            segments = [[((x/y)*np.sqrt(1/x+1/y) if y!=0. and x!= 0 else 1.)
+                         for x,y in zip(v1,v2)] for v1,v2 in zip(hold,hnew)]
+            y_seg_low = [[((x-y/2) if y!=error_flag else 0.)
+                          for x,y in zip(rat,seg)] for rat,seg in zip(hratio,segments)]
+            y_seg_up  = [[((x+y/2) if y!=error_flag else 1.)
+                          for x,y in zip(rat,seg)] for rat,seg in zip(hratio,segments)]
+
             for it in range(3):
                 line_centers = edgnew[it][1:]-(edgnew[it][1]-edgnew[it][0])/2
                 repeated_parameter = [par for _ in range(len(hnew[it]))]
@@ -162,10 +170,16 @@ def resolution_plotter(pars, names_d):
                 if par == pars[0]:
                     res_dict.append( dict(x=line_centers.tolist(),
                                           y=hnew[it].tolist(),
+                                          yratio=hratio[it],
+                                          y_seg_low=y_seg_low[it],
+                                          y_seg_up=y_seg_up[it],
                                           par=repeated_parameter) )
                 else:
                     res_dict[it]['x'].extend(line_centers.tolist())
                     res_dict[it]['y'].extend(hnew[it].tolist())
+                    res_dict[it]['yratio'].extend(hratio[it])
+                    res_dict[it]['y_seg_low'].extend(y_seg_low[it])
+                    res_dict[it]['y_seg_up'].extend(y_seg_up[it])
                     res_dict[it]['par'].extend(repeated_parameter)
 
     max_sources = [ max( max(res_dict[q]['y']), max(hold[q]) ) for q in range(3) ]
@@ -209,10 +223,12 @@ def resolution_plotter(pars, names_d):
 
     quad_opt = dict(line_width=1)
     cmssw_opt = dict(color='blue', legend_label='CMSSW', **quad_opt)
-    custom_opt = dict(x='x',
-                      y='y',
+    custom_opt = dict(x='x', y='y',
                       color='red', legend_label='Custom', **quad_opt)
-    p = []
+    ratio_opt = dict(x='x', y='yratio', color='gray', size=4, legend_label='CMSSW/Custom')
+    uncert_opt = dict(x0='x', x1='x', y0='y_seg_low', y1='y_seg_up', color='gray', line_width=2, legend_label='CMSSW/Custom')
+
+    p, p_ratio = ([] for _ in range(2))
     title_d = {0: 'Energy Resolution: RecoPt/GenPt',
                1: 'Eta Resolution: RecoEta - GenEta',
                2: 'Phi Resolution: RecoPhi - GenPhi', }
@@ -220,30 +236,48 @@ def resolution_plotter(pars, names_d):
                     1: r'$$\eta_{\text{Reco}} - \eta_{\text{Gen}}$$',
                     2: r'$$\phi_{\text{Reco}} - \phi_{\text{Gen}}$$', }
     for it in range(3):
-        p.append( plotting.figure( width=600, height=300,
+        p.append( plotting.figure(width=400, height=300,
                                   title=title_d[it],
                                   y_range=models.Range1d(-1., max_sources[it]+1),
                                   tools='save,box_zoom,reset',
                                   y_axis_type='log' if it==3 else 'linear') )
+        p[-1].output_backend = 'svg'
         p[-1].toolbar.logo = None
         p[-1].step(x=edgold[it][1:]-(edgold[it][1]-edgold[it][0])/2,
                    y=hold[it], **cmssw_opt)
         p[-1].step(source=sources[it], view=views[it], **custom_opt)
         p[-1].legend.click_policy='hide'
         p[-1].legend.location = 'top_right' if it==2 else 'top_left'
-        p[-1].xaxis.axis_label = axis_label_d[it]
+        #p[-1].xaxis.axis_label = axis_label_d[it]
+        p[-1].min_border_bottom = 5
+        p[-1].xaxis.visible = False
+
+        p_ratio.append( plotting.figure( width=400, height=200,
+                                         y_range=models.Range1d(0.61, 1.39),
+                                         tools='save,box_zoom,reset',
+                                         y_axis_type='linear') )
+        p_ratio[-1].output_backend = 'svg'
+        p_ratio[-1].toolbar.logo = None
+        p_ratio[-1].circle(source=sources[it], view=views[it], **ratio_opt)
+        p_ratio[-1].segment(source=sources[it], view=views[it], **uncert_opt)
+        p_ratio[-1].xaxis.axis_label = axis_label_d[it]
+        #p_ratio[-1].yaxis.axis_label = 'Custom / CMSSW'
+        p_ratio[-1].min_border_top = 5
+
             
     if FLAGS.sel.startswith('above_eta_'):
         title_suf = ' (eta > ' + FLAGS.selection.split('above_eta_')[1] + ')'
     elif FLAGS.sel == 'splits_only':
         title_suf = '(split clusters only)'
+    elif FLAGS.sel == 'no_splits':
+        title_suf = '(no split clusters)'
 
     figs_summ = []
     title_d = {0: 'Cluster Energy Resolution: standard deviations {}'.format(title_suf),
                1: 'Cluster Eta Resolution: standard deviations {}'.format(title_suf),
                2: 'Cluster Phi Resolution: standard deviations {}'.format(title_suf), }
     for it in range(3):
-        figs_summ.append( plotting.figure( width=600, height=300,
+        figs_summ.append( plotting.figure( width=400, height=300,
                                           title=title_d[it],
                                           tools='save',
                                           y_axis_type='linear',
@@ -263,10 +297,10 @@ def resolution_plotter(pars, names_d):
         figs_summ[-1].legend.location = 'top_right' if it==0 else 'bottom_right'
         figs_summ[-1].xaxis.axis_label = 'Algorithm tunable parameter'
         
-        # figs_summ[-1].output_backend = "svg"
+        figs_summ[-1].output_backend = 'svg'
         # io.export_svg(figs_summ[-1], filename="plot.svg")
         # io.export_png(figs_summ[-1], filename="plot.png", height=300, width=300)
-    return figs_summ, p, slider
+    return figs_summ, p, p_ratio, slider
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Meta-plotter.')
@@ -287,10 +321,17 @@ if __name__ == "__main__":
     io.output_file( plot_name )
     
     stats_fig  = stats_plotter(pars=FLAGS.params, names_d=names_d)
-    summ_fig, res_figs, slider = resolution_plotter(pars=FLAGS.params, names_d=names_d)
+    summ_fig, res_figs, res_ratios, slider = resolution_plotter(pars=FLAGS.params, names_d=names_d)
 
     ncols = 4
-    lay_list = [[stats_fig], [slider], res_figs, summ_fig]
+    sep = " <b>|</b> "
+    text = sep.join(('<b>Selection: </b>{}'.format(FLAGS.sel),
+                     '<b>Region: </b>{}'.format(FLAGS.reg),
+                     '<b>Seed window: </b>{}'.format(FLAGS.seed_window),
+                     '<b>Smooth kernel: </b>{}'.format(FLAGS.smooth_kernel),
+                     '<b>Cluster algorithm: </b>{}'.format(FLAGS.cluster_algo)))
+    div = Div(width=1000, height=20, text=text)
+    lay_list = [[div], [stats_fig], [slider], res_figs, res_ratios, summ_fig]
 
     lay = bokeh.layouts.layout(lay_list)
     io.save(lay)

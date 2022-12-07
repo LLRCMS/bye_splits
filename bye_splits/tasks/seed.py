@@ -97,16 +97,27 @@ def seed(pars, debug=False, **kwargs):
                     maxima = maxima & (energies >= surr)
 
                 seeds_idx = np.nonzero(maxima)
+                res = [energies[seeds_idx], wght_x[seeds_idx], wght_y[seeds_idx]]
 
-                res = ( energies[seeds_idx],
-                        wght_x[seeds_idx], wght_y[seeds_idx],
-                        #wght_x_new[seeds_idx], wght_y_new[seeds_idx]
-                        )
-                # if '88782' in key:
-                #     print(key)
-                #     print(energies)
-                #     print(res)
-                #     breakpoint()
+                # The 'flat_top' kernel might create a seed in a bin without any firing TC.
+                # This happens when the two phi-adjacent bins would create two (split) clusters
+                # had we used a default smoothing kernel.
+                # The seed position cannot threfore be defined based on firing TC.
+                # We this perform the energy weighted average of the TC of the phi-adjacent bins.
+                # Note: the first check avoids an error when an event has no seeds
+                if res[0].shape[0]!=0 and np.isnan(res[1])[0] and np.isnan(res[2])[0]:
+                    if pars['smooth_kernel'] != 'flat_top':
+                        mes = 'Seeds with {} values should appear only with flat_top smoothing.'
+                        raise ValueError(mes.format(kwargs['Placeholder']))
+                    elif len(res[1]) > 1:
+                        mes = 'Only one cluster is expected in this scenario.'
+                        raise ValueError(mes)
+
+                    lft = (seeds_idx[0][0], seeds_idx[1][0]-1)
+                    rgt = (seeds_idx[0][0], seeds_idx[1][0]+1)
+                    enboth = energies[lft] + energies[rgt]
+                    res[1] = np.array([(wght_x[lft]*energies[lft]+wght_x[rgt]*energies[rgt])/enboth])
+                    res[2] = np.array([(wght_y[lft]*energies[lft]+wght_y[rgt]*energies[rgt])/enboth])
 
                 assert(len(kwargs['FesAlgos'])==1)
                 search_str = '{}_([0-9]{{1,7}})_group'.format(kwargs['FesAlgos'][0])
@@ -137,6 +148,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Seeding standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
     seed(vars(FLAGS), **params.seed_kw)
-    #seed(vars(FLAGS), **params.cluster_kw)

@@ -66,7 +66,10 @@ def smoothAlongPhi(arr, kernel,
 
     nBinsSide = (np.array(binSums, dtype=np.int32) - 1) / 2; # one element per Rz bin
     assert(nBinsSide.shape[0] == nbinsRz)
-    area = (1 + 2.0 * (1 - 0.5**nBinsSide)) # one element per Rz bin
+    if kernel=='default':
+        area = (1 + 2.0 * (1 - 0.5**nBinsSide)) # one element per Rz bin
+    elif kernel=='flat_top':
+        area = 5 - 2**(2-nBinsSide) # 1 + 1 + 1 + 2*(Sum[1/(2^i), {i, 1, nBinsSide - 1}])
 
     if seedsNormByArea:
         R1 = minROverZ + bin1 * (maxROverZ - minROverZ) / nbinsRz
@@ -76,7 +79,12 @@ def smoothAlongPhi(arr, kernel,
         #compute quantities for non-normalised-by-area histoMax
         #The 0.1 factor in bin1_10pct is an attempt to keep the same rough scale for seeds.
         #The exact value is arbitrary.
+        #The value is zero, not indented, but: according to JB:
+        #    the seeding threshold has been tuned with this definition,
+        #    it should be kept this way until the seeding thresholds
+        #    are retuned (or this 10% thingy is removed)
         bin1_10pct = int(0.1) * nbinsRz
+
         R1_10pct = minROverZ + bin1_10pct * (maxROverZ - minROverZ) / nbinsRz
         R2_10pct = R1_10pct + ((maxROverZ - minROverZ) / nbinsRz)
         area_10pct_ = ((np.pi * (R2_10pct**2 - R1_10pct**2)) / nbinsPhi)
@@ -99,16 +107,7 @@ def smoothAlongPhi(arr, kernel,
 
     return arr_new * areaPerTriggerCell
 
-def printHistogram(arr):
-    for i in range(arr.shape[0]):
-        for j in range(arr.shape[1]):
-            if arr[i,j] == 0:
-                print('-', end='|')
-            else:
-                print('X', end='|')
-        print()
-
-def createHistogram(bins, nbinsRz, nbinsPhi):
+def createHistogram(bins, nbinsRz, nbinsPhi, fillWith):
     """
     Creates a 2D histogram with fixed (R/z vs Phi) size.
     The input event must be a 2D array where the inner axis encodes, in order:
@@ -116,11 +115,9 @@ def createHistogram(bins, nbinsRz, nbinsPhi):
     - 2: Phi bin index
     - 3: Value of interest ("counts" of the histogram, "z axis")
     """
-    arr = np.zeros((nbinsRz, nbinsPhi))
+    arr = np.full((nbinsRz, nbinsPhi), fillWith)
 
     for bin in bins[:]:
-        assert(bin[0] >= 0)
-        assert(bin[1] >= 0)
         rzbin = int(bin[0])
         phibin = int(bin[1])
         arr[rzbin,phibin] = bin[2]
@@ -139,25 +136,15 @@ def smooth(pars, **kwargs):
                         if falgo in x and '_group_new' in x]
             # Note that each key represents an event
             for kold,knew in zip(keys_old,keys_new):
-                opts = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
-                energies_old = createHistogram(storeIn[kold][:,[0,1,2]], *opts)
-                energies_new = createHistogram(storeIn[knew][:,[0,1,2]], *opts)
-                wght_x_old   = createHistogram(storeIn[kold][:,[0,1,3]], *opts)
-                wght_y_old   = createHistogram(storeIn[kold][:,[0,1,4]], *opts)
-                wght_x_new   = createHistogram(storeIn[knew][:,[0,1,3]], *opts)
-                wght_y_new   = createHistogram(storeIn[knew][:,[0,1,4]], *opts)
-
-                # if '44317' in key:
-                #     print(key)
-                #     print(energies)
-                #     breakpoint()
-
-                # if '187544' in key:
-                #     valid1(energies,
-                #            infile='outLocalBeforeSmooth.txt',
-                #            outfile='outCMSSWBeforeSmooth.txt')
-
-                #printHistogram(ev)
+                en_opts = dict(nbinsRz=kwargs['NbinsRz'], nbinsPhi=kwargs['NbinsPhi'], fillWith=0.)
+                xy_opts = dict(nbinsRz=kwargs['NbinsRz'], nbinsPhi=kwargs['NbinsPhi'],
+                               fillWith=kwargs['Placeholder'])
+                energies_old = createHistogram(storeIn[kold][:,[0,1,2]], **en_opts)
+                energies_new = createHistogram(storeIn[knew][:,[0,1,2]], **en_opts)
+                wght_x_old   = createHistogram(storeIn[kold][:,[0,1,3]], **xy_opts)
+                wght_y_old   = createHistogram(storeIn[kold][:,[0,1,4]], **xy_opts)
+                wght_x_new   = createHistogram(storeIn[knew][:,[0,1,3]], **xy_opts)
+                wght_y_new   = createHistogram(storeIn[knew][:,[0,1,4]], **xy_opts)
 
                 phi_opt = dict(binSums=kwargs['BinSums'],
                                nbinsRz=kwargs['NbinsRz'],
@@ -176,13 +163,6 @@ def smooth(pars, **kwargs):
                     kernel=pars['smooth_kernel'],
                     **phi_opt,
                     )
-
-                # if '187544' in key:
-                #     valid1(energies, '187544',
-                #            infile='outLocalHalfSmooth.txt',
-                #            outfile='outCMSSWHalfSmooth.txt')
-
-                #printHistogram(ev)
 
                 rz_opt = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
                 energies_old = smoothAlongRz(
@@ -216,6 +196,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Smoothing standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    assert FLAGS.sel in ('splits_only',) or FLAGS.sel.startswith('above_eta_') or FLAGS.sel.startswith('below_eta_')
-
     smooth(vars(FLAGS), **params.smooth_kw)

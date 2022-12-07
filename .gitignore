@@ -13,3 +13,8 @@
 /.env
 */data/
 */out/
+*.o
+*.exe
+*.deps*
+*data/*
+yaml-cpp-yaml-cpp-0.7.0*

@@ -75,11 +75,17 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 # if an event has at least one cluster satisfying the enres condition,
                 # all of its clusters are kept (this eases comparison with CMSSW)
                 df.loc[:,'atLeastOne'] = ( df.groupby(['event'])
-                                          .apply(lambda grp:
-                                                 np.any(grp['enres'] < -0.35))
+                                          .apply(lambda grp: np.any(grp['enres'] < -0.35))
                                           )
                 df = df[ df['atLeastOne'] ] #214 events survive
                 df = df.drop(['atLeastOne'], axis=1)
+
+            elif pars['sel'] == 'no_splits':
+                df = df[ (df['genpart_exeta'] > 2.) & (df['genpart_exeta'] < 2.6) ]
+                df.loc[:,'goodClusters'] = (df.groupby(['event'])
+                                            .apply(lambda grp: np.all(grp['enres'] > -0.2)))
+                df = df[ df['goodClusters'] ] #1574 events survive
+                df = df.drop(['goodClusters'], axis=1)
             else:
                 m = 'Selection {} is not supported.'.format(pars['sel'])
                 raise ValueError(m)
@@ -94,8 +100,6 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
             storeComp[fe + '_gen'] = df.filter(regex='^gen.*')
 
             df = df.drop(['matches', 'best_match', 'cl3d_layer_pt'], axis=1)
-
-            # At this point we have 485 events that are still a subset of the gen_cl3d_tc events
 
             # random pick some events (fixing the seed for reproducibility)
             if nevents == -1:
@@ -117,8 +121,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 split = df.loc[_events_sample]
 
             #splitting remaining data into cluster and tc to avoid tc data duplication
-            _cl3d_vars = [x for x in split.columns.to_list()
-                          if 'tc_' not in x]
+            _cl3d_vars = [x for x in split.columns.to_list() if 'tc_' not in x]
 
             split_3d = split[_cl3d_vars]
             split_3d = split_3d.reset_index()
@@ -148,9 +151,7 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
 
             tc_map = tc_map.rename(columns={'id': 'tc_id'})
 
-            split_tc = split_tc.merge(tc_map,
-                                      on='tc_id',
-                                      how='right').dropna()
+            split_tc = split_tc.merge(tc_map, on='tc_id', how='right').dropna()
 
             #assert not np.count_nonzero(split_tc.phi_old - split_tc.tc_phi)
 

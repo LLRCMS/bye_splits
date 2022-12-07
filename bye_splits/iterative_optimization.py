@@ -135,9 +135,7 @@ def optimization(pars, **kw):
         radiae = ld[:,idx_d_main.r]
         phi_old = ld[:,idx_d_main.phi]
 
-        run_algorithm = True
-        if rzslice not in kw['LayersToOptimize']:
-            run_algorithm = False
+        run_algorithm = True #this flag cna be used to apply the algo to a subset of the rzslices
 
         if run_algorithm:
             plot_obj.reset()
@@ -146,7 +144,7 @@ def optimization(pars, **kw):
             ncellstot = sum(lb)
             lastidx = kw['NbinsPhi']-1
 
-            plot_obj.save_orig_data( data=copy(lb), data_type='bins',
+            plot_obj.save_orig_data(data=copy(lb), data_type='bins',
                                     boundary_sizes=0 )
 
             # initial differences for stopping criterion
@@ -362,7 +360,7 @@ def optimization(pars, **kw):
 
         # end loop over the layers
 
-    plot_name = common.get_html_name(__file__, name='plot_'+str(pars['ipar']).replace('.','p'))
+    plot_name = common.fill_path('tc_moves', ext='html', **pars)
     plot_obj.plot_iterative(plot_name=plot_name,
                             tab_names = [''+str(x) for x in range(len(ldata_main))],
                             show_html=False)

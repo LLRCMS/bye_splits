@@ -42,19 +42,19 @@ def plot_trigger_cells(rzslices):
             line_color='black', fill_color=transform(tcNames.nhits, mapper)
            )
 
-        color_bar = ColorBar(color_mapper=mapper,
-                             ticker= ( LogTicker(desired_num_ticks=len(mypalette))
-                                       if FLAGS.log else BasicTicker(desired_num_ticks=int(len(mypalette)/4)) ),
-                             formatter=PrintfTickFormatter(format="%d")
-                             )
-        p.add_layout(color_bar, 'right')
+    color_bar = ColorBar(color_mapper=mapper,
+                         ticker= ( LogTicker(desired_num_ticks=len(mypalette))
+                                  if FLAGS.log else BasicTicker(desired_num_ticks=int(len(mypalette)/4)) ),
+                         formatter=PrintfTickFormatter(format="%d")
+                         )
+    p.add_layout(color_bar, 'right')
 
-        set_figure_props(p, phiBinCenters, rzBinCenters)
+    set_figure_props(p, phiBinCenters, rzBinCenters)
 
-        p.hover.tooltips = [
-            ("#hits", "@{nhits}"),
-            ("min(eta)", "@{min_eta}"),
-            ("max(eta)", "@{max_eta}"),
+    p.hover.tooltips = [
+        ("#hits", "@{nhits}"),
+        ("min(eta)", "@{min_eta}"),
+        ("max(eta)", "@{max_eta}"),
         ]
 
-        tc_backgrounds.append( p )
+    tc_backgrounds.append( p )

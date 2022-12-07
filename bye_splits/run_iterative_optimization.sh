@@ -12,8 +12,8 @@ NEVENTS="-1"
 CLUSTER_ALGO="min_distance"
 SEED_WINDOW="1"
 SMOOTH_KERNEL="default"
-declare -a SELECTIONS=( "splits_only" "above_eta_2.7" "below_eta_2.7")
-declare -a REGIONS=( "Si" "ECAL" "MaxShower" )
+declare -a SELECTIONS=( "splits_only" "no_splits" "above_eta_2.7" "below_eta_2.7")
+declare -a REGIONS=( "Si" "ECAL" "HCAL" "MaxShower" "ExcludeMaxShower" )
 declare -a CLUSTER_ALGOS=( "min_distance" "max_energy" )
 declare -a SMOOTH_KERNELS=( "default" "flat_top" )
 SELECTION="splits_only"
@@ -29,22 +29,22 @@ DO_FILLING_STR="(Boolean) run the filling task. Defaults to '${DO_FILLING}'."
 DO_SMOOTHING_STR="(Boolean) run the smoothing task. Defaults to '${DO_SMOOTHING}'."
 DO_SEEDING_STR="(Boolean) run the seeding task. Defaults to '${DO_SEEDING}'."
 DO_CLUSTERING_STR="(Boolean) run the clustering task. Defaults to '${DO_CLUSTERING}'."
-SELECTION_STR="(String) Which initial data selection to apply. Values supported: ${SELECTIONS[*]}.  Defaults to '${SELECTION}'."
+SELECTION_STR="(String) Which initial data selection to apply. Values supported: ${SELECTIONS[*]}. Defaults to '${SELECTION}'."
 REGION_STR="(String) Which initial region to consider. Values supported: ${REGIONS[*]}. Defaults to '${REGION}'."
 SMOOTH_KERNEL_STR="(String) Which smoothing kernel to apply. Values supported: ${SMOOTH_KERNELS[*]}.  Defaults to '${SMOOTH_KERNEL}'."
 CLUSTER_ALGO_STR="(String) Which smoothing kernel to apply. Values supported: ${CLUSTER_ALGOS[*]}.  Defaults to '${CLUSTER_ALGO}'."
 
 function print_usage_iter_opt {
-    USAGE=" $(basename "$0") [-H] [--dry-run --resubmit -t -d -n --klub_tag --stitching_on]
+    USAGE="bash $(basename "$0")
 
 	-h / --help			[ ${HELP_STR} ]
 	--dry-run			[ ${DRYRUN_STR} ]
 	-r / --reprocess	[ ${REPROCESS_STR} ]
-  --pars        [${ITER_PARS_STR}]
-	-p / --plot_tc	    [ ${PLOT_TC_STR} ]
-	--selection	     	[ ${SELECTION_STR} ]
-	--region			[ ${REGION_STR} ]
-  	--smooth_kernel		[ ${SMOOTH_KERNEL_STR} ]
+	--pars          	[ ${ITER_PARS_STR} ]
+	--plot      	    [ ${PLOT_TC_STR} ]
+	-s / --sel      	[ ${SELECTION_STR} ]
+	--reg   			[ ${REGION_STR} ]
+	--smooth_kernel		[ ${SMOOTH_KERNEL_STR} ]
 	--cluster_algo		[ ${CLUSTER_ALGO_STR} ]
 	--no_fill			[ ${DO_FILLING_STR} ]
 	--no_smooth			[ ${DO_SMOOTHING_STR} ]
@@ -66,7 +66,7 @@ while [[ $# -gt 0 ]]; do
 			print_usage_iter_opt
 			exit 1
 			;;
-		--region)
+		--reg)
 			if [ -n "$2" ]; then
 				if [[ ! " ${REGIONS[@]} " =~ " ${2} " ]]; then
 					echo "Region ${2} is not supported."
@@ -78,25 +78,25 @@ while [[ $# -gt 0 ]]; do
 			fi
 			shift 2;;
 
-		--selection)
+		-s|--sel)
 			if [ -n "$2" ]; then
 				if [[ ! " ${SELECTIONS[@]} " =~ " ${2} " ]]; then
 					echo "Data selection ${2} is not supported."
 					exit 1;
 				else
 					SELECTION="${2}";
-					echo "variable to consider: ${SELECTION}";
+					echo "Variable to consider: ${SELECTION}";
 				fi
 			fi
 			shift 2;;
 
-      --pars)
+		--pars)
 			ITER_PARS=()
 			end_while=0
 			while [ $end_while -eq 0 ]; do
 				shift;
 				ITER_PARS+=("${1}");
-				if [[ "${2}" =~ ^--.+$  ]] || [[ "${2}" =~ ^-.+$  ]]; then
+				if [[ "${2}" =~ ^--.+$  ]] || [[ "${2}" =~ ^-.+$  ]] || [[ "${2}" == '' ]]; then
 					end_while=1
 				fi
 			done
@@ -154,7 +154,7 @@ while [[ $# -gt 0 ]]; do
 			DO_CLUSTERING=0;
 			shift ;;
 
-		-p|--plot_tc)
+		-p|--plot)
 			PLOT_TC=1;
 			shift ;;
 
@@ -177,7 +177,7 @@ done
 
 printf "===== Input Arguments =====\n"
 printf "Dry-run: %s\n" ${DRYRUN}
-echo "Iteration parameters:" ${ITER_PARS[*]}
+echo   "Iteration parameters:" ${ITER_PARS[*]}
 printf "Region: %s\n" ${REGION}
 printf "Selection: %s\n" ${SELECTION}
 printf "Cluster algo: %s\n" ${CLUSTER_ALGO}

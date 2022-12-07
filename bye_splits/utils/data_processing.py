@@ -8,7 +8,7 @@ parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
 import numpy as np
-from utils import common
+from utils import common, params
 
 class DataProcessing:
     def __init__(self, phi_bounds, bin_bounds):
@@ -145,7 +145,7 @@ class DataProcessing:
         bins = []
         for rzslice in data:
             tmp = rzslice[:,idx_d.phi].astype(int)
-            tmp = np.bincount( tmp )
+            tmp = np.bincount(tmp, minlength=params.base_kw['NbinsPhi'])
 
             #normalization
             if normalize:
