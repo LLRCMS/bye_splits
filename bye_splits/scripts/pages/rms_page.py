@@ -1,8 +1,9 @@
 import os
 import sys
 from threading import Timer
-from dash import Dash, dcc, html, Input, Output, callback
+from dash import Dash, dcc, html, Input, Output, callback, dash_table
 import dash
+import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import numpy as np
 import re
@@ -14,7 +15,6 @@ sys.path.insert(0, parent_dir)
 
 from bye_splits.utils import params, common
 
-#def_k = np.linspace(0.0,0.05,50)[1]
 def_k = 0.0
 
 def closest(list, k=def_k):
@@ -40,26 +40,49 @@ def effrms(data, c=0.68):
 
     return out
 
-phot_file = 'data/energy_out_ThresholdDummyHistomaxnoareath20_photon_0PU_truncation_hadd_PAR_0p5_SEL_below_eta_2p7_REG_All_SW_1_SK_default_CA_min_distance.hdf5'
-pion_file1 = 'data/energy_out_ThresholdDummyHistomaxnoareath20_ntuple_1_PAR_0p5_SEL_below_eta_2p7_REG_All_SW_1_SK_default_CA_min_distance.hdf5'
-pion_file2 = 'data/energy_out_ThresholdDummyHistomaxnoareath20_ntuple_2_PAR_0p5_SEL_below_eta_2p7_REG_All_SW_1_SK_default_CA_min_distance.hdf5'
-pion_file3 = 'data/energy_out_ThresholdDummyHistomaxnoareath20_ntuple_3_PAR_0p5_SEL_below_eta_2p7_REG_All_SW_1_SK_default_CA_min_distance.hdf5'
+phot_file = 'data/energy_out_ThresholdDummyHistomaxnoareath20_photon_0PU_truncation_hadd_with_pt_PAR_0p5_SEL_below_eta_2p7_REG_All_SW_1_SK_default_CA_min_distance.hdf5'
+pion_file1 = 'data/energy_out_ThresholdDummyHistomaxnoareath20_ntuple_1_with_pt_PAR_0p5_SEL_below_eta_2p7_REG_All_SW_1_SK_default_CA_min_distance.hdf5'
+pion_file2 = 'data/energy_out_ThresholdDummyHistomaxnoareath20_ntuple_2_with_pt_PAR_0p5_SEL_below_eta_2p7_REG_All_SW_1_SK_default_CA_min_distance.hdf5'
+pion_file3 = 'data/energy_out_ThresholdDummyHistomaxnoareath20_ntuple_3_with_pt_PAR_0p5_SEL_below_eta_2p7_REG_All_SW_1_SK_default_CA_min_distance.hdf5'
+
+'''def make_table(data):
+    cols = data.keys()
+    rows = [data[col] for col in cols]
+
+    head = [html.Thead(html.Tr([html.Th(col) for col in cols]))]
+    body = [html.Tbody(html.Tr([html.Td(row) for row in rows]))]
+
+    return dbc.Table(head+body,bordered=True)'''
 
 marks = {coef : {"label" : format(coef,'.3f'), "style": {"transform": "rotate(-90deg)"}} for coef in np.arange(0.0,0.05,0.001)}
 
 dash.register_page(__name__, title='RMS', name='RMS')
 
-layout = html.Div([
-    html.H4('Interactive normal distribution'),
+layout = dbc.Container([
+    dbc.Row([html.Div("Interactive Normal Distribution", style={'fontSize': 40, 'textAlign': 'center'})]),
+
+    html.Hr(),
+
     dcc.Graph(id="histograms-x-graph",mathjax=True),
     html.P("Coef:"),
-    dcc.Slider(id="coef", min=0.0, max=0.05, value=0,marks=marks),
+    dcc.Slider(id="coef", min=0.0, max=0.05, value=0.001,marks=marks),
     html.P("EtaRange:"),
     dcc.RangeSlider(id='eta_range',min=1.4,max=2.7,step=0.1,value=[1.4,2.7]),
+
+    html.Hr(),
+
+    dbc.Row([
+        dcc.Markdown(r'Gaussianity := $\frac{|RMS-RMS_{Eff}|}{RMS}$', mathjax=True, style={'fontSize': 30, 'textAlign': 'center'})
+    ]),
+
+    html.Hr(),
+
+    html.Div(id='my_table'),
 ])
 
 @callback(
     Output("histograms-x-graph", "figure"),
+    Output("my_table", "children"),
     Input("coef", "value"),
     Input("eta_range", "value"))
 
@@ -108,6 +131,9 @@ def display_color(coef, eta_range):
         pion_gaus_str = format(pion_gaus_diff[0], '.3f')
         phot_gaus_str = format(phot_gaus_diff[0], '.3f')
 
+        pion_rms_str = format(pion_rms, '.3f')
+        phot_rms_str = format(phot_rms, '.3f')
+
         pion_eff_rms_str = format(pion_eff_rms[0], '.3f')
         phot_eff_rms_str = format(phot_eff_rms[0], '.3f')
 
@@ -116,26 +142,24 @@ def display_color(coef, eta_range):
         fig.add_trace(go.Histogram(x=pion_df['normed_energies'], nbinsx=100, autobinx=False, name='Pion'))
         fig.add_trace(go.Histogram(x=phot_df['normed_energies'], nbinsx=100, autobinx=False, name='Photon'))
 
-        fig.add_annotation(
-            text='Pion RMS_Eff, Gauss: ({}, {})<br>Photon RMS_Eff, Gauss: ({}, {})'.format(pion_eff_rms_str,pion_gaus_str,phot_eff_rms_str,phot_gaus_str),
-            xref='paper',
-            yref='paper',
-            x=0.9,
-            y=0.9,
-            showarrow=False,
-            align='left',
-            font=dict(
-                color='black',
-                size=20
-            ),
-            bordercolor="#000000",
-            borderwidth=2,
-            borderpad=4,
-            bgcolor="#ffffff",
-            opacity=0.8)
-
         fig.update_layout(barmode='overlay',title_text='Normalized Cluster Energy', xaxis_title=r'$\Huge{\frac{E_{Cl}}{E_{Gen}}}$', yaxis_title_text=r'$\Large{Events}$')
 
         fig.update_traces(opacity=0.5)
 
-        return fig
+        my_vals = {
+            'Photon': {
+                'RMS': phot_rms_str,
+                'Effective RMS': phot_eff_rms_str,
+                'Gaussianity': phot_gaus_str,
+            },
+            'Pion': {
+                'RMS': pion_rms_str,
+                'Effective RMS': pion_eff_rms_str,
+                'Gaussianity': pion_gaus_str,
+            }
+        }
+
+        val_df = pd.DataFrame(my_vals).reset_index()
+        val_df = val_df.rename(columns={'index': ''})
+
+        return fig, dbc.Table.from_dataframe(val_df)

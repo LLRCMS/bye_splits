@@ -3,16 +3,25 @@
 _all_ = [ ]
 
 import os
+from os import path as op
 from pathlib import Path
 import sys
+
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
+
+from bye_splits.utils import common
 
 import numpy as np
 from glob import glob
 import functools
 import operator
 import re
+
+import warnings
+import argparse
+from argparse import ArgumentParser, RawTextHelpFormatter
+from subprocess import Popen, PIPE
 
 NbinsRz = 42
 NbinsPhi = 216
@@ -56,7 +65,6 @@ threshold = 0.05
 delta_r_coefs = (0.0,threshold,50)
 
 ntuple_templates = {'photon': 'Floatingpoint{fe}Genclustersntuple/HGCalTriggerNtuple','pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
-#ntuple_templates = {'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
 algo_trees = {}
 for fe in base_kw['FesAlgos']:
     inner_trees = {}
@@ -87,12 +95,17 @@ def create_out_names(files,trees):
         if isinstance(files[key], str):
             files[key] = [files[key]]
         tree = trees[key]
-        #output_file_names[key] = ['{}_gen_cl3d_tc_{}'.format(key,re.split('.root|/',file)[-2]) for file in files[key]]
         output_file_names[key] = ['gen_cl3d_tc_{}_{}_with_pt'.format(base_kw['FesAlgos'][0],re.split('.root|/',file)[-2]) for file in files[key]]
     return output_file_names
 
 files = {'photon': '/data_CMS/cms/alves/L1HGCAL/photon_0PU_truncation_hadd.root', 'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
 gen_trees = {'photon': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple', 'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+
+# ONLY HAVE ZERO PILEUP FOR PION SAMPLES
+pu_samples = ['DoubleElectron_FlatPt-1To100', 'DoublePhoton_FlatPt-1To100']
+pu_dict = {'electron': None, 'photon': None}
+# Fill dictionary with paths to root files
+common.point_to_root_file(pu_samples, pu_dict)
 
 match_kw = set_dictionary(
     { 'Files': files,

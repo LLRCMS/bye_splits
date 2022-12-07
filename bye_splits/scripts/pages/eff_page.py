@@ -3,6 +3,7 @@ import sys
 from threading import Timer
 from dash import Dash, dcc, html, Input, Output, callback
 import dash
+import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
@@ -29,19 +30,8 @@ def closest(list, k=def_k):
     id = (np.abs(list-k_num)).argmin()
     return list[id]
 
-def effrms(data, c=0.68):
-    """Compute half-width of the shortest interval
-    containing a fraction 'c' of items in a 1D array.
-    """
-    out = {}
-    x = np.sort(data, kind='mergesort')
-    m = int(c *len(x)) + 1
-    out = [np.min(x[m:] - x[:-m]) / 2.0]
-
-    return out
-
 def binned_effs(df, norm, perc=0.1):
-    eff_list = [1.0]
+    eff_list = [0]
     en_list = [0]
     en_bin_size = perc*(df[norm].max() - df[norm].min())
     current_en = 0
@@ -66,18 +56,43 @@ marks = {coef : {"label" : format(coef,'.3f'), "style": {"transform": "rotate(-9
 
 dash.register_page(__name__, title='Efficiency', name='Efficiency')
 
-layout = html.Div([
-    html.H4('Reconstruction Efficiency'),
+layout = dbc.Container([
+    dbc.Row([html.Div('Reconstruction Efficiency', style={'fontSize': 30, 'textAlign': 'center'})]),
+
+    html.Hr(),
+
     dcc.Graph(id="eff-graph",mathjax=True),
+
     html.P("Coef:"),
     dcc.Slider(id="coef", min=0.0, max=0.05, value=0,marks=marks),
+
     html.P("EtaRange:"),
     dcc.RangeSlider(id='eta_range',min=1.4,max=2.7,step=0.1,value=[1.4,2.7]),
-    dcc.Dropdown(['Energy', 'PT'], 'Energy', id='normby')
+
+    html.P("Normalization:"),
+    dcc.Dropdown(['Energy', 'PT'], 'Energy', id='normby'),
+
+    html.Hr(),
+
+    dbc.Row([
+        dcc.Markdown("Global Efficiencies", style={'fontSize': 30, 'textAlign': 'center'})
+    ]),
+
+    html.Div(id='glob-effs'),
+
+    html.Hr(),
+
+    dbc.Row([
+        dcc.Markdown("Efficiencies By Coefficent", style={'fontSize': 30, 'textAlign': 'center'})
+    ]),
+
+    dcc.Graph(id='glob-eff-graph', mathjax=True)
+
 ])
 
 @callback(
     Output("eff-graph", "figure"),
+    Output("glob-effs", "children"),
     Input("coef", "value"),
     Input("eta_range", "value"),
     Input("normby", "value"))
@@ -110,6 +125,10 @@ def display_color(coef, eta_range, normby):
             phot_effs, phot_x = binned_effs(phot_df, 'genpart_pt')
             pion_effs, pion_x = binned_effs(pion_df, 'genpart_pt')
 
+        glob_effs = pd.DataFrame({'Photon': np.mean(phot_effs[1:]),
+                     'Pion': np.mean(pion_effs[1:])
+                     }, index=[0])
+
         fig = make_subplots(rows=1, cols=2, subplot_titles=("Photon", "Pion"))
 
         fig.add_trace(go.Scatter(x=phot_x, y=phot_effs, name='Photon'), row=1, col=1)
@@ -121,4 +140,56 @@ def display_color(coef, eta_range, normby):
 
         fig.update_layout(title_text='Efficiency/Energy', yaxis_title_text=r'$Eff (\frac{N_{Cl}}{N_{Gen}})$')
 
+        return fig, dbc.Table.from_dataframe(glob_effs)
+
+@callback(
+    Output("glob-eff-graph", "figure"),
+    Input("eta_range", "value"),
+    Input("normby", "value")
+)
+
+def global_effs(eta_range, normby):
+    with pd.HDFStore(phot_file,'r') as Phot, pd.HDFStore(pion_file1,'r') as Pi1, pd.HDFStore(pion_file2,'r') as Pi2, pd.HDFStore(pion_file3,'r') as Pi3:
+
+        effs_by_coef = {'Photon': [0.0],
+                        'Pion': [0.0]}
+
+        for coef in Phot.keys()[1:]:
+            phot_df = Phot[coef]
+            pion_df = pd.concat([Pi1[coef],Pi2[coef],Pi3[coef]])
+
+            phot_df = phot_df[ (phot_df['genpart_exeta'] > eta_range[0]) ]
+            pion_df = pion_df[ (pion_df['genpart_exeta'] > eta_range[0]) ]
+            phot_df = phot_df[ (phot_df['genpart_exeta'] < eta_range[1]) ]
+            pion_df = pion_df[ (pion_df['genpart_exeta'] < eta_range[1]) ]
+
+            phot_eff = phot_df['matches'].value_counts(normalize=True)
+            pion_eff = pion_df['matches'].value_counts(normalize=True)
+
+            try:
+                phot_eff = phot_eff[True]
+                pion_eff = pion_eff[True]
+            except:
+                print("Troubleshooting...")
+                quit()
+
+            effs_by_coef['Photon'] = np.append(effs_by_coef['Photon'], phot_eff)
+            effs_by_coef['Pion'] = np.append(effs_by_coef['Pion'], pion_eff)
+
+        coefs = np.linspace(0.0,0.05,50)
+
+        fig = make_subplots(rows=1, cols=2, subplot_titles=("Photon", "Pion"))
+
+        fig.add_trace(go.Scatter(x=coefs, y=effs_by_coef['Photon'], name='Photon'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=coefs, y=effs_by_coef['Pion'], name='Pion'), row=1, col=2)
+
+        fig.update_xaxes(title_text='Radius (Coefficient)')
+
+        # Range [a,b] is defined by [10^a, 10^b], hence passing to log
+        fig.update_yaxes(type='log', range=[np.log10(0.997), np.log(1.001)])
+
+        fig.update_layout(title_text='Efficiency/Radius', yaxis_title_text=r'$Eff (\frac{N_{Cl}}{N_{Gen}})$')
+
         return fig
+
+#global_effs([1.4,2.7],normby='Energy')

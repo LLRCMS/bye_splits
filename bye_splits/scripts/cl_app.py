@@ -48,6 +48,6 @@ app.layout = dbc.Container([
 if __name__ == '__main__':
     import socket
 
-    host, port = socket.gethostbyname(socket.gethostname()), 8051
+    host, port = socket.gethostbyname(socket.gethostname()), 8052
 
     app.run_server(port=port, host=host,debug=True)

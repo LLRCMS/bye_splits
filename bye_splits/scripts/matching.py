@@ -204,7 +204,6 @@ def match(pars, **kw):
                 kw['OutFile'] = outfile
                 kw['AlgoTree'] = {tree: kw['AlgoTrees'][tree][key]}
                 kw['GenTree'] = kw['GenTrees'][key]
-                #print('Reading data from {} and creating file {}.'.format(file,outfile))
                 preprocessing(pars, **kw)
             print("{} has finished processing.".format(file))
 

@@ -3,15 +3,22 @@
 _all_ = [ ]
 
 import os
+from os import path as op
 from pathlib import Path
 import sys
-sys.path.insert(0, Path(__file__).parents[2])
+import subprocess
+from subprocess import Popen, PIPE
 
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
+sys.path.insert(0, parent_dir)
+
+from bye_splits import utils
 from utils import params
 
-import os
 import numpy as np
 import pandas as pd
+from ordered_set import OrderedSet
+from progress.bar import IncrementalBar
 
 import re
 from copy import deepcopy
@@ -181,3 +188,66 @@ def dict_per_file(pars,file):
     file_pars['energy']['File'] = file
 
     return file_pars
+
+def point_to_root_file(sample_list, dict):
+    # Initialize paths
+    xrd_door = 'root://polgrid4.in2p3.fr/'
+    store = '/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/'
+
+    def init_path_deviation(path1, path2):
+        set1, set2 = OrderedSet(re.split(r'(/)', path1)), OrderedSet(re.split(r'(/)', path2))
+
+        str_diff = set1.symmetric_difference(set2)
+
+        return list(str_diff)
+
+    def check_substr(substr, arr):
+        val = False
+
+        for file in arr:
+            if substr in file:
+                val = True
+                break
+
+        return val
+
+    def recursive_path(init_dir):
+        path = init_dir
+
+        init_dir_list = re.split("\n", subprocess.run(['gfal-ls', path], text=True, capture_output=True).stdout)
+        init_dir_list = [dir for dir in init_dir_list if len(dir)!=0]
+
+        full_paths=[]
+        count = 0
+        while len(init_dir_list) > 0:
+            if count == 0:
+                dir_list = init_dir_list
+
+            #As long as none of the files in dir_list contain .root, continue path and finding next directory
+            while not check_substr(".root", dir_list):
+                path += '/' + dir_list[0]
+                dir_list = re.split("\n", subprocess.run(['gfal-ls', path], text=True, capture_output=True).stdout)
+                dir_list = [dir for dir in dir_list if len(dir)!=0]
+
+            for file in dir_list:
+                file_path = path + '/' + file
+                if file not in full_paths:
+                    full_paths.append(file_path)
+
+            init_path = init_path_deviation(init_dir, file_path)[0]
+            if init_path in init_dir_list:
+                init_dir_list.remove(init_path)
+            if len(init_dir_list) > 0:
+                path = init_dir + '/' + init_dir_list[0]
+                count += 1
+                dir_list = re.split("\n", subprocess.run(['gfal-ls', path], text=True, capture_output=True).stdout)
+                dir_list = [dir for dir in dir_list if len(dir)!=0]
+            else:
+                break
+
+        return full_paths
+
+    for key, sample in zip(dict.keys(), sample_list):
+        path = xrd_door+store+sample
+        with_pu = [path for path in recursive_path(path) if "PU200" in path]
+        dict[key] = with_pu
