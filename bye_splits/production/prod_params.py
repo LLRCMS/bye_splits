@@ -6,8 +6,9 @@ import utils
 from utils import params
 
 from glob import glob
+import pickle
 
-local = False #local machine vs server machine
+local = True #local machine vs server machine
 htcondor = False #whether to submit the script as multiple jobs to HTCondor
 particle = 'photon'
 algo = 'best_choice'
@@ -26,7 +27,10 @@ reachedEE = 2 #0 converted photons; 1: photons that missed HGCAL; 2: photons tha
 
 # Input files
 if local:
-    files_photons = ['/home/bruno/Downloads/hadd.root']
+    infile = 'dpm_file_paths.pkl'
+    with open(infile, 'rb') as f:
+        files = pickle.load(f)
+        files = files[particle]
 
 else:
     if htcondor:
@@ -53,6 +57,6 @@ if htcondor:
     file_per_batch_photons = 2
 else:
     out_dir = params.base_kw['BasePath']
-        
+
 out_name = 'summ_{}_{}.hdf5'.format(particle, algo)
 algo_trees = [gen_tree]

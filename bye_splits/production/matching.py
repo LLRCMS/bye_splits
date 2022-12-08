@@ -23,7 +23,7 @@ def deltar(df):
     sel=df['dphi']>np.pi
     df['dphi']-=sel*(2*np.pi)
     return(np.sqrt(df['dphi']*df['dphi']+df['deta']*df['deta']))
-    
+
 def matching(event):
     if event.matches.sum()==0:
         return event.cl3d_pt==event.cl3d_pt.max()
@@ -33,21 +33,29 @@ def matching(event):
         return (cond_a&cond_b)
 
 def create_dataframes(files, algo_trees, gen_tree, reachedEE):
-    print('Input file: {}'.format(files), flush=True)
+    #print('Input file: {}'.format(files), flush=True)
+    branches_gen = [ 'event', 'genpart_reachedEE', 'genpart_pid', 'genpart_gen',
+                     'genpart_exphi', 'genpart_exeta', 'genpart_energy','genpart_pt' ]
+
+    branches_cl3d = [ 'event', 'cl3d_energy','cl3d_pt','cl3d_eta','cl3d_phi' ]
+    branches_tc = [ 'event', 'tc_zside', 'tc_energy', 'tc_mipPt', 'tc_pt', 'tc_layer',
+                    'tc_x', 'tc_y', 'tc_z', 'tc_phi', 'tc_eta', 'tc_id' ]
 
     # branches_gen = [ 'event', 'genpart_reachedEE', 'genpart_pid', 'genpart_gen',
     #                  'genpart_exphi', 'genpart_exeta', 'genpart_energy' ]
     # branches_cl3d = [ 'event', 'cl3d_energy','cl3d_pt','cl3d_eta','cl3d_phi' ]
     # branches_tc = [ 'event', 'tc_zside', 'tc_energy', 'tc_mipPt', 'tc_pt', 'tc_layer',
     #                 'tc_x', 'tc_y', 'tc_z', 'tc_phi', 'tc_eta', 'tc_id' ]
-    branches_gen = [ 'event', 'good_genpart_exphi', 'good_genpart_exeta', 'good_genpart_energy' ]
+    '''branches_gen = [ 'event', 'good_genpart_exphi', 'good_genpart_exeta', 'good_genpart_energy', 'good_genpart_pt' ]
     branches_cl3d = [ 'event', 'good_cl3d_energy','good_cl3d_pt','good_cl3d_eta','good_cl3d_phi' ]
     branches_tc = [ 'event', 'good_tc_energy', 'good_tc_mipPt', 'good_tc_pt', 'good_tc_layer',
-                    'good_tc_x', 'good_tc_y', 'good_tc_z', 'good_tc_phi', 'good_tc_eta' ]
-    
+                    'good_tc_x', 'good_tc_y', 'good_tc_z', 'good_tc_phi', 'good_tc_eta' ]'''
+
     batches_gen, batches_tc = ([] for _ in range(2))
-    memsize_gen, memsize_tc = '128 MB', 50000#'64 MB'
+    #memsize_gen, memsize_tc = '128 MB', 50000#'64 MB'
+    memsize_gen, memsize_tc = '128 MB', '64 MB'
     for filename in files:
+        print('Input file: {}'.format(filename))
         with uproot.open(filename + ':' + gen_tree) as data:
             #print( data.num_entries_for(memsize, expressions=branches_tc) )
             for ib,batch in enumerate(data.iterate(branches_gen, step_size=memsize_gen,
@@ -56,10 +64,11 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE):
 
                 batches_gen.append(batch)
                 print('Step {}: +{} generated data processed.'.format(ib,memsize_gen), flush=True)
-                
+
             for ib,batch in enumerate(data.iterate(branches_tc, step_size=memsize_tc,
                                                    library='pandas')):
-                batch = batch[ ~batch['good_tc_layer'].isin(params.disconnectedTriggerLayers) ]
+                #batch = batch[ ~batch['good_tc_layer'].isin(params.disconnectedTriggerLayers) ]
+                batch = batch[ ~batch['tc_layer'].isin(params.disconnectedTriggerLayers) ]
                 #convert all the trigger cell hits in each event to a list
                 batch = batch.groupby(by=['event']).aggregate(lambda x: list(x))
                 batches_tc.append(batch)
@@ -67,19 +76,19 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE):
 
     df_gen = pd.concat(batches_gen)
     df_tc = pd.concat(batches_tc)
-    
+
     df_algos = {}
     assert len(files)==1 #modify the following block otherwise
     for algo_name, algo_tree in algo_trees.items():
         with uproot.open(filename)[algo_tree] as tree:
             df_algos[algo_name] = tree.arrays(branches_cl3d + ['cl3d_layer_pt'], library='pd')
             df_algos[algo_name].reset_index(inplace=True)
-            
+
             # Trick to expand layers pTs, which is a vector of vector
             newcol = df_algos[algo_name].apply(lambda row: row.cl3d_layer_pt[row.subentry], axis=1)
             df_algos[algo_name]['cl3d_layer_pt'] = newcol
             df_algos[algo_name] = df_algos[algo_name].drop(['subentry', 'entry'], axis=1)
-            
+
             # print(list(chain.from_iterable(tree.arrays(['cl3d_layer_pt'])[b'cl3d_layer_pt'].tolist())))
             # new_column = chain.from_iterable(
             #     tree.arrays(['cl3d_layer_pt'])[b'cl3d_layer_pt'].tolist()
@@ -130,7 +139,6 @@ def preprocessing():
     for algo_name, df in algo_clean.items():
         store[algo_name] = df
     store.close()
-        
-#Run with: `python scripts/matching_v2.py --cfg scripts.custom_params`
+
 if __name__=='__main__':
     preprocessing()

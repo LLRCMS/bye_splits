@@ -121,8 +121,6 @@ def preprocessing(pars, **kw):
 
     gen, algo, tc = create_dataframes(pars, **kw)
 
-    # Note that min(gen['genpart_eta']) is already ~ 1.5
-
     algo_clean={}
 
     # split df_gen_clean in two, one collection for each endcap
@@ -200,7 +198,7 @@ def match(pars, **kw):
             print("Starting file: ", file)
             for tree in kw['AlgoTrees'].keys():
                 kw['File'] = file
-                outfile = 'data/gen_cl3d_tc_{}_{}_with_pt.hdf5'.format(tree, re.split('.root|/',file)[-2])
+                outfile = 'data/gen_cl3d_tc_{}_{}_PU200.hdf5'.format(tree, re.split('.root|/',file)[-2])
                 kw['OutFile'] = outfile
                 kw['AlgoTree'] = {tree: kw['AlgoTrees'][tree][key]}
                 kw['GenTree'] = kw['GenTrees'][key]
