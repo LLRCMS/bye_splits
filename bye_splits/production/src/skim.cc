@@ -14,16 +14,16 @@ void skim(string tn, string inf, string outf, string particle) {
 
   ROOT::EnableImplicitMT();
   ROOT::RDataFrame df(tn, inf);
-  
+
   std::vector<string> genvars = {
-	"event", "genpart_pid", "genpart_exphi", "genpart_exeta", "genpart_energy"
+	"event", "genpart_pid", "genpart_exphi", "genpart_exeta", "genpart_energy", "genpart_pt"
   };
   unordered_map<string,string> pmap = {{"photons", "22"}, {"electrons", "11"}};
   string condgen = "genpart_gen != -1 && ";
   condgen += "genpart_reachedEE == " + reachedEE;
   condgen += " && genpart_pid == " + pmap[particle];
   condgen += " && genpart_exeta > 0";
-  
+
   auto dd = df.Define("good_gens", condgen);
   for(auto& v : genvars)
 	dd = dd.Define("good_" + v, v + "[good_gens]");
@@ -31,7 +31,7 @@ void skim(string tn, string inf, string outf, string particle) {
   vector<string> tcvars = {
 	"tc_energy", "tc_mipPt", "tc_pt", "tc_layer",
 	"tc_x", "tc_y", "tc_z", "tc_phi", "tc_eta",
-	"tc_cellu", "tc_cellv", "tc_waferu", "tc_waferv", 
+	"tc_cellu", "tc_cellv", "tc_waferu", "tc_waferv",
   };
   string condtc = "tc_zside == 1 && tc_layer%2 == 0";
   dd = dd.Define("good_tcs", condtc);

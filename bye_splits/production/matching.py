@@ -17,6 +17,8 @@ import uproot # uproot4
 import prod_params
 from utils import params
 
+from multiprocessing import Pool
+
 def deltar(df):
     df['deta']=df['cl3d_eta']-df['genpart_exeta']
     df['dphi']=np.abs(df['cl3d_phi']-df['genpart_exphi'])
@@ -32,6 +34,10 @@ def matching(event):
         cond_b = event.cl3d_pt==event[cond_a].cl3d_pt.max()
         return (cond_a&cond_b)
 
+def fill_batches(batch, cols):
+    batch.set_index('event', inplace=True)
+    cols.append(batch)
+
 def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
     #print('Input file: {}'.format(files), flush=True)
     branches_gen = [ 'event', 'genpart_reachedEE', 'genpart_pid', 'genpart_gen',
@@ -42,28 +48,53 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
                     'tc_x', 'tc_y', 'tc_z', 'tc_phi', 'tc_eta', 'tc_id' ]
 
     batches_gen, batches_tc = ([] for _ in range(2))
-    memsize_gen, memsize_tc = '128 MB', '64 MB'
     for filename in files:
         print('Input file: {}'.format(filename))
         with uproot.open(filename + ':' + gen_tree) as data:
-            #print( data.num_entries_for(memsize, expressions=branches_tc) )
-            for ib,batch in enumerate(data.iterate(branches_gen, step_size=memsize_gen,
-                                                   library='pd')):
-                if ib==0:
-                    print('Testing: {}'.format(options['max_num_elements']))
-                batch.set_index('event', inplace=True)
+            max_memsize_gen = data.num_entries_for('4 GB', branches_gen)
+            max_memsize_tc = max_memsize_gen
 
-                batches_gen.append(batch)
-                print('Step {}: +{} generated data processed.'.format(ib,memsize_gen), flush=True)
+            memsize_gen_step = data.num_entries_for('128 MB', branches_gen)
+            memsize_tc_step = data.num_entries_for('64 MB', branches_tc)
 
-            for ib,batch in enumerate(data.iterate(branches_tc, step_size=memsize_tc,
-                                                   library='pd', max_num_elements=5000)):
-                #batch = batch[ ~batch['good_tc_layer'].isin(params.disconnectedTriggerLayers) ]
-                batch = batch[ ~batch['tc_layer'].isin(params.disconnectedTriggerLayers) ]
-                #convert all the trigger cell hits in each event to a list
-                batch = batch.groupby(by=['event']).aggregate(lambda x: list(x))
-                batches_tc.append(batch)
-                print('Step {}: +{} trigger cells data processed.'.format(ib,memsize_tc), flush=True)
+            memsize_gen = data.num_entries_for(memsize_gen_step, branches_gen)
+            memsize_tc = data.num_entries_for(memsize_tc_step, branches_tc)
+
+            gen_batches = [batch for batch in data.iterate(branches_gen, step_size=memsize_gen_step, library='pd')]
+            #breakpoint()
+            tc_batches = [batch for batch in data.iterate(branches_tc, step_size=memsize_tc_step, library='pd')]
+
+            breakpoint()
+
+            # Just testing parameters
+            agents = 5
+            chunksize = 3
+            with Pool(processes=agents) as pool:
+                pool.starmap(fill_batches, (gen_batches, branches_gen), chunksize)
+                breakpoint()
+                pool.starmap(fill_bathces, (tc_batches, branches_tc), chunksize)
+                breakpoint()
+
+            '''while memsize_gen < max_memsize_gen:
+                for ib,batch in enumerate(data.iterate(branches_gen, step_size=memsize_gen_step,
+                                                       library='pd')):
+
+                    batch.set_index('event', inplace=True)
+
+                    batches_gen.append(batch)
+                    memsize_gen += memsize_gen_step
+                    print('Step {}: +{} generated data processed.'.format(ib,memsize_gen), flush=True)
+
+            while memsize_tc < max_memsize_tc:
+                for ib,batch in enumerate(data.iterate(branches_tc, step_size=memsize_tc_step,
+                                                       library='pd')):
+                    #batch = batch[ ~batch['good_tc_layer'].isin(params.disconnectedTriggerLayers) ]
+                    batch = batch[ ~batch['tc_layer'].isin(params.disconnectedTriggerLayers) ]
+                    #convert all the trigger cell hits in each event to a list
+                    batch = batch.groupby(by=['event']).aggregate(lambda x: list(x))
+                    batches_tc.append(batch)
+                    memsize_tc += memsize_tc_step
+                    print('Step {}: +{} trigger cells data processed.'.format(ib,memsize_tc), flush=True)'''
 
     df_gen = pd.concat(batches_gen)
     df_tc = pd.concat(batches_tc)
@@ -90,7 +121,7 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
 
 def preprocessing():
     #files = prod_params.files
-    files = ['ntuple_1.root']
+    files = ['ntuple_10.root']
     gen, algo, tc = create_dataframes(files,
                                       prod_params.algo_trees, prod_params.gen_tree,
                                       prod_params.reachedEE)
