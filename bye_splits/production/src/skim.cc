@@ -18,7 +18,7 @@ void skim(string tn, string inf, string outf, string particle) {
   std::vector<string> genvars = {
 	"event", "genpart_pid", "genpart_exphi", "genpart_exeta", "genpart_energy", "genpart_pt"
   };
-  unordered_map<string,string> pmap = {{"photons", "22"}, {"electrons", "11"}};
+  unordered_map<string,string> pmap = {{"photon", "22"}, {"electron", "11"}};
   string condgen = "genpart_gen != -1 && ";
   condgen += "genpart_reachedEE == " + reachedEE;
   condgen += " && genpart_pid == " + pmap[particle];

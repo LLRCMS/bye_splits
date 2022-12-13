@@ -39,7 +39,6 @@ def fill_batches(batch, cols):
     cols.append(batch)
 
 def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
-    #print('Input file: {}'.format(files), flush=True)
     branches_gen = [ 'event', 'genpart_reachedEE', 'genpart_pid', 'genpart_gen',
                      'genpart_exphi', 'genpart_exeta', 'genpart_energy','genpart_pt' ]
 
@@ -51,7 +50,8 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
     for filename in files:
         print('Input file: {}'.format(filename))
         with uproot.open(filename + ':' + gen_tree) as data:
-            max_memsize_gen = data.num_entries_for('4 GB', branches_gen)
+
+            '''max_memsize_gen = data.num_entries_for('4 GB', branches_gen)
             max_memsize_tc = max_memsize_gen
 
             memsize_gen_step = data.num_entries_for('128 MB', branches_gen)
@@ -61,10 +61,8 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
             memsize_tc = data.num_entries_for(memsize_tc_step, branches_tc)
 
             gen_batches = [batch for batch in data.iterate(branches_gen, step_size=memsize_gen_step, library='pd')]
-            #breakpoint()
             tc_batches = [batch for batch in data.iterate(branches_tc, step_size=memsize_tc_step, library='pd')]
 
-            breakpoint()
 
             # Just testing parameters
             agents = 5
@@ -73,28 +71,27 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
                 pool.starmap(fill_batches, (gen_batches, branches_gen), chunksize)
                 breakpoint()
                 pool.starmap(fill_bathces, (tc_batches, branches_tc), chunksize)
-                breakpoint()
+                breakpoint()'''
 
-            '''while memsize_gen < max_memsize_gen:
-                for ib,batch in enumerate(data.iterate(branches_gen, step_size=memsize_gen_step,
-                                                       library='pd')):
+            memsize_gen = '128 MB'
+            memsize_tc = '64 MB'
+            for ib,batch in enumerate(data.iterate(branches_gen, step_size=memsize_gen,
+                                                   library='pd')):
 
-                    batch.set_index('event', inplace=True)
+                batch.set_index('event', inplace=True)
 
-                    batches_gen.append(batch)
-                    memsize_gen += memsize_gen_step
-                    print('Step {}: +{} generated data processed.'.format(ib,memsize_gen), flush=True)
+                batches_gen.append(batch)
+                print('Step {}: +{} generated data processed.'.format(ib,memsize_gen), flush=True)
 
-            while memsize_tc < max_memsize_tc:
-                for ib,batch in enumerate(data.iterate(branches_tc, step_size=memsize_tc_step,
-                                                       library='pd')):
-                    #batch = batch[ ~batch['good_tc_layer'].isin(params.disconnectedTriggerLayers) ]
-                    batch = batch[ ~batch['tc_layer'].isin(params.disconnectedTriggerLayers) ]
-                    #convert all the trigger cell hits in each event to a list
-                    batch = batch.groupby(by=['event']).aggregate(lambda x: list(x))
-                    batches_tc.append(batch)
-                    memsize_tc += memsize_tc_step
-                    print('Step {}: +{} trigger cells data processed.'.format(ib,memsize_tc), flush=True)'''
+
+            for ib,batch in enumerate(data.iterate(branches_tc, step_size=memsize_tc,
+                                                   library='pd')):
+                #batch = batch[ ~batch['good_tc_layer'].isin(params.disconnectedTriggerLayers) ]
+                batch = batch[ ~batch['tc_layer'].isin(params.disconnectedTriggerLayers) ]
+                #convert all the trigger cell hits in each event to a list
+                batch = batch.groupby(by=['event']).aggregate(lambda x: list(x))
+                batches_tc.append(batch)
+                print('Step {}: +{} trigger cells data processed.'.format(ib,memsize_tc), flush=True)
 
     df_gen = pd.concat(batches_gen)
     df_tc = pd.concat(batches_tc)
@@ -121,12 +118,12 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
 
 def preprocessing():
     #files = prod_params.files
-    files = ['ntuple_10.root']
+    files = ['/data_CMS/cms/ehle/L1HGCAL/photon_200PU_bc_stc_hadd.root']
     gen, algo, tc = create_dataframes(files,
                                       prod_params.algo_trees, prod_params.gen_tree,
                                       prod_params.reachedEE)
 
-    breakpoint()
+    #breakpoint()
     algo_clean = {}
 
     for algo_name,df_algo in algo.items():
@@ -152,7 +149,7 @@ def preprocessing():
 
         #keep matched clusters only
         if prod_params.bestmatch_only:
-            sel=algo_pos_merged['best_match']==True
+            sel=algo_pos_merged['best_match']==False
             algo_pos_merged=algo_pos_merged[sel]
 
         algo_clean[algo_name] = algo_pos_merged.sort_values('event')

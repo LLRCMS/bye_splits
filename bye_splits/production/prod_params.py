@@ -25,12 +25,12 @@ threshold = 0.05
 # Select particles that reached the EE section
 reachedEE = 2 #0 converted photons; 1: photons that missed HGCAL; 2: photons that hit HGCAL
 
-# Input files
 if local:
-    infile = 'dpm_file_paths.pkl'
-    with open(infile, 'rb') as f:
-        files = pickle.load(f)
-        files = files[particle]
+    base = '/data_CMS/cms/ehle/L1HGCAL/'
+    file_ext = '_200PU_bc_stc_hadd'
+    files = {'photon'   : base+'photon'+file_ext,
+             'electron' : base+'electron'+file_ext}
+    files = files[particle]
 
 else:
     if htcondor:

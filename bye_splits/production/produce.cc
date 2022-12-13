@@ -3,7 +3,7 @@
 
 //Run with ./skimming.exe photon
 int main(int argc, char **argv) {
-  std::string dir = "/data_CMS/cms/ehle/L1HGCAL";
+  std::string dir = "/data_CMS/cms/ehle/L1HGCAL/";
   std::string tree_name = "FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple";
   std::string particle = std::string(argv[1]);
   std::string infile = particle + "_200PU_bc_stc_hadd.root";

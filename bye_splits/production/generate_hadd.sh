@@ -15,17 +15,20 @@ out_path='/data_CMS/cms/ehle/L1HGCAL'
 photon_out='photon_200PU_bc_stc_hadd.root'
 electron_out='electron_200PU_bc_stc_hadd.root'
 
-photon_comm="hadd ${out_path}/${photon_out}"
-echo "Combining photon files to be placed into: ${photon_comm}."
+# Combine files into one.
+# Options: -k = Skip corrupt or non-existent files, do not exit
+#          -j = Parallelize the execution in multiple processes
+photon_comm="hadd -k -j ${out_path}/${photon_out}"
+#echo "Combining photon files to be placed into: ${photon_comm}."
 for file in $photon_files
 do
   photon_comm+=" ${photon_base_path}${file}"
 done
 
 photon_command=`$photon_comm`
-echo $photon_command
+#echo $photon_command
 
-electron_comm="hadd ${out_path}/${electron_out}"
+electron_comm="hadd -k -j ${out_path}/${electron_out}"
 echo "Combining electron files to be placed into: ${electron_comm}."
 for file in $electron_files
 do
