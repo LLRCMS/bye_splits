@@ -19,12 +19,14 @@ EXTRA_CCFLAGS := -Wall -std=c++11 -O -pedantic -pedantic-errors \
 	-Wmissing-field-initializers -Wmissing-format-attribute \
 	-Wmissing-include-dirs -Wmissing-noreturn
 
-CXXFLAGS = $(DEBUG_LEVEL) $(EXTRA_CCFLAGS)
-CCFLAGS  = $(CXXFLAGS)
+CXXFLAGS := $(DEBUG_LEVEL) $(EXTRA_CCFLAGS)
+CCFLAGS  := $(CXXFLAGS)
 
-ROOTFLAGS = `root-config --cflags --ldflags` -L $(ROOTSYS)/lib -lMinuit -lrt -lCore -lROOTDataFrame
-YAMLFLAGS = -L $(BASEDIR)/yaml-cpp-yaml-cpp-0.7.0/build/ -lyaml-cpp
-EXTRAFLAGS = $(ROOTFLAGS) $(YAMLFLAGS)
+ROOT_LIBS := $(shell root-config --cflags --ldflags --libs --glibs --auxlibs --auxcflags)
+ROOT_LIBS_EXTRA := -lMinuit -lrt -lCore -lROOTDataFrame
+ROOTFLAGS := $(ROOT_LIBS) -L $(ROOTSYS)/lib $(ROOT_LIBS_EXTRA)
+YAMLFLAGS := -L $(BASEDIR)/yaml-cpp-yaml-cpp-0.7.0/build/ -lyaml-cpp
+EXTRAFLAGS := $(ROOTFLAGS) $(YAMLFLAGS)
 
 SRCS := $(BUILDIR)/$(basename /$(EXEC)).cc \
 	$(wildcard $(SRCDIR)/*.cc)
