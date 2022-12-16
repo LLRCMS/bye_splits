@@ -86,19 +86,22 @@ The above will create =html= files with interactive outputs.
 *** Event Visualization
 The repository creates two web apps that can be visualized in a browser. The code is stored under =bye_splits/plot=.
 
+**** Setup
 Please install the following from within the =conda= environment you [[conda_install][should have already created]]:
 
 #+BEGIN_SRC shell
 conda install -c conda-forge pyarrow
 #if the above fails: python -m pip install pyarrow
+python3 -m pip install --upgrade pip setuptools #to avoid annoying "Setuptools is replacing distutils." warning
 #+END_SRC
 
 **** Visualization in a local browser
 Since browser usage directly in the server will necessarily be slow, we can:
+***** 1)
+Use LLR's intranet at ~llruicms01.in2p3.fr:<port>/display~
 
-1) Use LLR's intranet at =http://llruicms01.in2p3.fr:<port>=
-
-2) Forward it to our local machines via =ssh=. To establish a connection between the local machine and the remote =llruicms01= server, passing by the gate, use:
+***** 2)
+Forward it to our local machines via =ssh=. To establish a connection between the local machine and the remote =llruicms01= server, passing by the gate, use:
 
 #+BEGIN_SRC shell
 ssh -L <port>:llruicms01.in2p3.fr:<port> -N <llr_username>@llrgate01.in2p3.fr
@@ -107,14 +110,12 @@ ssh -L <port>:llruicms01.in2p3.fr:<port> -N <llr_username>@llrgate01.in2p3.fr
 
 The two ports do not have to be the same, but it avoids possible confusion. Leave the terminal open and running (it will not produce any output).
 
-
-In a new terminal window go to =llruicms01= and launch one of the apps, for instance:
+In a new terminal window go to the =llruicms01= mahcines and launch one of the apps, for instance:
 
 #+BEGIN_SRC shell
 bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port> --allow-websocket-origin=llruicms01.in2p3.fr:<port>
 # if forwarding via ssh:  --allow-websocket-origin=localhost:<port>
 #+END_SRC
-
 
 This uses the server-creation capabilities of =bokeh=, a =python= package for interactive visualization ([[https://docs.bokeh.org/en/latest/index.html][docs]]). Note the port number must match. For further customisation of =bokeh serve= see [[https://docs.bokeh.org/en/latest/docs/reference/command/subcommands/serve.html][the serve documentation]].
 The above command should give access to the visualization under =http://localhost:8080/display=.
