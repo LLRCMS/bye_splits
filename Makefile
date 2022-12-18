@@ -26,6 +26,7 @@ ROOT_LIBS := $(shell root-config --cflags --ldflags --libs --glibs --auxlibs --a
 ROOT_LIBS_EXTRA := -lMinuit -lrt -lCore -lROOTDataFrame
 ROOTFLAGS := $(ROOT_LIBS) -L $(ROOTSYS)/lib $(ROOT_LIBS_EXTRA)
 YAMLFLAGS := -L $(BASEDIR)/yaml-cpp-yaml-cpp-0.7.0/build/ -lyaml-cpp
+######BOOSTFLAGS := -lboost_program_options
 EXTRAFLAGS := $(ROOTFLAGS) $(YAMLFLAGS)
 
 SRCS := $(BUILDIR)/$(basename /$(EXEC)).cc \

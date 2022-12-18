@@ -44,7 +44,7 @@ def bk_worker():
     # Can't pass num_procs > 1 in this configuration. If you need to run multiple
     # processes, see e.g. flask_gunicorn_embed.py
     server = Server({'/bkapp': bkapp}, io_loop=IOLoop(),
-                    allow_websocket_origin=["llruicms01.in2p3.fr:8090"])
+                    allow_websocket_origin=["llruicms01.in2p3.fr:8080"])
     server.start()
     server.io_loop.start()
 
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     # print()
     # print('Multiple connections may block the Bokeh app in this configuration!')
     # print('See "flask_gunicorn_embed.py" for one way to run multi-process')
-    app.run(host='llruicms01.in2p3.fr', port=8090, debug=True)
+    app.run(host='llruicms01.in2p3.fr', port=8080, debug=True)
 
 
 # import dash

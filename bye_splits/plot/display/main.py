@@ -4,6 +4,7 @@
 _all_ = [ ]
 
 import os
+import pathlib
 from pathlib import Path
 import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
@@ -13,8 +14,6 @@ from functools import partial
 import argparse
 import numpy as np
 import pandas as pd
-import uproot as up
-import awkward as ak
 
 #from bokeh.io import output_file, save
 #output_file('tmp.html')
@@ -141,14 +140,14 @@ def convert_cells_to_xy(df, avars):
     return df.join(res)
 
 def get_data(event, particle):
-    #event = 179855 if particle == 'photons' else 92004        
+    #event = 179855 if particle == 'photons' else 92004
     ds_ev = handle('event', particle).provide_event(event, True)
     ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
     ds_geom = handle('geom').provide(True)
     ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
-    ds_geom = ds_geom[((ds_geom[geom_vars['wu']]==4) & (ds_geom[geom_vars['wv']]==4))]
-                       # (ds_geom[geom_vars['wu']]==5) & (ds_geom[geom_vars['wv']]==4) |
-                       # (ds_geom[geom_vars['wu']]==5) & (ds_geom[geom_vars['wv']]==5))]
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4) |
+                       (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==4) |
+                       (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==5))]
     return {'ev': ds_ev, 'geom': ds_geom}
 
 sources = {'photons'   : ColumnDataSource(data=get_data(179855, 'photons')[mode]),
@@ -207,19 +206,19 @@ def display():
         # p_uv.add_tools(HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),]))
 
         ####### cell plots ################################################################
-        polyg_opt = dict(line_color='black', line_width=1)
         lim = 22
+        polyg_opt = dict(line_color='black', line_width=2)
         p_cells = figure(width=width, height=height,
                          x_range=Range1d(-lim, lim),
                          y_range=Range1d(-lim, lim),
                          tools='save,reset', toolbar_location='right',
                          output_backend='webgl')
         if mode == 'ev':
-            hover_key = 'Energy (wu,wv,cu,cv)'
-            hover_val = '@'+variables['en'] + ' (@'+variables['wu']+',@'+variables['wv']+',@'+variables['cv']+',@'+variables['cv']+')'
+            hover_key = 'Energy (cu,cv / wu,wv)'
+            hover_val = '@'+variables['en'] + ' (@'+variables['cu']+' / @'+variables['cv']+',@'+variables['wu']+',@'+variables['wv']+')'
         else:
-            hover_key = '(wu,wv,cu,cv)'
-            hover_val = '(@'+variables['wu']+',@'+variables['wv']+',@'+variables['cv']+',@'+variables['cv']+')'
+            hover_key = 'cu,cv / wu,wv'
+            hover_val = '@'+variables['cu']+',@'+variables['cv']+' / @'+variables['wu']+',@'+variables['wv']
 
         p_cells.add_tools(BoxZoomTool(match_aspect=True),
                           WheelZoomTool(),

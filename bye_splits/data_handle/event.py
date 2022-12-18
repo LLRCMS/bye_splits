@@ -47,6 +47,7 @@ class EventData(BaseData):
             tree = f[ os.path.join('FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple',
                                    'HGCalTriggerNtuple') ]
             #print(tree.show())
+            breakpoint()
             data = tree.arrays(self.var.values())
             
             # data[self.var.v] = data.waferv
