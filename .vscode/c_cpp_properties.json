@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**", "/opt/exp_soft/llr/root/v6.24.04-el7-gcc9xx-py370/**"
+            ],
+            "defines": [],
+            "compilerPath": "/opt/rh/devtoolset-9/root/usr/bin/gcc",
+            "cStandard": "c89",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-gcc-x64",
+            "configurationProvider": "ms-vscode.makefile-tools"
+        }
+    ],
+    "version": 4
+}
