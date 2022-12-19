@@ -20,29 +20,7 @@ import yaml
 #output_file('tmp.html')
 from bokeh.plotting import figure, curdoc
 from bokeh.util.hex import axial_to_cartesian
-from bokeh.models import (
-    Div,
-    Tabs,
-    BoxZoomTool,
-    Range1d,
-    ColumnDataSource,
-    HoverTool,
-    TextInput,
-    TabPanel,
-    Tabs,
-    Slider,
-    CustomJS,
-    CustomJSFilter,
-    CDSView,
-    WheelZoomTool,
-    BasicTicker,
-    ColorBar, 
-    LogColorMapper,
-    LogTicker,
-    LinearColorMapper,
-    BasicTicker,
-    PrintfTickFormatter,
-    )
+from bokeh import models as md
 from bokeh.palettes import viridis as _palette
 mypalette = _palette(50)
 from bokeh.layouts import layout
@@ -71,9 +49,9 @@ def common_props(p, xlim=None, ylim=None):
     p.xaxis.visible = False
     p.yaxis.visible = False
     if xlim is not None:
-        p.x_range = Range1d(xlim[0], xlim[1])
+        p.x_range = md.Range1d(xlim[0], xlim[1])
     if ylim is not None:
-        p.y_range = Range1d(ylim[0], ylim[1])
+        p.y_range = md.Range1d(ylim[0], ylim[1])
         
 def convert_cells_to_xy(df, avars):
     c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
@@ -157,12 +135,12 @@ def get_data(event, particles):
     return {'ev': ds_ev}
 
 sources = {
-    'photons'   : ColumnDataSource(data=get_data(179855, 'photons')[mode]),
-    'electrons' : ColumnDataSource(data=get_data(92004,  'electrons')[mode])
+    'photons'   : md.ColumnDataSource(data=get_data(179855, 'photons')[mode]),
+    'electrons' : md.ColumnDataSource(data=get_data(92004,  'electrons')[mode])
 }
 elements = {
-    'photons'   : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
-    'electrons' : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')}
+    'photons'   : {'textinput': md.TextInput(title='Event', value='', sizing_mode='stretch_width')},
+    'electrons' : {'textinput': md.TextInput(title='Event', value='', sizing_mode='stretch_width')}
 }
 assert sources.keys() == elements.keys()
 
@@ -182,16 +160,16 @@ def display():
     
     for ksrc,vsrc in sources.items():
         if mode == 'ev':
-            mapper = LinearColorMapper(palette=mypalette,
-                                       low=vsrc.data[variables['en']].min(), high=vsrc.data[variables['en']].min())
+            mapper = md.LinearColorMapper(palette=mypalette,
+                                          low=vsrc.data[variables['en']].min(), high=vsrc.data[variables['en']].min())
 
-        slider = Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
+        slider = md.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
                         value=vsrc.data['layer'].min(), step=2, title='Layer',
                         bar_color='red', width=800, background='white')
-        slider_callback = CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
+        slider_callback = md.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
         slider.js_on_change('value', slider_callback) #value_throttled
 
-        view = CDSView(filter=CustomJSFilter(args=dict(slider=slider), code="""
+        view = md.CDSView(filter=md.CustomJSFilter(args=dict(slider=slider), code="""
            var indices = new Array(source.get_length());
            var sval = slider.value;
     
@@ -205,19 +183,19 @@ def display():
         ####### (u,v) plots ################################################################
         # p_uv = figure(width=width, height=height,
         #               tools='save,reset', toolbar_location='right')
-        # p_uv.add_tools(WheelZoomTool(),
-        #                BoxZoomTool(match_aspect=True))
+        # p_uv.add_tools(md.WheelZoomTool(),
+        #                md.BoxZoomTool(match_aspect=True))
         # common_props(p_uv, xlim=(-20,20), ylim=(-20,20))
         # p_uv.hex_tile(q=variables['tcwu'], r=variables['tcwv'], source=vsrc, view=view,
         #               size=1, fill_color='color', line_color='black', line_width=1, alpha=1.)    
-        # p_uv.add_tools(HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),]))
+        # p_uv.add_tools(md.HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),]))
 
         ####### cell plots ################################################################
         lim = 22
         polyg_opt = dict(line_color='black', line_width=2)
         p_cells = figure(width=width, height=height,
-                         x_range=Range1d(-lim, lim),
-                         y_range=Range1d(-lim, lim),
+                         x_range=md.Range1d(-lim, lim),
+                         y_range=md.Range1d(-lim, lim),
                          tools='save,reset', toolbar_location='right',
                          output_backend='webgl')
         if mode == 'ev':
@@ -227,9 +205,9 @@ def display():
             hover_key = 'cu,cv / wu,wv'
             hover_val = '@'+variables['cu']+',@'+variables['cv']+' / @'+variables['wu']+',@'+variables['wv']
 
-        p_cells.add_tools(BoxZoomTool(match_aspect=True),
-                          WheelZoomTool(),
-                          HoverTool(tooltips=[(hover_key, hover_val),]))
+        p_cells.add_tools(md.BoxZoomTool(match_aspect=True),
+                          md.WheelZoomTool(),
+                          md.HoverTool(tooltips=[(hover_key, hover_val),]))
         common_props(p_cells, xlim=(-lim, lim), ylim=(-lim, lim))
         p_cells_opt = dict(xs='tc_polyg_x', ys='tc_polyg_y',
                            source=vsrc, view=view, **polyg_opt)
@@ -241,17 +219,17 @@ def display():
             p_cells.multi_polygons(color='green', **p_cells_opt)
                         
         if mode == 'ev':
-            color_bar = ColorBar(color_mapper=mapper,
-                                ticker= BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
-                                formatter=PrintfTickFormatter(format="%d"))
+            color_bar = md.ColorBar(color_mapper=mapper,
+                                    ticker= md.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
+                                    formatter=md.PrintfTickFormatter(format="%d"))
             p_cells.add_layout(color_bar, 'right')
 
         ####### (x,y) plots ################################################################
         # p_xy = figure(width=width, height=height,
         #             tools='save,reset', toolbar_location='right',
         #             output_backend='webgl')
-        # p_xy.add_tools(WheelZoomTool(), BoxZoomTool(match_aspect=True))
-        # p_xy.add_tools(HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),],))       
+        # p_xy.add_tools(md.WheelZoomTool(), md.BoxZoomTool(match_aspect=True))
+        # p_xy.add_tools(md.HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),],))       
         # common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
         # p_xy.rect(x=variables['tcwu'], y=variables['tcwv'], source=vsrc, view=view,
         #           width=1., height=1., width_units='data', height_units='data',
@@ -259,19 +237,19 @@ def display():
 
         # ####### x vs. z plots ################################################################
         # p_xVSz = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_xVSz.add_tools(BoxZoomTool(match_aspect=True))
+        # p_xVSz.add_tools(md.BoxZoomTool(match_aspect=True))
         # p_xVSz.scatter(x=variables['z'], y=variables['x'], source=vsrc)
         # common_props(p_xVSz)
         
         # ####### y vs. z plots ################################################################
         # p_yVSz = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_yVSz.add_tools(BoxZoomTool(match_aspect=True))
+        # p_yVSz.add_tools(md.BoxZoomTool(match_aspect=True))
         # p_yVSz.scatter(x=variables['z'], y=variables['y'], source=vsrc)
         # common_props(p_yVSz)
         
         # ####### y vs. x plots ################################################################
         # p_yVSx = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_yVSx.add_tools(BoxZoomTool(match_aspect=True))
+        # p_yVSx.add_tools(md.BoxZoomTool(match_aspect=True))
         # p_yVSx.scatter(x=variables['x'], y=variables['y'], source=vsrc)
         # common_props(p_yVSx)
         
@@ -279,8 +257,8 @@ def display():
         elements[ksrc]['textinput'].on_change('value', partial(text_callback, particle=ksrc, source=vsrc))
 
         ####### define layout ################################################################
-        blank1 = Div(width=1000, height=100, text='')
-        blank2 = Div(width=70, height=100, text='')
+        blank1 = md.Div(width=1000, height=100, text='')
+        blank2 = md.Div(width=70, height=100, text='')
 
         lay = layout([[elements[ksrc]['textinput'], blank2, slider],
                       #[p_cells, p_uv, p_xy],
@@ -288,11 +266,11 @@ def display():
                       [p_cells],
                       [blank1],
                       ])
-        tab = TabPanel(child=lay, title=ksrc)
+        tab = md.TabPanel(child=lay, title=ksrc)
         tabs.append(tab)
         # end for loop
 
-    doc.add_root(Tabs(tabs=tabs))
+    doc.add_root(md.Tabs(tabs=tabs))
     
 parser = argparse.ArgumentParser(description='')
 FLAGS = parser.parse_args()
