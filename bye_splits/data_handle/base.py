@@ -15,8 +15,8 @@ from utils import params, common
 
 class BaseData(abc.ABC):
     def __init__(self, inname, outname, tag):
-        self.inpath = Path('/eos/user/b/bfontana/FPGAs/new_algos/') / inname
-        self.outpath = Path('/eos/user/b/bfontana/FPGAs/new_algos/') / outname
+        self.inpath = Path('/data_CMS/cms/ehle/L1HGCAL/') / inname
+        self.outpath = Path('/data_CMS/cms/ehle/L1HGCAL/') / outname
         self.tag = tag
         self.dname = 'tc'
         self.var = common.dot_dict({})

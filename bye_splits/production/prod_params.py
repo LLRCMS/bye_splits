@@ -7,7 +7,7 @@ from utils import params
 
 from glob import glob
 
-local = False #local machine vs server machine
+local = True #local machine vs server machine
 htcondor = False #whether to submit the script as multiple jobs to HTCondor
 particle = 'photon'
 algo = 'best_choice'
@@ -26,7 +26,11 @@ reachedEE = 2 #0 converted photons; 1: photons that missed HGCAL; 2: photons tha
 
 # Input files
 if local:
-    files_photons = ['/home/bruno/Downloads/hadd.root']
+    base = '/data_CMS/cms/ehle/L1HGCAL/'
+    file_ext = '_200PU_bc_stc_hadd'
+    files = {'photon'   : base+'photon'+file_ext,
+             'electron' : base+'electron'+file_ext}
+    files = files[particle]
 
 else:
     if htcondor:
