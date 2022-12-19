@@ -14,6 +14,7 @@ from functools import partial
 import argparse
 import numpy as np
 import pandas as pd
+import yaml
 
 #from bokeh.io import output_file, save
 #output_file('tmp.html')
@@ -51,11 +52,16 @@ settings.ico_path = 'none'
 import utils
 from utils import params, common, parsing
 import data_handle
-from data_handle.data_handle import handle
-data_vars = {'ev': handle('event').variables,
-             'geom': handle('geom').variables,
-             }
-mode = 'geom'
+from data_handle.data_handle import EventDataParticle
+
+with open(params.viz_kw['CfgEventPath'], 'r') as afile:
+    config = yaml.safe_load(afile)
+
+data_particle = {'photons': EventDataParticle(particles='photons', tag='v1'),
+                 'electrons': EventDataParticle(particles='electrons', tag='v1')}
+data_vars = {'ev': config['varEvents'],
+             'geom': config['varGeometry']}
+mode = 'ev'
 
 def common_props(p, xlim=None, ylim=None):
     p.output_backend = 'svg'
@@ -139,24 +145,25 @@ def convert_cells_to_xy(df, avars):
     df.rename(columns = {avars['l']: 'layer'}, inplace=True)
     return df.join(res)
 
-def get_data(event, particle):
-    #event = 179855 if particle == 'photons' else 92004
-    ds_ev = handle('event', particle).provide_event(event, True)
+def get_data(event, particles):
+    ds_ev = data_particle[particles].provide_event(event)
     ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
-    ds_geom = handle('geom').provide(True)
-    ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4) |
-                       (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==4) |
-                       (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==5))]
-    return {'ev': ds_ev, 'geom': ds_geom}
+    #ds_geom = GeometryData(inname='test_triggergeom.root', outname='geom.hdf5').provide(True)
+    #ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
+    #ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4) |
+    #                   (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==4) |
+    #                   (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==5))]
+    #return {'ev': ds_ev, 'geom': ds_geom}
+    return {'ev': ds_ev}
 
-sources = {'photons'   : ColumnDataSource(data=get_data(179855, 'photons')[mode]),
-           'electrons' : ColumnDataSource(data=get_data(92004,  'electrons')[mode]),
-           }
-elements = {'photons'   : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
-            'electrons' : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
-            }
-
+sources = {
+    'photons'   : ColumnDataSource(data=get_data(179855, 'photons')[mode]),
+    'electrons' : ColumnDataSource(data=get_data(92004,  'electrons')[mode])
+}
+elements = {
+    'photons'   : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
+    'electrons' : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')}
+}
 assert sources.keys() == elements.keys()
 
 def display():

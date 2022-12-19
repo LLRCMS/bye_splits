@@ -16,8 +16,14 @@ MinROverZ = 0.076
 MaxROverZ = 0.58
 MinPhi = -np.pi
 MaxPhi = +np.pi
-DataFolder = 'data/new_algos'
-assert DataFolder in ('data/new_algos', 'data/tc_shift_studies')
+LocalDataFolder = 'data/new_algos'
+EOSDataFolder = '/eos/user/b/bfontana/FPGAs/new_algos/'
+
+viz_kw = {
+    'DataPath': Path(EOSDataFolder),
+    'OutPath': Path(EOSDataFolder),
+    'CfgEventPath': Path(__file__).parents[2] / 'bye_splits/data_handle/config.yaml',
+}
 
 base_kw = {
     'NbinsRz': NbinsRz,
@@ -32,9 +38,9 @@ base_kw = {
     'LayerEdges': [0,42],
     'IsHCAL': False,
 
-    'DataFolder': Path(DataFolder),
+    'DataFolder': Path(LocalDataFolder),
     'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
-    'BasePath': Path(__file__).parents[2] / DataFolder,
+    'BasePath': Path(__file__).parents[2] / LocalDataFolder,
     'OutPath': Path(__file__).parents[2] / 'out',
 
     'Placeholder': np.nan,

@@ -17,12 +17,10 @@ from data_handle.base import BaseData
 class GeometryData(BaseData):
     def __init__(self, inname='', outname=''):
         super().__init__(inname, outname, '')
-        self.var.update({
-            'wu': 'waferu', 'wv': 'waferv', 'l': 'layer',
-            'cu': 'triggercellu', 'cv': 'triggercellv',
-            'x': 'x', 'y': 'y', 'z': 'z',
-            'side': 'zside', 'subd': 'subdet',
-            'wvs': 'waferv_shift', 'c': 'color'})
+        self.dname = 'tc'
+        with open('config.yml', 'r') as afile:
+            cfg = yaml.safe_load(afile)
+            self.var = cfg['variables']
 
         self.readvars = list(self.var.values())
         self.readvars.remove('waferv_shift')

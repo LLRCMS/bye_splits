@@ -10,7 +10,6 @@ struct particles {
   std::string value;
 };
 
-[[noreturn]]
 void show_help(const po::options_description&, const std::string&);
 void process_program_options(int argc, char **argv);
 

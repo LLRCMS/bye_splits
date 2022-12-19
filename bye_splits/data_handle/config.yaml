@@ -1,0 +1,26 @@
+defaultEvents:
+    photons: [179855,]
+    electrons: [92004,]
+
+varEvents:
+    event: 'event'
+    wu: 'good_tc_waferu'
+    wv: 'good_tc_waferv'
+    l:  'good_tc_layer'
+    cv: 'good_tc_cellu'
+    cu: 'good_tc_cellv'
+    en: 'good_tc_energy'
+
+varGeometry:
+    wu: "waferu"
+    wv: "waferv"
+    l: "layer"
+    cu: "triggercellu"
+    cv: "triggercellv"
+    x: "x"
+    y: "y"
+    z: "z"
+    side: "zside"
+    subd: "subdet"
+    wvs: "waferv_shift"
+    c: "color"
