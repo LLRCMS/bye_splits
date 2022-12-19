@@ -6,6 +6,7 @@ import utils
 from utils import params
 
 from glob import glob
+import pickle
 
 local = True #local machine vs server machine
 htcondor = False #whether to submit the script as multiple jobs to HTCondor
@@ -24,7 +25,6 @@ threshold = 0.05
 # Select particles that reached the EE section
 reachedEE = 2 #0 converted photons; 1: photons that missed HGCAL; 2: photons that hit HGCAL
 
-# Input files
 if local:
     base = '/data_CMS/cms/ehle/L1HGCAL/'
     file_ext = '_200PU_bc_stc_hadd'
@@ -57,6 +57,6 @@ if htcondor:
     file_per_batch_photons = 2
 else:
     out_dir = params.base_kw['BasePath']
-        
+
 out_name = 'summ_{}_{}.hdf5'.format(particle, algo)
 algo_trees = [gen_tree]

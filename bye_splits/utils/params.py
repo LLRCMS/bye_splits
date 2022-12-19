@@ -22,6 +22,7 @@ import warnings
 import argparse
 from argparse import ArgumentParser, RawTextHelpFormatter
 from subprocess import Popen, PIPE
+import pickle
 
 NbinsRz = 42
 NbinsPhi = 216
@@ -65,8 +66,15 @@ if len(base_kw['FesAlgos'])!=1:
                      ' assumes there is only on algo.\n'
                      'The script must be adapted.')
 
+# Make dictionary of coefficients
 threshold = 0.05
 delta_r_coefs = (0.0,threshold,50)
+
+coefs = [(coef,0)*52 for coef in np.linspace(delta_r_coefs[0], delta_r_coefs[1], delta_r_coefs[2])]
+coef_dict = {}
+for i,coef in enumerate(coefs):
+    coef_key = 'coef_'+str(i)
+    coef_dict[coef_key] = coef
 
 ntuple_templates = {'photon': 'Floatingpoint{fe}Genclustersntuple/HGCalTriggerNtuple','pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
 algo_trees = {}
@@ -75,13 +83,6 @@ for fe in base_kw['FesAlgos']:
     for key, val in ntuple_templates.items():
         inner_trees[key] = val.format(fe=fe)
     algo_trees[fe] = inner_trees
-    #assert(algo_trees[fe] == gen_tree) #remove ass soon as other algorithms are considered
-
-coefs = [(coef,0)*52 for coef in np.linspace(delta_r_coefs[0], delta_r_coefs[1], delta_r_coefs[2])]
-coef_dict = {}
-for i,coef in enumerate(coefs):
-    coef_key = 'coef_'+str(i)
-    coef_dict[coef_key] = coef
 
 def transform(nested_list):
     regular_list=[]
@@ -105,11 +106,27 @@ def create_out_names(files,trees):
 files = {'photon': '/data_CMS/cms/alves/L1HGCAL/photon_0PU_truncation_hadd.root', 'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
 gen_trees = {'photon': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple', 'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
 
-# ONLY HAVE ZERO PILEUP FOR PION SAMPLES
-pu_samples = ['DoubleElectron_FlatPt-1To100', 'DoublePhoton_FlatPt-1To100']
-pu_dict = {'electron': None, 'photon': None}
-# Fill dictionary with paths to root files
-common.point_to_root_file(pu_samples, pu_dict)
+pile_up = True
+get_pu_files = False
+if pile_up:
+    pu_samples = ['DoubleElectron_FlatPt-1To100', 'DoublePhoton_FlatPt-1To100', 'SinglePion_PT0to200']
+    if get_pu_files:
+        #Fill files dictionary with path to files on /dpm...
+        files = {'electron': None, 'photon': None, 'pion': None}
+        common.point_to_root_file(pu_samples, files)
+        outfile = 'dpm_file_paths.pkl'
+        with open(outfile, 'wb') as f:
+            pickle.dump(files, f)
+    else:
+        infile = 'dpm_file_paths.pkl'
+        with open(infile, 'rb') as f:
+            files = pickle.load(f)
+
+    gen_trees = {'electron': 'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple',
+                 'photon':   'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple',
+                 'pion':     'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple'}
+
+    algo_trees = {'Mixedbcstcrealsig4DummyHistomaxxydr015Genmatch': gen_trees}
 
 match_kw = set_dictionary(
     { 'Files': files,
