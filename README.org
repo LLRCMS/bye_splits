@@ -113,8 +113,8 @@ The two ports do not have to be the same, but it avoids possible confusion. Leav
 In a new terminal window go to the =llruicms01= mahcines and launch one of the apps, for instance:
 
 #+BEGIN_SRC shell
-bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port> --allow-websocket-origin=llruicms01.in2p3.fr:<port>
-# if forwarding via ssh:  --allow-websocket-origin=localhost:<port>
+bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port>  --allow-websocket-origin=localhost:<port>
+# if visualizing directly at LLR: --allow-websocket-origin=llruicms01.in2p3.fr:<port>
 #+END_SRC
 
 This uses the server-creation capabilities of =bokeh=, a =python= package for interactive visualization ([[https://docs.bokeh.org/en/latest/index.html][docs]]). Note the port number must match. For further customisation of =bokeh serve= see [[https://docs.bokeh.org/en/latest/docs/reference/command/subcommands/serve.html][the serve documentation]].
