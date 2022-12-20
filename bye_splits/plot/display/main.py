@@ -125,12 +125,12 @@ def convert_cells_to_xy(df, avars):
     res = pd.concat([tc_polyg_x, tc_polyg_y], axis=1)
     res.columns = ['tc_polyg_x', 'tc_polyg_y']
     df.rename(columns = {avars['l']: 'layer'}, inplace=True)
-    breakpoint()
     return df.join(res)
 
 def get_data(event, particles):
     ds_ev = data_particle[particles].provide_event(event)
     ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
+
     #ds_geom = GeometryData(inname='test_triggergeom.root', outname='geom.hdf5').provide(True)
     #ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
     #ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4) |
@@ -202,7 +202,7 @@ def display():
                          output_backend='webgl')
         if mode == 'ev':
             hover_key = 'Energy (cu,cv / wu,wv)'
-            hover_val = '@'+variables['en'] + ' (@'+variables['cu']+' / @'+variables['cv']+',@'+variables['wu']+',@'+variables['wv']+')'
+            hover_val = '@'+variables['en'] + ' (@'+variables['cu']+',@'+variables['cv']+' / @'+variables['wu']+',@'+variables['wv']+')'
         else:
             hover_key = 'cu,cv / wu,wv'
             hover_val = '@'+variables['cu']+',@'+variables['cv']+' / @'+variables['wu']+',@'+variables['wv']
@@ -211,8 +211,7 @@ def display():
                           md.WheelZoomTool(),
                           md.HoverTool(tooltips=[(hover_key, hover_val),]))
         common_props(p_cells, xlim=(-lim, lim), ylim=(-lim, lim))
-        print(vsrc.data)
-        breakpoint()
+
         p_cells_opt = dict(xs='tc_polyg_x', ys='tc_polyg_y', source=vsrc, view=view, **polyg_opt)
 
         if mode == 'ev':
@@ -263,13 +262,12 @@ def display():
         blank1 = md.Div(width=1000, height=100, text='')
         blank2 = md.Div(width=70, height=100, text='')
 
-        # lay = layout([[elements[ksrc]['textinput'], blank2, slider],
-        #               #[p_cells, p_uv, p_xy],
-        #               #[p_xVSz, p_yVSz, p_yVSx],
-        #               [p_cells],
-        #               [blank1],
-        #               ])
-        lay = layout([[p_cells]])
+        lay = layout([[elements[ksrc]['textinput'], blank2, slider],
+                      #[p_cells, p_uv, p_xy],
+                      #[p_xVSz, p_yVSz, p_yVSx],
+                      [p_cells],
+                      [blank1],
+                      ])
         tab = md.TabPanel(child=lay, title=ksrc)
         tabs.append(tab)
         # end for loop

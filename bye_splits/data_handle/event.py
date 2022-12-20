@@ -57,8 +57,8 @@ class EventData(BaseData):
         if event not in self.events:
             self.events += [event]
             self.cache_events(event)
-        ret = self.cache[self.cache.event==event].compute()
-        ret = ret.apply(pd.Series.explode)
+        ret = self.cache[self.cache.event==event].drop(['event'], axis=1).compute()
+        ret = ret.apply(pd.Series.explode).reset_index(drop=True)
         return ret
     
     def select(self):
