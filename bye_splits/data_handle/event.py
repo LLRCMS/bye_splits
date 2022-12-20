@@ -35,7 +35,7 @@ class EventData(BaseData):
         if not os.path.exists(self.outpath):
             self.store()
         if not isinstance(events, (tuple,list)):
-            events = list(events)
+            events = [events]
 
         ds = dd.read_parquet(self.outpath, engine='pyarrow')
         ds = ds[ds.event.isin(events)]

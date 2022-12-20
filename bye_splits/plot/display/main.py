@@ -139,19 +139,30 @@ def get_data(event, particles):
     #return {'ev': ds_ev, 'geom': ds_geom}
     return {'ev': ds_ev}
 
+with open(params.viz_kw['CfgEventPath'], 'r') as afile:
+    cfg = yaml.safe_load(afile)
+    def_evs = cfg['defaultEvents']
+    def_ev_text = {}
+    for k in def_evs:
+        def_ev_text[k] = 'Events (' + ', '.join(map(str, def_evs[k])) + ', ...)'
+
 elements = {
-    'photons'   : {'textinput': md.TextInput(title='Event', value='', sizing_mode='stretch_width'),
-                   'source': md.ColumnDataSource(data=get_data(179855, 'photons')[mode])},
-    'electrons' : {'textinput': md.TextInput(title='Event', value='', sizing_mode='stretch_width'),
-                   'source': md.ColumnDataSource(data=get_data(92004,  'electrons')[mode])}
+    'photons': {'textinput': md.TextInput(title=def_ev_text['photons'], value='',
+                                          sizing_mode='stretch_width'),
+                'source': md.ColumnDataSource(data=get_data(def_evs['photons'][0], 'photons')[mode])},
+    'electrons' : {'textinput': md.TextInput(title=def_ev_text['electrons'], value='',
+                                             sizing_mode='stretch_width'),
+                   'source': md.ColumnDataSource(data=get_data(def_evs['electrons'][0],  'electrons')[mode])}
 }
 
 def display():
     variables = data_vars[mode]
     def text_callback(attr, old, new, source, particles):
-        print('running ', particle, new)
-        assert new.isdecimal()
-        source.data = get_data(new, particles)[mode]
+        print('running ', particles, new)
+        if not new.isdecimal():
+            print('Wrong format!')
+        else:
+            source.data = get_data(int(new), particles)[mode]
 
     doc = curdoc()
     doc.title = 'TC Visualization'
@@ -167,7 +178,7 @@ def display():
 
         slider = md.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
                            value=vsrc.data['layer'].min(), step=2, title='Layer',
-                           bar_color='red', width=800, background='white')
+                           bar_color='red', width=600, background='white')
         slider_callback = md.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
         slider.js_on_change('value', slider_callback) #value_throttled
 
@@ -256,7 +267,7 @@ def display():
         # common_props(p_yVSx)
         
         ####### text input ###################################################################
-        # elements[ksrc]['textinput'].on_change('value', partial(text_callback, particle=ksrc, source=vsrc))
+        elements[ksrc]['textinput'].on_change('value', partial(text_callback, source=vsrc, particles=ksrc))
 
         ####### define layout ################################################################
         blank1 = md.Div(width=1000, height=100, text='')
