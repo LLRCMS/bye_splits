@@ -31,12 +31,14 @@ import utils
 from utils import params, common, parsing
 import data_handle
 from data_handle.data_handle import EventDataParticle
+from data_handle.geometry import GeometryData
 
 with open(params.viz_kw['CfgEventPath'], 'r') as afile:
     config = yaml.safe_load(afile)
 
 data_particle = {'photons': EventDataParticle(particles='photons', tag='v1'),
                  'electrons': EventDataParticle(particles='electrons', tag='v1')}
+geom_data = GeometryData(inname='test_triggergeom.root')
 data_vars = {'ev': config['varEvents'],
              'geom': config['varGeometry']}
 mode = 'ev'
@@ -131,13 +133,12 @@ def get_data(event, particles):
     ds_ev = data_particle[particles].provide_event(event)
     ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
 
-    #ds_geom = GeometryData(inname='test_triggergeom.root', outname='geom.hdf5').provide(True)
-    #ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
-    #ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4) |
-    #                   (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==4) |
-    #                   (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==5))]
-    #return {'ev': ds_ev, 'geom': ds_geom}
-    return {'ev': ds_ev}
+    ds_geom = geom_data.provide()
+    ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4) |
+                       (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==4) |
+                       (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==5))]
+    return {'ev': ds_ev, 'geom': ds_geom}
 
 with open(params.viz_kw['CfgEventPath'], 'r') as afile:
     cfg = yaml.safe_load(afile)

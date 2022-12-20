@@ -9,9 +9,10 @@ parent_dir = os.path.abspath(__file__ + 2 * '/..')
 sys.path.insert(0, parent_dir)
 
 import yaml
+
+from utils import params
 from data_handle.geometry import GeometryData
 from data_handle.event import EventData
-from utils import params
 
 class EventDataParticle:
     def __init__(self, particles, tag):

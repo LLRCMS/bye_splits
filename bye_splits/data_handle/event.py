@@ -75,6 +75,5 @@ class EventData(BaseData):
         return data
 
     def store(self):
-        print('Storing...')
         data = self.select()
         ak.to_parquet(data, self.tag + '.parquet')
