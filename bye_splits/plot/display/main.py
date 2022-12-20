@@ -54,16 +54,17 @@ def common_props(p, xlim=None, ylim=None):
         p.y_range = md.Range1d(ylim[0], ylim[1])
         
 def convert_cells_to_xy(df, avars):
+    rr, rr2 = lambda x : x.astype(float).round(3), lambda x : round(x, 3)
     c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
     d = 1.#1./c30
     d4, d8 = d/4., d/8.
     conversion = {
-        'UL': (lambda wu,wv,cv: 2*wu - wv + d4 * cv,
-               lambda wv,cu,cv: ((d/c30)+d*t30)*wv + d8/c30 * (2*(cu-1)-cv)),
-        'UR': (lambda wu,wv,cv: 2*wu - wv + d + d4 * (cv-4),
-               lambda wv,cu,cv: ((d/c30)+d*t30)*wv + t30*d + d8/c30 * (2*(cu-4)-(cv-4))),
-        'B':  (lambda wu,wv,cv: 2*wu - wv + d4 * cv,
-               lambda wv,cu,cv: ((d/c30)+d*t30)*wv + t30 * d4 * (2*cu-cv))
+        'UL': (lambda wu,wv,cv: rr(2*wu - wv + d4 * cv),
+               lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + d8/c30 * (2*(cu-1)-cv))),
+        'UR': (lambda wu,wv,cv: rr(2*wu - wv + d + d4 * (cv-4)),
+               lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + t30*d + d8/c30 * (2*(cu-4)-(cv-4)))),
+        'B':  (lambda wu,wv,cv: rr(2*wu - wv + d4 * cv),
+               lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + t30 * d4 * (2*cu-cv)))
     } #up-right, up-left and bottom
 
     masks = {'UL': (((df[avars['cu']]>=1) & (df[avars['cu']]<=4) & (df[avars['cv']]==0)) |
@@ -73,7 +74,7 @@ def convert_cells_to_xy(df, avars):
              'UR': (df[avars['cu']]>=4) & (df[avars['cu']]<=7) & (df[avars['cv']]>=4) & (df[avars['cv']]<=7),
              'B':  (df[avars['cv']]>=df[avars['cu']]) & (df[avars['cu']]<=3),
              }
-     
+
     x0, x1, x2, x3 = ({} for _ in range(4))
     y0, y1, y2, y3 = ({} for _ in range(4))
     xaxis, yaxis = ({} for _ in range(2))
@@ -84,32 +85,35 @@ def convert_cells_to_xy(df, avars):
                                            df[avars['cv']][masks[key]])})
         x1.update({key: x0[key][:] + d4})
         if key in ('UL', 'UR'):
-            x2.update({key: x1[key][:]})
-            x3.update({key: x0[key][:]})
+            x2.update({key: x1[key]})
+            x3.update({key: x0[key]})
         else:
-            x2.update({key: x1[key][:] + d4})
-            x3.update({key: x1[key][:]})
-     
+            x2.update({key: x1[key] + d4})
+            x3.update({key: x1[key]})
+
         y0.update({key: conversion[key][1](df[avars['wv']][masks[key]],
                                            df[avars['cu']][masks[key]],
                                            df[avars['cv']][masks[key]])})
         if key in ('UR', 'B'):
-            y1.update({key: y0[key][:] - t30*d4})
+            y1.update({key: y0[key][:] - rr2(t30*d4)})
         else:
-            y1.update({key: y0[key][:] + t30*d4})
+            y1.update({key: y0[key][:] + rr2(t30*d4)})
         if key in ('B'):
             y2.update({key: y0[key][:]})
         else:
-            y2.update({key: y1[key][:] + d4/c30})
+            y2.update({key: y1[key][:] + rr2(d4/c30)})
         if key in ('UL', 'UR'):
-            y3.update({key: y0[key][:] + d4/c30})
+            y3.update({key: y0[key][:] + rr2(d4/c30)})
         else:
-            y3.update({key: y0[key][:] + t30*d4})
+            y3.update({key: y0[key][:] + rr2(t30*d4)})
 
         xaxis.update({key: pd.concat([x0[key],x1[key],x2[key],x3[key]], axis=1)})
         yaxis.update({key: pd.concat([y0[key],y1[key],y2[key],y3[key]], axis=1)})
-        xaxis[key]['new'] = xaxis[key].values.tolist()
-        yaxis[key]['new'] = yaxis[key].values.tolist()
+        
+        xaxis[key]['new'] = [[round(val, 3) for val in sublst]
+                             for sublst in xaxis[key].values.tolist()]
+        yaxis[key]['new'] = [[round(val, 3) for val in sublst]
+                             for sublst in yaxis[key].values.tolist()]
         xaxis[key] = xaxis[key]['new']
         yaxis[key] = yaxis[key]['new']
 
@@ -117,10 +121,11 @@ def convert_cells_to_xy(df, avars):
     tc_polyg_y = pd.concat(yaxis.values())
     tc_polyg_x = tc_polyg_x.groupby(tc_polyg_x.index).agg(lambda k: [k])
     tc_polyg_y = tc_polyg_y.groupby(tc_polyg_y.index).agg(lambda k: [k])
-
+    
     res = pd.concat([tc_polyg_x, tc_polyg_y], axis=1)
     res.columns = ['tc_polyg_x', 'tc_polyg_y']
     df.rename(columns = {avars['l']: 'layer'}, inplace=True)
+    breakpoint()
     return df.join(res)
 
 def get_data(event, particles):
@@ -134,22 +139,19 @@ def get_data(event, particles):
     #return {'ev': ds_ev, 'geom': ds_geom}
     return {'ev': ds_ev}
 
-sources = {
-    'photons'   : md.ColumnDataSource(data=get_data(179855, 'photons')[mode]),
-    'electrons' : md.ColumnDataSource(data=get_data(92004,  'electrons')[mode])
-}
 elements = {
-    'photons'   : {'textinput': md.TextInput(title='Event', value='', sizing_mode='stretch_width')},
-    'electrons' : {'textinput': md.TextInput(title='Event', value='', sizing_mode='stretch_width')}
+    'photons'   : {'textinput': md.TextInput(title='Event', value='', sizing_mode='stretch_width'),
+                   'source': md.ColumnDataSource(data=get_data(179855, 'photons')[mode])},
+    'electrons' : {'textinput': md.TextInput(title='Event', value='', sizing_mode='stretch_width'),
+                   'source': md.ColumnDataSource(data=get_data(92004,  'electrons')[mode])}
 }
-assert sources.keys() == elements.keys()
 
 def display():
     variables = data_vars[mode]
-    def text_callback(attr, old, new, source, particle):
+    def text_callback(attr, old, new, source, particles):
         print('running ', particle, new)
         assert new.isdecimal()
-        source.data = get_data(new, particle)[mode]
+        source.data = get_data(new, particles)[mode]
 
     doc = curdoc()
     doc.title = 'TC Visualization'
@@ -158,14 +160,14 @@ def display():
     width2, height2 = 400, 300
     tabs = []
     
-    for ksrc,vsrc in sources.items():
+    for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
         if mode == 'ev':
             mapper = md.LinearColorMapper(palette=mypalette,
                                           low=vsrc.data[variables['en']].min(), high=vsrc.data[variables['en']].min())
 
         slider = md.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
-                        value=vsrc.data['layer'].min(), step=2, title='Layer',
-                        bar_color='red', width=800, background='white')
+                           value=vsrc.data['layer'].min(), step=2, title='Layer',
+                           bar_color='red', width=800, background='white')
         slider_callback = md.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
         slider.js_on_change('value', slider_callback) #value_throttled
 
@@ -209,9 +211,10 @@ def display():
                           md.WheelZoomTool(),
                           md.HoverTool(tooltips=[(hover_key, hover_val),]))
         common_props(p_cells, xlim=(-lim, lim), ylim=(-lim, lim))
-        p_cells_opt = dict(xs='tc_polyg_x', ys='tc_polyg_y',
-                           source=vsrc, view=view, **polyg_opt)
-        
+        print(vsrc.data)
+        breakpoint()
+        p_cells_opt = dict(xs='tc_polyg_x', ys='tc_polyg_y', source=vsrc, view=view, **polyg_opt)
+
         if mode == 'ev':
             p_cells.multi_polygons(fill_color={'field': variables['en'], 'transform': mapper},
                                    **p_cells_opt)
@@ -254,18 +257,19 @@ def display():
         # common_props(p_yVSx)
         
         ####### text input ###################################################################
-        elements[ksrc]['textinput'].on_change('value', partial(text_callback, particle=ksrc, source=vsrc))
+        # elements[ksrc]['textinput'].on_change('value', partial(text_callback, particle=ksrc, source=vsrc))
 
         ####### define layout ################################################################
         blank1 = md.Div(width=1000, height=100, text='')
         blank2 = md.Div(width=70, height=100, text='')
 
-        lay = layout([[elements[ksrc]['textinput'], blank2, slider],
-                      #[p_cells, p_uv, p_xy],
-                      #[p_xVSz, p_yVSz, p_yVSx],
-                      [p_cells],
-                      [blank1],
-                      ])
+        # lay = layout([[elements[ksrc]['textinput'], blank2, slider],
+        #               #[p_cells, p_uv, p_xy],
+        #               #[p_xVSz, p_yVSz, p_yVSx],
+        #               [p_cells],
+        #               [blank1],
+        #               ])
+        lay = layout([[p_cells]])
         tab = md.TabPanel(child=lay, title=ksrc)
         tabs.append(tab)
         # end for loop
