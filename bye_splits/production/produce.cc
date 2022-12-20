@@ -36,10 +36,8 @@ int main(int argc, char **argv) {
   //process_program_options(argc, argv);
   string particle = std::string(argv[1]);
 
-  int nentries = convert_to_int(argv, 2);
-
   std::string infile = particle + "_0PU_bc_stc_hadd.root";
   std::string outfile = "skim_" + infile;
-  skim(tree_name, dir + infile, dir + outfile, particle, nentries);
+  skim(tree_name, dir + infile, dir + outfile, particle);
   return 0;
 }

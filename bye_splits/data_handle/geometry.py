@@ -32,7 +32,7 @@ class GeometryData(BaseData):
     def provide(self):
         if not os.path.exists(self.outpath):
             self.store()
-        return dd.read_parquet(self.outpath, engine='pyarrow')
+        return dd.read_parquet(self.outpath, engine='pyarrow').compute()
         #return ak.from_parquet(self.outpath)
 
     def select(self):
@@ -48,6 +48,7 @@ class GeometryData(BaseData):
             
             data = data[data.layer%2==0]
             #below is correct but much slower (no operator isin in awkward)
+            #this cut is anyways implemented in the skimmer
             #data = data[ak.Array([x in params.disconnectedTriggerLayers for x in data.layer])]
             
             #data = data.drop_duplicates(subset=[self.var.cu, self.var.cv, self.var.l])

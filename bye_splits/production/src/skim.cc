@@ -1,20 +1,20 @@
 #include "include/skim.h"
 
-void skim(string tn, string inf, string outf, string particle, int nentries) {
+void skim(string tn, string inf, string outf, string particle) {
 
   YAML::Node config = YAML::LoadFile("bye_splits/production/prod_params.yaml");
   vector<int> vec;
   if (config["disconnectedTriggerLayers"]) {
 	vec = config["disconnectedTriggerLayers"].as<std::vector<int>>();
   }
-  string reachedEE = "x";
+  string reachedEE = "";
   if (config["reachedEE"]) {
 	reachedEE = config["reachedEE"].as<string>();
   }
 
   ROOT::EnableImplicitMT();
   ROOT::RDataFrame df(tn, inf);
-  //auto dd = df.Range(0, nentries);
+  //auto dd = df.Range(0, 30);
   
   vector<string> genvars_int = {"genpart_pid"};
   vector<string> genvars_float = {"genpart_exphi", "genpart_exeta", "genpart_energy"};

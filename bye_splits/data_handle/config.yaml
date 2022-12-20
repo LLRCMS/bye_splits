@@ -12,15 +12,15 @@ varEvents:
     en: 'good_tc_energy'
 
 varGeometry:
-    wu: "waferu"
-    wv: "waferv"
-    l: "layer"
-    cu: "triggercellu"
-    cv: "triggercellv"
-    x: "x"
-    y: "y"
-    z: "z"
-    side: "zside"
-    subd: "subdet"
-    wvs: "waferv_shift"
-    c: "color"
+    wu: 'waferu'
+    wv: 'waferv'
+    l: 'layer'
+    cu: 'triggercellu'
+    cv: 'triggercellv'
+    x: 'x'
+    y: 'y'
+    z: 'z'
+    side: 'zside'
+    subd: 'subdet'
+    wvs: 'waferv_shift'
+    c: 'color'

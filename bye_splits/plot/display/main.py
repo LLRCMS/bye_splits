@@ -41,7 +41,7 @@ data_particle = {'photons': EventDataParticle(particles='photons', tag='v1'),
 geom_data = GeometryData(inname='test_triggergeom.root')
 data_vars = {'ev': config['varEvents'],
              'geom': config['varGeometry']}
-mode = 'ev'
+mode = 'geom'
 
 def common_props(p, xlim=None, ylim=None):
     p.output_backend = 'svg'
@@ -134,10 +134,8 @@ def get_data(event, particles):
     ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
 
     ds_geom = geom_data.provide()
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) | ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) | ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) | ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
     ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4) |
-                       (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==4) |
-                       (ds_geom[data_vars['geom']['wu']]==5) & (ds_geom[data_vars['geom']['wv']]==5))]
     return {'ev': ds_ev, 'geom': ds_geom}
 
 with open(params.viz_kw['CfgEventPath'], 'r') as afile:
@@ -150,7 +148,7 @@ with open(params.viz_kw['CfgEventPath'], 'r') as afile:
 
 elements = {}
 for k in ('photons', 'electrons'):
-    elements[k] = {'textinput': bmd.TextInput(value='some event', height=40,
+    elements[k] = {'textinput': bmd.TextInput(value='<specify an event>', height=40,
                                              sizing_mode='stretch_width'),
                    'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
                                             menu=def_ev_text[k], height=40,),
@@ -284,8 +282,12 @@ def display():
         blank1 = bmd.Div(width=1000, height=100, text='')
         blank2 = bmd.Div(width=70, height=100, text='')
 
-        first_row = [elements[ksrc]['dropdown'], elements[ksrc]['textinput'],
-                     blank2, slider]
+        if mode == 'ev':
+            first_row = [elements[ksrc]['dropdown'], elements[ksrc]['textinput'],
+                         blank2, slider]
+        else:
+            first_row = [slider]
+            
         lay = layout([first_row,
                       #[p_cells, p_uv, p_xy],
                       #[p_xVSz, p_yVSz, p_yVSx],

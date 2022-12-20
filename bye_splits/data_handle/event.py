@@ -31,7 +31,6 @@ class EventData(BaseData):
 
     def cache_events(self, events):
         """Read dataset from parquet to cache"""
-        assert self.tag is not None
         if not os.path.exists(self.outpath):
             self.store()
         if not isinstance(events, (tuple,list)):
@@ -46,9 +45,8 @@ class EventData(BaseData):
             self.cache = dd.concat([self.cache, ds], axis=0)
         self.cache = self.cache.persist()
 
-    def provide(self, reprocess=False):
-        assert self.tag is not None
-        if not os.path.exists(self.outpath) or reprocess:
+    def provide(self):
+        if not os.path.exists(self.outpath):
             self.store()
         return ak.from_parquet(self.outpath)
 
@@ -76,4 +74,4 @@ class EventData(BaseData):
 
     def store(self):
         data = self.select()
-        ak.to_parquet(data, self.tag + '.parquet')
+        ak.to_parquet(data, self.outpath)

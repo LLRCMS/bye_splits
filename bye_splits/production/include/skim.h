@@ -11,7 +11,7 @@
 
 using namespace std;
 
-void skim(string, string, string, string, int);
+void skim(string, string, string, string);
 
 template <class U>
 auto internal_join_vars(vector<U>& dest, const vector<U>& vec) -> void {

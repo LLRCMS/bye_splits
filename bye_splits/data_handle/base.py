@@ -16,8 +16,8 @@ from utils import params, common
 class BaseData(abc.ABC):
     def __init__(self, inname, tag):
         self.inpath = params.viz_kw['DataPath'] / inname
-        self.outpath = tag + '.parquet'
         self.tag = tag
+        self.outpath = self.tag + '.parquet'
         self.var = common.dot_dict({})
         self.newvar = common.dot_dict({})
 
