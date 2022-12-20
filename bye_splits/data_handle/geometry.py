@@ -9,8 +9,10 @@ parent_dir = os.path.abspath(__file__ + 2 * '/..')
 sys.path.insert(0, parent_dir)
 
 import yaml
+import awkward as ak
 import uproot as up
 import pandas as pd
+import dask.dataframe as dd
 
 from utils import params, common
 from data_handle.base import BaseData
@@ -30,9 +32,8 @@ class GeometryData(BaseData):
     def provide(self):
         if not os.path.exists(self.outpath):
             self.store()
-        with pd.HDFStore(self.outpath, mode='r') as s:
-            res = s[self.dname]
-        return res
+        return dd.read_parquet(self.outpath, engine='pyarrow')
+        #return ak.from_parquet(self.outpath)
 
     def select(self):
         with up.open(self.inpath) as f:
@@ -44,8 +45,11 @@ class GeometryData(BaseData):
             for v in (self.var.side, self.var.subd):
                 fields.remove(v)
             data = data[sel][fields]
-            breakpoint()
-            data = data.loc[~data.layer.isin(params.disconnectedTriggerLayers)]
+            
+            data = data[data.layer%2==0]
+            #below is correct but much slower (no operator isin in awkward)
+            #data = data[ak.Array([x in params.disconnectedTriggerLayers for x in data.layer])]
+            
             #data = data.drop_duplicates(subset=[self.var.cu, self.var.cv, self.var.l])
             data[self.var.wv] = data.waferv
             data[self.var.wvs] = -1 * data.waferv
