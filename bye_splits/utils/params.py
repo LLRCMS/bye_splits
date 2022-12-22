@@ -22,6 +22,7 @@ EOSDataFolder = '/eos/user/b/bfontana/FPGAs/new_algos/'
 viz_kw = {
     'DataPath': Path(EOSDataFolder),
     'OutPath': Path(EOSDataFolder),
+    'LocalPath': Path(__file__).parents[2] / LocalDataFolder,
     'CfgEventPath': Path(__file__).parents[2] / 'bye_splits/data_handle/config.yaml',
 }
 

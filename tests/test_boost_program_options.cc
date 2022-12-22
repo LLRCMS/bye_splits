@@ -1,7 +1,8 @@
 #include <iostream>
 #include <vector>
-#include <boost/program_options.hpp>
 using namespace std;
+
+#include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
 //boost custom validator (define option choices)
@@ -25,8 +26,7 @@ void validate(boost::any& v, const vector<string>& values, particles*, int)
   if (s == "photons" || s == "electrons") {
     v = boost::any(particles(s));
   } else {
-    throw std::runtime_error("Error");
-	po::validation_error(po::validation_error::invalid_option_value);
+    throw po::validation_error(po::validation_error::invalid_option_value);
   }
 }
 

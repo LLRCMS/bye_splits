@@ -26,8 +26,8 @@ class GeometryData(BaseData):
             self.var = common.dot_dict(cfg['varGeometry'])
 
         self.readvars = list(self.var.values())
-        self.readvars.remove('waferv_shift')
-        self.readvars.remove('color')
+        self.readvars.remove(self.var.wvs)
+        self.readvars.remove(self.var.c)
 
     def provide(self):
         if not os.path.exists(self.outpath):

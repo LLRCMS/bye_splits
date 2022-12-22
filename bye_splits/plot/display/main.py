@@ -36,12 +36,12 @@ from data_handle.geometry import GeometryData
 with open(params.viz_kw['CfgEventPath'], 'r') as afile:
     config = yaml.safe_load(afile)
 
-data_particle = {'photons': EventDataParticle(particles='photons', tag='v1'),
-                 'electrons': EventDataParticle(particles='electrons', tag='v1')}
+data_particle = {'photons': EventDataParticle(particles='photons', tag='v1', reprocess=True),
+                 'electrons': EventDataParticle(particles='electrons', tag='v1', reprocess=True)}
 geom_data = GeometryData(inname='test_triggergeom.root')
 data_vars = {'ev': config['varEvents'],
              'geom': config['varGeometry']}
-mode = 'geom'
+mode = 'ev'
 
 def common_props(p, xlim=None, ylim=None):
     p.output_backend = 'svg'
@@ -109,16 +109,19 @@ def convert_cells_to_xy(df, avars):
         else:
             y3.update({key: y0[key][:] + rr2(t30*d4)})
 
-        xaxis.update({key: pd.concat([x0[key],x1[key],x2[key],x3[key]], axis=1)})
-        yaxis.update({key: pd.concat([y0[key],y1[key],y2[key],y3[key]], axis=1)})
-        
+        keys = ['pos0','pos1','pos2','pos3']
+        xaxis.update({key: pd.concat([x0[key],x1[key],x2[key],x3[key]],
+                                     axis=1, keys=keys)})
+        yaxis.update({key: pd.concat([y0[key],y1[key],y2[key],y3[key]],
+                                     axis=1, keys=keys)})
+
         xaxis[key]['new'] = [[round(val, 3) for val in sublst]
                              for sublst in xaxis[key].values.tolist()]
         yaxis[key]['new'] = [[round(val, 3) for val in sublst]
                              for sublst in yaxis[key].values.tolist()]
-        xaxis[key] = xaxis[key]['new']
-        yaxis[key] = yaxis[key]['new']
-
+        xaxis[key] = xaxis[key].drop(keys, axis=1)
+        yaxis[key] = yaxis[key].drop(keys, axis=1)
+        
     tc_polyg_x = pd.concat(xaxis.values())
     tc_polyg_y = pd.concat(yaxis.values())
     tc_polyg_x = tc_polyg_x.groupby(tc_polyg_x.index).agg(lambda k: [k])
@@ -134,7 +137,10 @@ def get_data(event, particles):
     ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
 
     ds_geom = geom_data.provide()
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) | ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) | ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) | ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
     ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
     return {'ev': ds_ev, 'geom': ds_geom}
 
@@ -180,8 +186,8 @@ def display():
                                           low=vsrc.data[variables['en']].min(), high=vsrc.data[variables['en']].min())
 
         slider = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
-                           value=vsrc.data['layer'].min(), step=2, title='Layer',
-                           bar_color='red', width=600, background='white')
+                            value=vsrc.data['layer'].min(), step=2, title='Layer',
+                            bar_color='red', width=600, background='white')
         slider_callback = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
         slider.js_on_change('value', slider_callback) #value_throttled
 
@@ -236,8 +242,8 @@ def display():
                         
         if mode == 'ev':
             color_bar = bmd.ColorBar(color_mapper=mapper,
-                                    ticker= bmd.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
-                                    formatter=bmd.PrintfTickFormatter(format="%d"))
+                                     ticker=bmd.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
+                                     formatter=bmd.PrintfTickFormatter(format="%d"))
             p_cells.add_layout(color_bar, 'right')
 
         ####### (x,y) plots ################################################################

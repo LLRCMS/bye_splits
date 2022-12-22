@@ -9,7 +9,7 @@ varEvents:
     l:  'good_tc_layer'
     cv: 'good_tc_cellu'
     cu: 'good_tc_cellv'
-    en: 'good_tc_energy'
+    en: 'good_tc_mipPt'
 
 varGeometry:
     wu: 'waferu'
