@@ -58,72 +58,150 @@ def common_props(p, xlim=None, ylim=None):
 def convert_cells_to_xy(df, avars):
     rr, rr2 = lambda x : x.astype(float).round(3), lambda x : round(x, 3)
     c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
+    N = 4
     d = 1.#1./c30
     d4, d8 = d/4., d/8.
-    conversion = {
-        'UL': (lambda wu,wv,cv: rr(2*wu - wv + d4 * cv),
-               lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + d8/c30 * (2*(cu-1)-cv))),
-        'UR': (lambda wu,wv,cv: rr(2*wu - wv + d + d4 * (cv-4)),
-               lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + t30*d + d8/c30 * (2*(cu-4)-(cv-4)))),
-        'B':  (lambda wu,wv,cv: rr(2*wu - wv + d4 * cv),
-               lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + t30 * d4 * (2*cu-cv)))
+    # conversion = {
+    #     'UL': (lambda wu,wv,cv: rr(2*wu - wv + d4 * cv),
+    #            lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + d8/c30 * (2*(cu-1)-cv))),
+    #     'UR': (lambda wu,wv,cv: rr(2*wu - wv + d + d4 * (cv-N)),
+    #            lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + t30*d + d8/c30 * (2*(cu-N)-(cv-N)))),
+    #     'B':  (lambda wu,wv,cv: rr(2*wu - wv + d4 * cv),
+    #            lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + t30 * d4 * (2*cu-cv)))
+    # } #up-right, up-left and bottom
+
+    R = d / (3 * N)
+    r = R * c30
+    cells_conversion = {
+        0: (lambda cu,cv: (1.5*(cu-cv)+0.5) * R,
+            lambda cu,cv: (v+u-2*N+1) * r),
+        1: (lambda cu,cv: (1.5*(v-N)+0.5) * R,
+            lambda cu,cv: -(2*v-u-N+1) * r),
+        2: (lambda cu,cv: -(1.5*(u-N)+1) * R
+            lambda cu,cv: -(2*v-u-N) * r),
+        3: (lambda cu,cv: -(1.5*(u-v)+0.5) * R,
+            lambda cu,cv: -(v+u-2*N+1) * r),
+        4: (lambda cu,cv: (1.5*(u-N)+0.5) * R
+            lambda cu,cv: -(2*u-v-N+1) * r),
+        5: (lambda cu,cv: (1.5*(u-N)+1) * R,
+            lambda cu,cv: (2*v-u-N) * r),
+        6: (lambda cu,cv: (1.5*(v-u)+0.5) * R,
+            lambda cu,cv: (v+u-2*N+1) * r),
+        7: (lambda cu,cv: (1.5*(v-N)+1) * R,
+            lambda cu,cv: (2*u-v-N) * r),
+        8: (lambda cu,cv: (1.5*(u-N)+0.5) * R,
+            lambda cu,cv: -[2*v-u-N+1] * r),
+        9: (lambda cu,cv: -(1.5*(v-u)+0.5) * R,
+            lambda cu,cv: -(v+u-2*N+1) * r),
+        10: (lambda cu,cv: -(1.5*(v-N)+1) * R,
+             lambda cu,cv: -(2*u-v-N) * r),
+        11: (lambda cu,cv: -(1.5*(u-N)+0.5) * R,
+             lambda cu,cv: (2*v-u-N+1) * r),
+    }
+    wafer_shifts = {
+        'UL': (lambda wu,wv,cx: rr(2*wu - wv + cx),
+               lambda wv,cy: rr(((d/c30)+d*t30)*wv + cy)),
+        'UR': (lambda wu,wv,cx: rr(2*wu - wv + cx),
+               lambda wv,cy: rr(((d/c30)+d*t30)*wv + cy)),
+        'B':  (lambda wu,wv,cx: rr(2*wu - wv + cx),
+               lambda wv,cy: rr(((d/c30)+d*t30)*wv + cy))
     } #up-right, up-left and bottom
 
-    masks = {'UL': (((df[avars['cu']]>=1) & (df[avars['cu']]<=4) & (df[avars['cv']]==0)) |
-                    ((df[avars['cu']]>=2) & (df[avars['cu']]<=5) & (df[avars['cv']]==1)) |
-                    ((df[avars['cu']]>=3) & (df[avars['cu']]<=6) & (df[avars['cv']]==2)) |
-                    ((df[avars['cu']]>=4) & (df[avars['cu']]<=7) & (df[avars['cv']]==3))),
-             'UR': (df[avars['cu']]>=4) & (df[avars['cu']]<=7) & (df[avars['cv']]>=4) & (df[avars['cv']]<=7),
-             'B':  (df[avars['cv']]>=df[avars['cu']]) & (df[avars['cu']]<=3),
-             }
+    # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
+    masks_index_placement = {
+        #starting at 6 due to considering +z side only
+        6: df[avars['orient']] + 6 == 6,
+        7: df[avars['orient']] + 6 == 7,
+        8: df[avars['orient']] + 6 == 8,
+        9: df[avars['orient']] + 6 == 9,
+        10: df[avars['orient']] + 6 == 10,
+        11: df[avars['orient']] + 6 == 11,
+    }
+    masks_location = {
+        'UL': (((df[avars['cu']]>=1) & (df[avars['cu']]<=4) & (df[avars['cv']]==0)) |
+               ((df[avars['cu']]>=2) & (df[avars['cu']]<=5) & (df[avars['cv']]==1)) |
+               ((df[avars['cu']]>=3) & (df[avars['cu']]<=6) & (df[avars['cv']]==2)) |
+               ((df[avars['cu']]>=4) & (df[avars['cu']]<=7) & (df[avars['cv']]==3))),
+        'UR': (df[avars['cu']]>=4) & (df[avars['cu']]<=7) & (df[avars['cv']]>=4) & (df[avars['cv']]<=7),
+        'B':  (df[avars['cv']]>=df[avars['cu']]) & (df[avars['cu']]<=3),
+    }
 
     x0, x1, x2, x3 = ({} for _ in range(4))
     y0, y1, y2, y3 = ({} for _ in range(4))
     xaxis, yaxis = ({} for _ in range(2))
+    xaxis_plac, yaxis_plac = ({} for _ in range(2))
 
-    for key,val in masks.items():
-        x0.update({key: conversion[key][0](df[avars['wu']][masks[key]],
-                                           df[avars['wv']][masks[key]],
-                                           df[avars['cv']][masks[key]])})
-        x1.update({key: x0[key][:] + d4})
-        if key in ('UL', 'UR'):
-            x2.update({key: x1[key]})
-            x3.update({key: x0[key]})
-        else:
-            x2.update({key: x1[key] + d4})
-            x3.update({key: x1[key]})
+    for ip_key, ip_val in masks_index_placement.items():
+        xaxis_plac.update({ip_key: {}})
+        yaxis_plac.update({ip_key: {}})
+        masks_ip = masks_index_placement[ip_key]
+        for loc_key,loc_val in masks_location.items():
+            masks_loc = masks_location[loc_key]
+            masks_inters = (masks_ip & masks_loc)
+            
+            cu_data = df[avars['cu']][masks_inters]
+            cv_data = df[avars['cv']][masks_inters]
+            wu_data = df[avars['wu']][masks_inters]
+            wv_data = df[avars['wv']][masks_inters]
 
-        y0.update({key: conversion[key][1](df[avars['wv']][masks[key]],
-                                           df[avars['cu']][masks[key]],
-                                           df[avars['cv']][masks[key]])})
-        if key in ('UR', 'B'):
-            y1.update({key: y0[key][:] - rr2(t30*d4)})
-        else:
-            y1.update({key: y0[key][:] + rr2(t30*d4)})
-        if key in ('B'):
-            y2.update({key: y0[key][:]})
-        else:
-            y2.update({key: y1[key][:] + rr2(d4/c30)})
-        if key in ('UL', 'UR'):
-            y3.update({key: y0[key][:] + rr2(d4/c30)})
-        else:
-            y3.update({key: y0[key][:] + rr2(t30*d4)})
+            cx_data = cells_conversion[ip_key][0](cu_data, cv_data)
+            cy_data = cells_conversion[ip_key][1](cu_data, cv_data)
+            wx_data = wafer_shifts[loc_key][0](wu_data, wv_data, cx_data)
+            wy_data = wafer_shifts[loc_key][1](wu_data, cy_data)
+            
+            x0.update({loc_key: wx_data})
+            # x0.update({key: conversion[key][0](df[avars['wu']][masks[key]],
+            #                                    df[avars['wv']][masks[key]],
+            #                                    df[avars['cv']][masks[key]])})
+    
+            x1.update({key: x0[key][:] + d4})
+            if loc_key in ('UL', 'UR'):
+                x2.update({loc_key: x1[key]})
+                x3.update({loc_key: x0[key]})
+            else:
+                x2.update({loc_key: x1[key] + d4})
+                x3.update({loc_key: x1[key]})
 
-        keys = ['pos0','pos1','pos2','pos3']
-        xaxis.update({key: pd.concat([x0[key],x1[key],x2[key],x3[key]],
-                                     axis=1, keys=keys)})
-        yaxis.update({key: pd.concat([y0[key],y1[key],y2[key],y3[key]],
-                                     axis=1, keys=keys)})
+            y0.update({key: wydata})
+            # y0.update({key: conversion[key][1](df[avars['wv']][masks[key]],
+            #                                df[avars['cu']][masks[key]],
+            #                                df[avars['cv']][masks[key]])})
 
-        xaxis[key]['new'] = [[round(val, 3) for val in sublst]
-                             for sublst in xaxis[key].values.tolist()]
-        yaxis[key]['new'] = [[round(val, 3) for val in sublst]
-                             for sublst in yaxis[key].values.tolist()]
-        xaxis[key] = xaxis[key].drop(keys, axis=1)
-        yaxis[key] = yaxis[key].drop(keys, axis=1)
-        
-    tc_polyg_x = pd.concat(xaxis.values())
-    tc_polyg_y = pd.concat(yaxis.values())
+            if loc_key in ('UR', 'B'):
+                y1.update({loc_key: y0[loc_key][:] - rr2(t30*d4)})
+            else:
+                y1.update({loc_key: y0[loc_key][:] + rr2(t30*d4)})
+            if loc_key in ('B'):
+                y2.update({loc_key: y0[loc_key][:]})
+            else:
+                y2.update({loc_key: y1[loc_key][:] + rr2(d4/c30)})
+            if loc_key in ('UL', 'UR'):
+                y3.update({key: y0[loc_key][:] + rr2(d4/c30)})
+            else:
+                y3.update({loc_key: y0[loc_key][:] + rr2(t30*d4)})
+
+            keys = ['pos0','pos1','pos2','pos3']
+            xaxis.update({
+                loc_key: pd.concat([x0[loc_key],x1[loc_key],x2[loc_key],x3[loc_key]],
+                                   axis=1, keys=keys)})
+            yaxis.update(
+                {loc_key: pd.concat([y0[loc_key],y1[loc_key],y2[loc_key],y3[loc_key]],
+                                    axis=1, keys=keys)})
+
+            xaxis[loc_key]['new'] = [[round(val, 3) for val in sublst]
+                                     for sublst in xaxis[loc_key].values.tolist()]
+            yaxis[loc_key]['new'] = [[round(val, 3) for val in sublst]
+                                     for sublst in yaxis[loc_key].values.tolist()]
+            xaxis[loc_key] = xaxis[loc_key].drop(keys, axis=1)
+            yaxis[loc_key] = yaxis[loc_key].drop(keys, axis=1)
+
+        xaxis_plac[ip_key] = pd.concat(xaxis.values())
+        yayis_plac[ip_key] = pd.concat(yayis.values())
+        xaxis_plac[ip_key] = xaxis_plac.groupby(xaxis_plac.index).agg(lambda k: [k])
+        yaxis_plac[ip_key] = yaxis_plac.groupby(yaxis_plac.index).agg(lambda k: [k])
+
+    tc_polyg_x = pd.concat(xaxis_plac.values())
+    tc_polyg_y = pd.concat(xaxis_plac.values())
     tc_polyg_x = tc_polyg_x.groupby(tc_polyg_x.index).agg(lambda k: [k])
     tc_polyg_y = tc_polyg_y.groupby(tc_polyg_y.index).agg(lambda k: [k])
     
