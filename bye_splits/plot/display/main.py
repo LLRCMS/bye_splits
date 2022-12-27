@@ -196,12 +196,12 @@ def convert_cells_to_xy(df, avars):
 
     tc_polyg_x = pd.concat(xaxis_plac.values())
     tc_polyg_y = pd.concat(xaxis_plac.values())
-    tc_polyg_x = tc_polyg_x.groupby(tc_polyg_x.index).agg(lambda k: [k])
-    tc_polyg_y = tc_polyg_y.groupby(tc_polyg_y.index).agg(lambda k: [k])
-    breakpoint()
+    # tc_polyg_x = tc_polyg_x.groupby(tc_polyg_x.index).agg(lambda k: [k])
+    # tc_polyg_y = tc_polyg_y.groupby(tc_polyg_y.index).agg(lambda k: [k])
+    # breakpoint()
     res = pd.concat([tc_polyg_x, tc_polyg_y], axis=1)
     res.columns = ['tc_polyg_x', 'tc_polyg_y']
-    df.rename(columns = {avars['l']: 'layer'}, inplace=True)
+    #res.rename(columns = {avars['l']: 'layer'}, inplace=True)
     return df.join(res)
 
 def get_data(event, particles):
@@ -213,6 +213,7 @@ def get_data(event, particles):
     #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
     ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
 
+    breakpoint()
     ds_ev = data_particle[particles].provide_event(event)
     ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
 
