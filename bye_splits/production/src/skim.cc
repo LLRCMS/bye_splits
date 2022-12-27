@@ -12,9 +12,9 @@ void skim(string tn, string inf, string outf, string particle) {
 	reachedEE = config["reachedEE"].as<string>();
   }
 
-  ROOT::EnableImplicitMT();
+  //ROOT::EnableImplicitMT();
   ROOT::RDataFrame df(tn, inf);
-  //auto dd = df.Range(0, 30);
+  auto dd = df.Range(0, 100);
   
   vector<string> genvars_int = {"genpart_pid"};
   vector<string> genvars_float = {"genpart_exphi", "genpart_exeta", "genpart_energy"};
@@ -27,7 +27,7 @@ void skim(string tn, string inf, string outf, string particle) {
   condgen += " && genpart_pid == " + pmap[particle];
   condgen += " && genpart_exeta > 0";
 
-  auto dd = df.Define("tmp_good_gens", condgen);
+  dd = dd.Define("tmp_good_gens", condgen);
   for(auto& v : genvars)
    	dd = dd.Define("tmp_good_" + v, v + "[tmp_good_gens]");
 

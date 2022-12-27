@@ -14,14 +14,20 @@ import awkward as ak
 from utils import params, common
 
 class BaseData(abc.ABC):
-    def __init__(self, inname, tag):
+    def __init__(self, inname, tag, reprocess):
         self.inpath = os.path.join(str(params.viz_kw['DataPath']), inname)
         self.tag = tag
-        self.outpath = os.path.join(str(params.viz_kw['LocalPath']), self.tag + '/')
+        self.reprocess = reprocess
+
+        self.outpath = os.path.join(str(params.viz_kw['LocalPath']), self.tag + '.parquet')
         self.var = common.dot_dict({})
         self.newvar = common.dot_dict({})
 
     @abc.abstractmethod
     def select(self):
         raise NotImplementedError()
-    
+
+    @abc.abstractmethod
+    def store(self):
+        raise NotImplementedError()
+

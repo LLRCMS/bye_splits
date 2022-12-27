@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
   string particle = std::string(argv[1]);
 
   std::string infile = particle + "_0PU_bc_stc_hadd.root";
-  std::string outfile = "skim_" + infile;
+  std::string outfile = "skim_small_" + infile;
   skim(tree_name, dir + infile, dir + outfile, particle);
   return 0;
 }

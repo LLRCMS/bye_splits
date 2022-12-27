@@ -24,3 +24,5 @@ varGeometry:
     subd: 'subdet'
     wvs: 'waferv_shift'
     c: 'color'
+    orient: 'waferorient'
+    part: 'waferpart'

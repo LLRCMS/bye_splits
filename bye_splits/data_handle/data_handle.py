@@ -15,16 +15,18 @@ from data_handle.geometry import GeometryData
 from data_handle.event import EventData
 
 class EventDataParticle:
-    def __init__(self, particles, tag, reprocess=False):
+    def __init__(self, particles, tag, reprocess=False, debug=False):
         assert particles in ('photons', 'electrons')
         self.particles = particles
         self.tag = self.particles + '_' + tag
         with open(params.viz_kw['CfgEventPath'], 'r') as afile:
             self.config = yaml.safe_load(afile)
 
-        in_name = '_'.join(('skim', self.particles, '0PU_bc_stc_hadd.root'))    
+        data_suffix = 'skim' + ('_small' if debug else '')
+        in_name = '_'.join((data_suffix, self.particles, '0PU_bc_stc_hadd.root'))
         default_events = self.config['defaultEvents'][self.particles]
-        self.data = EventData(in_name, self.tag, default_events, reprocess=reprocess)
+        self.data = EventData(in_name, self.tag + '_debug' * debug,
+                              default_events, reprocess=reprocess)
 
     def provide_event(self, event):
         return self.data.provide_event(event)

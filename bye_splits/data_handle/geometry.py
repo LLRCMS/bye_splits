@@ -18,8 +18,8 @@ from utils import params, common
 from data_handle.base import BaseData
 
 class GeometryData(BaseData):
-    def __init__(self, inname=''):
-        super().__init__(inname, 'geom')
+    def __init__(self, inname='', reprocess=False):
+        super().__init__(inname, 'geom', reprocess)
         self.dname = 'tc'
         with open(params.viz_kw['CfgEventPath'], 'r') as afile:
             cfg = yaml.safe_load(afile)
@@ -30,7 +30,10 @@ class GeometryData(BaseData):
         self.readvars.remove(self.var.c)
 
     def provide(self):
-        if not os.path.exists(self.outpath):
+        print('Providing geometry data...')
+        print(self.outpath)
+        breakpoint()
+        if not os.path.exists(self.outpath) or self.reprocess:
             self.store()
         return dd.read_parquet(self.outpath, engine='pyarrow').compute()
         #return ak.from_parquet(self.outpath)
@@ -59,5 +62,6 @@ class GeometryData(BaseData):
         return data
 
     def store(self):
+        print('Store geometry data...')
         data = self.select()
         ak.to_parquet(data, self.tag + '.parquet')

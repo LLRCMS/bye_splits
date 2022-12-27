@@ -20,7 +20,7 @@ from data_handle.base import BaseData
 
 class EventData(BaseData):
     def __init__(self, inname='', tag='v0', default_events=[], reprocess=False):
-        super().__init__(inname, tag)
+        super().__init__(inname, tag, reprocess)
         
         with open(params.viz_kw['CfgEventPath'], 'r') as afile:
             cfg = yaml.safe_load(afile)
@@ -28,11 +28,11 @@ class EventData(BaseData):
             
         self.cache = None
         self.events = default_events
-        self.cache_events(self.events, reprocess=reprocess)
+        self.cache_events(self.events)
 
-    def cache_events(self, events, reprocess):
+    def cache_events(self, events):
         """Read dataset from parquet to cache"""
-        if not os.path.exists(self.outpath) or reprocess:
+        if not os.path.exists(self.outpath) or self.reprocess:
             self.store()
         if not isinstance(events, (tuple,list)):
             events = [events]
@@ -50,6 +50,7 @@ class EventData(BaseData):
         #self.cache = self.cache.persist() only for dask dataframes
 
     def provide(self):
+        print('Providing event {} data...'.format(self.tag))
         if not os.path.exists(self.outpath):
             self.store()
         return ak.from_parquet(self.outpath)
@@ -66,7 +67,7 @@ class EventData(BaseData):
     def select(self):
         adir = 'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple'
         atree = 'HGCalTriggerNtuple'
-        print('chec 0')
+
         with up.open(str(self.inpath), array_cache='550 MB', num_workers=8) as f:
             # print(tree.show())
             tree = f[adir + '/' + atree]
@@ -80,9 +81,8 @@ class EventData(BaseData):
         return data
 
     def store(self):
+        print('Store event {} data...'.format(self.tag))
         data = self.select()
         if os.path.exists(self.outpath):
             shutil.rmtree(self.outpath)
-        print('chec A')
         ak.to_parquet(data, self.outpath)
-        print('chec B')

@@ -36,12 +36,14 @@ from data_handle.geometry import GeometryData
 with open(params.viz_kw['CfgEventPath'], 'r') as afile:
     config = yaml.safe_load(afile)
 
-data_particle = {'photons': EventDataParticle(particles='photons', tag='v1', reprocess=True),
-                 'electrons': EventDataParticle(particles='electrons', tag='v1', reprocess=True)}
-geom_data = GeometryData(inname='test_triggergeom.root')
+data_part_opt = dict(tag='v2', reprocess=False, debug=True)
+data_particle = {
+    'photons': EventDataParticle(particles='photons', **data_part_opt),
+    'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
+geom_data = GeometryData(inname='test_triggergeom_v2.root')
 data_vars = {'ev': config['varEvents'],
              'geom': config['varGeometry']}
-mode = 'ev'
+mode = 'geom'
 
 def common_props(p, xlim=None, ylim=None):
     p.output_backend = 'svg'
@@ -56,6 +58,7 @@ def common_props(p, xlim=None, ylim=None):
         p.y_range = bmd.Range1d(ylim[0], ylim[1])
         
 def convert_cells_to_xy(df, avars):
+    breakpoint()
     rr, rr2 = lambda x : x.astype(float).round(3), lambda x : round(x, 3)
     c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
     N = 4
@@ -77,11 +80,11 @@ def convert_cells_to_xy(df, avars):
             lambda cu,cv: (v+u-2*N+1) * r),
         1: (lambda cu,cv: (1.5*(v-N)+0.5) * R,
             lambda cu,cv: -(2*v-u-N+1) * r),
-        2: (lambda cu,cv: -(1.5*(u-N)+1) * R
+        2: (lambda cu,cv: -(1.5*(u-N)+1) * R,
             lambda cu,cv: -(2*v-u-N) * r),
         3: (lambda cu,cv: -(1.5*(u-v)+0.5) * R,
             lambda cu,cv: -(v+u-2*N+1) * r),
-        4: (lambda cu,cv: (1.5*(u-N)+0.5) * R
+        4: (lambda cu,cv: (1.5*(u-N)+0.5) * R,
             lambda cu,cv: -(2*u-v-N+1) * r),
         5: (lambda cu,cv: (1.5*(u-N)+1) * R,
             lambda cu,cv: (2*v-u-N) * r),
@@ -108,15 +111,7 @@ def convert_cells_to_xy(df, avars):
     } #up-right, up-left and bottom
 
     # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
-    masks_index_placement = {
-        #starting at 6 due to considering +z side only
-        6: df[avars['orient']] + 6 == 6,
-        7: df[avars['orient']] + 6 == 7,
-        8: df[avars['orient']] + 6 == 8,
-        9: df[avars['orient']] + 6 == 9,
-        10: df[avars['orient']] + 6 == 10,
-        11: df[avars['orient']] + 6 == 11,
-    }
+    masks_index_placement = lambda ori : df[avars['orient']] + 6 == ori
     masks_location = {
         'UL': (((df[avars['cu']]>=1) & (df[avars['cu']]<=4) & (df[avars['cv']]==0)) |
                ((df[avars['cu']]>=2) & (df[avars['cu']]<=5) & (df[avars['cv']]==1)) |
@@ -131,10 +126,10 @@ def convert_cells_to_xy(df, avars):
     xaxis, yaxis = ({} for _ in range(2))
     xaxis_plac, yaxis_plac = ({} for _ in range(2))
 
-    for ip_key, ip_val in masks_index_placement.items():
+    for ip_key in range(6,12): #orientation indices
         xaxis_plac.update({ip_key: {}})
         yaxis_plac.update({ip_key: {}})
-        masks_ip = masks_index_placement[ip_key]
+        masks_ip = masks_index_placement(ip_key)
         for loc_key,loc_val in masks_location.items():
             masks_loc = masks_location[loc_key]
             masks_inters = (masks_ip & masks_loc)
@@ -215,10 +210,11 @@ def get_data(event, particles):
     ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
 
     ds_geom = geom_data.provide()
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
+    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3))]
     ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
     return {'ev': ds_ev, 'geom': ds_geom}
 
