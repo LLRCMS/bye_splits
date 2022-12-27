@@ -30,25 +30,29 @@ class GeometryData(BaseData):
         self.readvars.remove(self.var.c)
 
     def provide(self):
-        print('Providing geometry data...')
-        print(self.outpath)
-        breakpoint()
         if not os.path.exists(self.outpath) or self.reprocess:
             self.store()
-        return dd.read_parquet(self.outpath, engine='pyarrow').compute()
-        #return ak.from_parquet(self.outpath)
+        print('Providing geometry data...')
+        ds = ak.from_parquet(self.outpath)
 
+        # filter some columns to reduce memory usage
+        cols_to_remove = ['x', 'y', 'z', 'color']
+        cols = [x for x in ds.fields if x not in cols_to_remove]
+        ds = ds[cols]
+        
+        return ak.to_dataframe(ds)
+        
     def select(self):
         with up.open(self.inpath) as f:
             tree = f[ os.path.join('hgcaltriggergeomtester', 'TreeTriggerCells') ]
             #print(tree.show())
             data = tree.arrays(self.readvars)
             sel = (data.zside==1) & (data.subdet==1)
-            fields = data[sel].fields
+            fields = data.fields[:]
+
             for v in (self.var.side, self.var.subd):
                 fields.remove(v)
             data = data[sel][fields]
-            
             data = data[data.layer%2==0]
             #below is correct but much slower (no operator isin in awkward)
             #this cut is anyways implemented in the skimmer
@@ -58,10 +62,12 @@ class GeometryData(BaseData):
             data[self.var.wv] = data.waferv
             data[self.var.wvs] = -1 * data.waferv
             data[self.var.c] = "#8a2be2"
-            
+
         return data
 
     def store(self):
         print('Store geometry data...')
         data = self.select()
-        ak.to_parquet(data, self.tag + '.parquet')
+        if os.path.exists(self.outpath):
+            os.remove(self.outpath)
+        ak.to_parquet(data, self.outpath)

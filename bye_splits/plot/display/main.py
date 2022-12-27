@@ -40,7 +40,7 @@ data_part_opt = dict(tag='v2', reprocess=False, debug=True)
 data_particle = {
     'photons': EventDataParticle(particles='photons', **data_part_opt),
     'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
-geom_data = GeometryData(inname='test_triggergeom_v2.root')
+geom_data = GeometryData(inname='test_triggergeom_v2.root', reprocess=True)
 data_vars = {'ev': config['varEvents'],
              'geom': config['varGeometry']}
 mode = 'geom'
@@ -58,7 +58,6 @@ def common_props(p, xlim=None, ylim=None):
         p.y_range = bmd.Range1d(ylim[0], ylim[1])
         
 def convert_cells_to_xy(df, avars):
-    breakpoint()
     rr, rr2 = lambda x : x.astype(float).round(3), lambda x : round(x, 3)
     c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
     N = 4
@@ -77,29 +76,29 @@ def convert_cells_to_xy(df, avars):
     r = R * c30
     cells_conversion = {
         0: (lambda cu,cv: (1.5*(cu-cv)+0.5) * R,
-            lambda cu,cv: (v+u-2*N+1) * r),
-        1: (lambda cu,cv: (1.5*(v-N)+0.5) * R,
-            lambda cu,cv: -(2*v-u-N+1) * r),
-        2: (lambda cu,cv: -(1.5*(u-N)+1) * R,
-            lambda cu,cv: -(2*v-u-N) * r),
-        3: (lambda cu,cv: -(1.5*(u-v)+0.5) * R,
-            lambda cu,cv: -(v+u-2*N+1) * r),
-        4: (lambda cu,cv: (1.5*(u-N)+0.5) * R,
-            lambda cu,cv: -(2*u-v-N+1) * r),
-        5: (lambda cu,cv: (1.5*(u-N)+1) * R,
-            lambda cu,cv: (2*v-u-N) * r),
-        6: (lambda cu,cv: (1.5*(v-u)+0.5) * R,
-            lambda cu,cv: (v+u-2*N+1) * r),
-        7: (lambda cu,cv: (1.5*(v-N)+1) * R,
-            lambda cu,cv: (2*u-v-N) * r),
-        8: (lambda cu,cv: (1.5*(u-N)+0.5) * R,
-            lambda cu,cv: -[2*v-u-N+1] * r),
-        9: (lambda cu,cv: -(1.5*(v-u)+0.5) * R,
-            lambda cu,cv: -(v+u-2*N+1) * r),
-        10: (lambda cu,cv: -(1.5*(v-N)+1) * R,
-             lambda cu,cv: -(2*u-v-N) * r),
-        11: (lambda cu,cv: -(1.5*(u-N)+0.5) * R,
-             lambda cu,cv: (2*v-u-N+1) * r),
+            lambda cu,cv: (cv+cu-2*N+1) * r),
+        1: (lambda cu,cv: (1.5*(cv-N)+0.5) * R,
+            lambda cu,cv: -(2*cv-cu-N+1) * r),
+        2: (lambda cu,cv: -(1.5*(cu-N)+1) * R,
+            lambda cu,cv: -(2*cv-cu-N) * r),
+        3: (lambda cu,cv: -(1.5*(cu-cv)+0.5) * R,
+            lambda cu,cv: -(cv+cu-2*N+1) * r),
+        4: (lambda cu,cv: (1.5*(cu-N)+0.5) * R,
+            lambda cu,cv: -(2*cu-cv-N+1) * r),
+        5: (lambda cu,cv: (1.5*(cu-N)+1) * R,
+            lambda cu,cv: (2*cv-cu-N) * r),
+        6: (lambda cu,cv: (1.5*(cv-cu)+0.5) * R,
+            lambda cu,cv: (cv+cu-2*N+1) * r),
+        7: (lambda cu,cv: (1.5*(cv-N)+1) * R,
+            lambda cu,cv: (2*cu-cv-N) * r),
+        8: (lambda cu,cv: (1.5*(cu-N)+0.5) * R,
+            lambda cu,cv: -(2*cv-cu-N+1) * r),
+        9: (lambda cu,cv: -(1.5*(cv-cu)+0.5) * R,
+            lambda cu,cv: -(cv+cu-2*N+1) * r),
+        10: (lambda cu,cv: -(1.5*(cv-N)+1) * R,
+             lambda cu,cv: -(2*cu-cv-N) * r),
+        11: (lambda cu,cv: -(1.5*(cu-N)+0.5) * R,
+             lambda cu,cv: (2*cv-cu-N+1) * r),
     }
     wafer_shifts = {
         'UL': (lambda wu,wv,cx: rr(2*wu - wv + cx),
@@ -149,15 +148,15 @@ def convert_cells_to_xy(df, avars):
             #                                    df[avars['wv']][masks[key]],
             #                                    df[avars['cv']][masks[key]])})
     
-            x1.update({key: x0[key][:] + d4})
+            x1.update({loc_key: x0[loc_key][:] + d4})
             if loc_key in ('UL', 'UR'):
-                x2.update({loc_key: x1[key]})
-                x3.update({loc_key: x0[key]})
+                x2.update({loc_key: x1[loc_key]})
+                x3.update({loc_key: x0[loc_key]})
             else:
-                x2.update({loc_key: x1[key] + d4})
-                x3.update({loc_key: x1[key]})
+                x2.update({loc_key: x1[loc_key] + d4})
+                x3.update({loc_key: x1[loc_key]})
 
-            y0.update({key: wydata})
+            y0.update({loc_key: wy_data})
             # y0.update({key: conversion[key][1](df[avars['wv']][masks[key]],
             #                                df[avars['cu']][masks[key]],
             #                                df[avars['cv']][masks[key]])})
@@ -171,7 +170,7 @@ def convert_cells_to_xy(df, avars):
             else:
                 y2.update({loc_key: y1[loc_key][:] + rr2(d4/c30)})
             if loc_key in ('UL', 'UR'):
-                y3.update({key: y0[loc_key][:] + rr2(d4/c30)})
+                y3.update({loc_key: y0[loc_key][:] + rr2(d4/c30)})
             else:
                 y3.update({loc_key: y0[loc_key][:] + rr2(t30*d4)})
 
@@ -191,31 +190,32 @@ def convert_cells_to_xy(df, avars):
             yaxis[loc_key] = yaxis[loc_key].drop(keys, axis=1)
 
         xaxis_plac[ip_key] = pd.concat(xaxis.values())
-        yayis_plac[ip_key] = pd.concat(yayis.values())
-        xaxis_plac[ip_key] = xaxis_plac.groupby(xaxis_plac.index).agg(lambda k: [k])
-        yaxis_plac[ip_key] = yaxis_plac.groupby(yaxis_plac.index).agg(lambda k: [k])
+        yaxis_plac[ip_key] = pd.concat(yaxis.values())
+        xaxis_plac[ip_key] = xaxis_plac[ip_key].groupby(xaxis_plac[ip_key].index).agg(lambda k: [k])
+        yaxis_plac[ip_key] = yaxis_plac[ip_key].groupby(yaxis_plac[ip_key].index).agg(lambda k: [k])
 
     tc_polyg_x = pd.concat(xaxis_plac.values())
     tc_polyg_y = pd.concat(xaxis_plac.values())
     tc_polyg_x = tc_polyg_x.groupby(tc_polyg_x.index).agg(lambda k: [k])
     tc_polyg_y = tc_polyg_y.groupby(tc_polyg_y.index).agg(lambda k: [k])
-    
+    breakpoint()
     res = pd.concat([tc_polyg_x, tc_polyg_y], axis=1)
     res.columns = ['tc_polyg_x', 'tc_polyg_y']
     df.rename(columns = {avars['l']: 'layer'}, inplace=True)
     return df.join(res)
 
 def get_data(event, particles):
-    ds_ev = data_particle[particles].provide_event(event)
-    ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
-
     ds_geom = geom_data.provide()
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3))]
     # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
     #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
     #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
     #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3))]
     ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
+
+    ds_ev = data_particle[particles].provide_event(event)
+    ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
+
     return {'ev': ds_ev, 'geom': ds_geom}
 
 with open(params.viz_kw['CfgEventPath'], 'r') as afile:
