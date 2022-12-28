@@ -8,7 +8,6 @@ import sys
 parent_dir = os.path.abspath(__file__ + 2 * '/..')
 sys.path.insert(0, parent_dir)
 
-import shutil
 import yaml
 import uproot as up
 import pandas as pd
@@ -42,6 +41,9 @@ class EventData(BaseData):
         for ev in events:
             evmask = evmask | (ds.event==ev)
         ds = ak.to_dataframe(ds[evmask])
+        if ds.empty:
+            mes = 'Events {} not found (tag = {}).'
+            raise RuntimeError(mes.format(' '.join([str(x) for x in events]), self.tag))
 
         if not self.cache: #first cache_events() call
             self.cache = ds
@@ -84,5 +86,5 @@ class EventData(BaseData):
         print('Store event {} data...'.format(self.tag))
         data = self.select()
         if os.path.exists(self.outpath):
-            shutil.rmtree(self.outpath)
+            os.remove(self.outpath)
         ak.to_parquet(data, self.outpath)

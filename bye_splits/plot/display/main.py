@@ -57,7 +57,10 @@ def common_props(p, xlim=None, ylim=None):
     if ylim is not None:
         p.y_range = bmd.Range1d(ylim[0], ylim[1])
         
-def convert_cells_to_xy(df, avars):
+def convert_cells_to_xy(df):
+    scu, scv = 'triggercellu', 'triggercellv'
+    swu, swv = 'waferu', 'waferv'
+    
     rr, rr2 = lambda x : x.astype(float).round(3), lambda x : round(x, 3)
     c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
     N = 4
@@ -110,15 +113,14 @@ def convert_cells_to_xy(df, avars):
     } #up-right, up-left and bottom
 
     # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
-    masks_index_placement = lambda ori : df[avars['orient']] + 6 == ori
-    masks_location = {
-        'UL': (((df[avars['cu']]>=1) & (df[avars['cu']]<=4) & (df[avars['cv']]==0)) |
-               ((df[avars['cu']]>=2) & (df[avars['cu']]<=5) & (df[avars['cv']]==1)) |
-               ((df[avars['cu']]>=3) & (df[avars['cu']]<=6) & (df[avars['cv']]==2)) |
-               ((df[avars['cu']]>=4) & (df[avars['cu']]<=7) & (df[avars['cv']]==3))),
-        'UR': (df[avars['cu']]>=4) & (df[avars['cu']]<=7) & (df[avars['cv']]>=4) & (df[avars['cv']]<=7),
-        'B':  (df[avars['cv']]>=df[avars['cu']]) & (df[avars['cu']]<=3),
-    }
+    masks_index_placement = lambda ori : df['waferorient'] + 6 == ori
+    masks_location = {'UL': (((df[scu]>=1) & (df[scu]<=4) & (df[scv]==0)) |
+                             ((df[scu]>=2) & (df[scu]<=5) & (df[scv]==1)) |
+                             ((df[scu]>=3) & (df[scu]<=6) & (df[scv]==2)) |
+                             ((df[scu]>=4) & (df[scu]<=7) & (df[scv]==3))),
+                      'UR': (df[scu]>=4) & (df[scu]<=7) & (df[scv]>=4) & (df[scv]<=7),
+                      'B':  (df[scv]>=df[scu]) & (df[scu]<=3),
+                      }
 
     x0, x1, x2, x3 = ({} for _ in range(4))
     y0, y1, y2, y3 = ({} for _ in range(4))
@@ -133,10 +135,10 @@ def convert_cells_to_xy(df, avars):
             masks_loc = masks_location[loc_key]
             masks_inters = (masks_ip & masks_loc)
             
-            cu_data = df[avars['cu']][masks_inters]
-            cv_data = df[avars['cv']][masks_inters]
-            wu_data = df[avars['wu']][masks_inters]
-            wv_data = df[avars['wv']][masks_inters]
+            cu_data = df[scu][masks_inters]
+            cv_data = df[scv][masks_inters]
+            wu_data = df[swu][masks_inters]
+            wv_data = df[swv][masks_inters]
 
             cx_data = cells_conversion[ip_key][0](cu_data, cv_data)
             cy_data = cells_conversion[ip_key][1](cu_data, cv_data)
@@ -144,10 +146,6 @@ def convert_cells_to_xy(df, avars):
             wy_data = wafer_shifts[loc_key][1](wu_data, cy_data)
             
             x0.update({loc_key: wx_data})
-            # x0.update({key: conversion[key][0](df[avars['wu']][masks[key]],
-            #                                    df[avars['wv']][masks[key]],
-            #                                    df[avars['cv']][masks[key]])})
-    
             x1.update({loc_key: x0[loc_key][:] + d4})
             if loc_key in ('UL', 'UR'):
                 x2.update({loc_key: x1[loc_key]})
@@ -157,10 +155,6 @@ def convert_cells_to_xy(df, avars):
                 x3.update({loc_key: x1[loc_key]})
 
             y0.update({loc_key: wy_data})
-            # y0.update({key: conversion[key][1](df[avars['wv']][masks[key]],
-            #                                df[avars['cu']][masks[key]],
-            #                                df[avars['cv']][masks[key]])})
-
             if loc_key in ('UR', 'B'):
                 y1.update({loc_key: y0[loc_key][:] - rr2(t30*d4)})
             else:
@@ -196,12 +190,8 @@ def convert_cells_to_xy(df, avars):
 
     tc_polyg_x = pd.concat(xaxis_plac.values())
     tc_polyg_y = pd.concat(xaxis_plac.values())
-    # tc_polyg_x = tc_polyg_x.groupby(tc_polyg_x.index).agg(lambda k: [k])
-    # tc_polyg_y = tc_polyg_y.groupby(tc_polyg_y.index).agg(lambda k: [k])
-    # breakpoint()
     res = pd.concat([tc_polyg_x, tc_polyg_y], axis=1)
     res.columns = ['tc_polyg_x', 'tc_polyg_y']
-    #res.rename(columns = {avars['l']: 'layer'}, inplace=True)
     return df.join(res)
 
 def get_data(event, particles):
@@ -211,11 +201,16 @@ def get_data(event, particles):
     #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
     #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
     #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
-    ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
+    ds_geom = convert_cells_to_xy(ds_geom)
 
-    breakpoint()
     ds_ev = data_particle[particles].provide_event(event)
-    ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
+    ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
+                          'good_tc_layer':'layer'},
+                 inplace=True)
+
+    ds_ev = pd.merge(left=ds_ev, right=ds_geom, how='inner',
+                     on=['layer', 'waferu', 'waferv'])
+    ds_ev = convert_cells_to_xy(ds_ev)
 
     return {'ev': ds_ev, 'geom': ds_geom}
 
@@ -246,8 +241,6 @@ def dropdown_callback(event, source, particles):
     source.data = get_data(int(event.__dict__['item']), particles)[mode]
 
 def display():
-    variables = data_vars[mode]
-
     doc = curdoc()
     doc.title = 'TC Visualization'
     
@@ -258,7 +251,7 @@ def display():
     for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
         if mode == 'ev':
             mapper = bmd.LinearColorMapper(palette=mypalette,
-                                          low=vsrc.data[variables['en']].min(), high=vsrc.data[variables['en']].min())
+                                          low=vsrc.data['good_tc_mipPt'].min(), high=vsrc.data['good_tc_mipPt'].min())
 
         slider = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
                             value=vsrc.data['layer'].min(), step=2, title='Layer',
@@ -295,12 +288,14 @@ def display():
                          y_range=bmd.Range1d(-lim, lim),
                          tools='save,reset', toolbar_location='right',
                          output_backend='webgl')
+
+        hover_val_common = '@triggercellu,@triggercellv / @waferu,@waferv'
         if mode == 'ev':
             hover_key = 'Energy (cu,cv / wu,wv)'
-            hover_val = '@'+variables['en'] + ' (@'+variables['cu']+',@'+variables['cv']+' / @'+variables['wu']+',@'+variables['wv']+')'
+            hover_val = '@good_tc_mipPt (' + hover_val_common + ')'
         else:
             hover_key = 'cu,cv / wu,wv'
-            hover_val = '@'+variables['cu']+',@'+variables['cv']+' / @'+variables['wu']+',@'+variables['wv']
+            hover_val = hover_val_common
 
         p_cells.add_tools(bmd.BoxZoomTool(match_aspect=True),
                           bmd.WheelZoomTool(),
@@ -310,7 +305,7 @@ def display():
         p_cells_opt = dict(xs='tc_polyg_x', ys='tc_polyg_y', source=vsrc, view=view, **polyg_opt)
 
         if mode == 'ev':
-            p_cells.multi_polygons(fill_color={'field': variables['en'], 'transform': mapper},
+            p_cells.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper},
                                    **p_cells_opt)
         else:
             p_cells.multi_polygons(color='green', **p_cells_opt)

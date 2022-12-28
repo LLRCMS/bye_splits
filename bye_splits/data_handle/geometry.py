@@ -53,10 +53,10 @@ class GeometryData(BaseData):
             for v in (self.var.side, self.var.subd):
                 fields.remove(v)
             data = data[sel][fields]
-            data = data[data.layer%2==0]
+            data = data[data.layer%2==1]
             #below is correct but much slower (no operator isin in awkward)
             #this cut is anyways implemented in the skimmer
-            #data = data[ak.Array([x in params.disconnectedTriggerLayers for x in data.layer])]
+            #data = data[ak.Array([x not in params.disconnectedTriggerLayers for x in data.layer])]
             
             #data = data.drop_duplicates(subset=[self.var.cu, self.var.cv, self.var.l])
             data[self.var.wv] = data.waferv
