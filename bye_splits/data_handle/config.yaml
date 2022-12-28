@@ -1,6 +1,6 @@
 defaultEvents:
-    photons: [179855,19764]
-    electrons: [92004,125347]
+    photons: [4681, 4677]
+    electrons: [92004, 92002]
 
 varEvents:
     event: 'event'

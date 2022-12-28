@@ -36,7 +36,7 @@ void skim(string tn, string inf, string outf, string particle) {
 								 "tc_x", "tc_y", "tc_z", "tc_phi", "tc_eta"};
   vector<string> tcvars = join_vars(tcvars_int, tcvars_float);
 
-  string condtc = "tc_zside == 1 && tc_layer%2 == 0";
+  string condtc = "tc_zside == 1";// && tc_layer%2 == 0";
   dd = dd.Define("tmp_good_tcs", condtc);
   for(auto& v : tcvars)
 	dd = dd.Define("tmp_good_" + v, v + "[tmp_good_tcs]");

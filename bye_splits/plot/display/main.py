@@ -210,8 +210,7 @@ def get_data(event, particles):
 
     ds_ev = pd.merge(left=ds_ev, right=ds_geom, how='inner',
                      on=['layer', 'waferu', 'waferv'])
-    ds_ev = convert_cells_to_xy(ds_ev)
-
+    #ds_ev = convert_cells_to_xy(ds_ev)
     return {'ev': ds_ev, 'geom': ds_geom}
 
 with open(params.viz_kw['CfgEventPath'], 'r') as afile:
