@@ -63,15 +63,7 @@ def convert_cells_to_xy(df):
     
     c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
     N = 4
-    # conversion = {
-    #     'UL': (lambda wu,wv,cv: rr(2*wu - wv + d4 * cv),
-    #            lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + d8/c30 * (2*(cu-1)-cv))),
-    #     'UR': (lambda wu,wv,cv: rr(2*wu - wv + d + d4 * (cv-N)),
-    #            lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + t30*d + d8/c30 * (2*(cu-N)-(cv-N)))),
-    #     'B':  (lambda wu,wv,cv: rr(2*wu - wv + d4 * cv),
-    #            lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + t30 * d4 * (2*cu-cv)))
-    # } #up-right, up-left and bottom
-
+    N2 = 2*N - 1
     waferSize = 1
     cellDistX = waferSize/8.
     cellDistY = cellDistX * t30
@@ -104,24 +96,15 @@ def convert_cells_to_xy(df):
         11: (lambda cu,cv: -(1.5*(cu-N)+0.5) * R,
              lambda cu,cv: (2*cv-cu-N+1) * r),
     }
-    wafer_shifts = {
-        'UL': (lambda wu,wv,cx: 2*wu - wv + cx,
-               lambda wv,cy: ((waferSize/c30)+waferSize*t30)*wv + cy),
-        'UR': (lambda wu,wv,cx: 2*wu - wv + cx,
-               lambda wv,cy: ((waferSize/c30)+waferSize*t30)*wv + cy),
-        'B':  (lambda wu,wv,cx: 2*wu - wv + cx,
-               lambda wv,cy: ((waferSize/c30)+waferSize*t30)*wv + cy)
-    } #up-right, up-left and bottom
+    wafer_shifts = (lambda wu,wv,cx: (2*wu - wv)*waferSize/2 + cx,
+                    lambda wv,cy: c30*wv + cy)
 
     # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
     masks_index_placement = lambda ori : df['waferorient'] + 6 == ori
-    masks_location = {'UL': (((df[scu]>=1) & (df[scu]<=4) & (df[scv]==0)) |
-                             ((df[scu]>=2) & (df[scu]<=5) & (df[scv]==1)) |
-                             ((df[scu]>=3) & (df[scu]<=6) & (df[scv]==2)) |
-                             ((df[scu]>=4) & (df[scu]<=7) & (df[scv]==3))),
-                      'UR': (df[scu]>=4) & (df[scu]<=7) & (df[scv]>=4) & (df[scv]<=7),
-                      'B':  (df[scv]>=df[scu]) & (df[scu]<=3),
-                      }
+    masks_location = {'UL': (df[scu]>=N) & (df[scu]<=N2) & (df[scv]<df[scu]),
+                      'UR': (df[scv]>=N) & (df[scv]<=N2) & (df[scv]>=df[scu]),
+                      'B':  (df[scu]<N) & (df[scv]<N),
+                      } #up-right, up-left and bottom
 
     x0, x1, x2, x3 = ({} for _ in range(4))
     y0, y1, y2, y3 = ({} for _ in range(4))
@@ -143,12 +126,17 @@ def convert_cells_to_xy(df):
 
             cx_data = cells_conversion[ip_key][0](cu_data, cv_data)
             cy_data = cells_conversion[ip_key][1](cu_data, cv_data)
-            # if len(cx_data)!=0:
-            #     breakpoint()
-            wx_data = wafer_shifts[loc_key][0](wu_data, wv_data, cx_data)
-            wy_data = wafer_shifts[loc_key][1](wu_data, cy_data)
-            
-            x0.update({loc_key: wx_data})
+            wx_data = wafer_shifts[0](wu_data, wv_data, cx_data)
+            wy_data = wafer_shifts[1](wv_data, cy_data)
+
+            # x0 refers to the x position the lefmost, down corner all diamonds (TCs)
+            # x1, x2, x3 are defined in a counter clockwise fashion
+            # same for y0, y1, y2 and y3
+            # tc positions refer to the center of the diamonds
+            if loc_key in ('UL', 'UR'):
+                x0.update({loc_key: wx_data})
+            else:
+                x0.update({loc_key: wx_data - cellDistX})
             x1.update({loc_key: x0[loc_key][:] + cellDistX})
             if loc_key in ('UL', 'UR'):
                 x2.update({loc_key: x1[loc_key]})
@@ -157,7 +145,10 @@ def convert_cells_to_xy(df):
                 x2.update({loc_key: x1[loc_key] + cellDistX})
                 x3.update({loc_key: x1[loc_key]})
 
-            y0.update({loc_key: wy_data})
+            if loc_key in ('UL', 'UR'):
+                y0.update({loc_key: wy_data})
+            else:
+                y0.update({loc_key: wy_data + cellDistY})
             if loc_key in ('UR', 'B'):
                 y1.update({loc_key: y0[loc_key][:] - cellDistY})
             else:
@@ -183,6 +174,9 @@ def convert_cells_to_xy(df):
                                      for sublst in xaxis[loc_key].values.tolist()]
             yaxis[loc_key]['new'] = [[round(val, 3) for val in sublst]
                                      for sublst in yaxis[loc_key].values.tolist()]
+            # xaxis[loc_key]['x_tmp'] = x0[loc_key]
+            # yaxis[loc_key]['y_tmp'] = y0[loc_key]
+
             xaxis[loc_key] = xaxis[loc_key].drop(keys, axis=1)
             yaxis[loc_key] = yaxis[loc_key].drop(keys, axis=1)
 
@@ -194,12 +188,16 @@ def convert_cells_to_xy(df):
     tc_polyg_x = pd.concat(xaxis_plac.values())
     tc_polyg_y = pd.concat(yaxis_plac.values())
     res = pd.concat([tc_polyg_x, tc_polyg_y], axis=1)
+    #res.columns = ['tc_polyg_x', 'x_tmp', 'tc_polyg_y', 'y_tmp']
     res.columns = ['tc_polyg_x', 'tc_polyg_y']
     return df.join(res)
 
 def get_data(event, particles):
     ds_geom = geom_data.provide()
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3))]
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
+                      ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
     # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
     #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
     #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
@@ -313,6 +311,7 @@ def display():
                                    **p_cells_opt)
         else:
             p_cells.multi_polygons(color='green', **p_cells_opt)
+            #p_cells.circle(x='x_tmp', y='y_tmp', source=vsrc, size=3)
                         
         if mode == 'ev':
             color_bar = bmd.ColorBar(color_mapper=mapper,
