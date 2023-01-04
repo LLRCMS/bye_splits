@@ -101,10 +101,17 @@ def convert_cells_to_xy(df):
 
     # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
     masks_index_placement = lambda ori : df['waferorient'] + 6 == ori
-    masks_location = {'UL': (df[scu]>=N) & (df[scu]<=N2) & (df[scv]<df[scu]),
-                      'UR': (df[scv]>=N) & (df[scv]<=N2) & (df[scv]>=df[scu]),
-                      'B':  (df[scu]<N) & (df[scv]<N),
-                      } #up-right, up-left and bottom
+    # masks_location = {'UL': (df[scu]>=N) & (df[scu]<=N2) & (df[scv]<df[scu]),
+    #                   'UR': (df[scv]>=N) & (df[scv]<=N2) & (df[scv]>=df[scu]),
+    #                   'B':  (df[scu]<N) & (df[scv]<N),
+    #                   } #up-right, up-left and bottom
+    def masks_location(location, ax, ay): #up-right, up-left and bottom
+        if location == 'UL':
+            return df[ax] < 0 and df[ay] > 0
+        elif location == 'UR':
+            return df[ax] > 0 and df[ay] > 0
+        else:
+            return df[ay] < 0
 
     x0, x1, x2, x3 = ({} for _ in range(4))
     y0, y1, y2, y3 = ({} for _ in range(4))
@@ -115,28 +122,30 @@ def convert_cells_to_xy(df):
         xaxis_plac.update({ip_key: {}})
         yaxis_plac.update({ip_key: {}})
         masks_ip = masks_index_placement(ip_key)
-        for loc_key,loc_val in masks_location.items():
-            masks_loc = masks_location[loc_key]
-            masks_inters = (masks_ip & masks_loc)
+
+        cu_data = df[scu][masks_ip]
+        cv_data = df[scv][masks_ip]
+        wu_data = df[swu][masks_ip]
+        wv_data = df[swv][masks_ip]
+
+        cx_data = cells_conversion[ip_key][0](cu_data, cv_data)
+        cy_data = cells_conversion[ip_key][1](cu_data, cv_data)
+        wx_data = wafer_shifts[0](wu_data, wv_data, cx_data)
+        wy_data = wafer_shifts[1](wv_data, cy_data)
+
+        for loc_key in ('UL', 'UR', 'B'):
+            masks_loc = masks_location(loc_key, cx_data, cy_data)
+            breakpoint()
+            wx_d, wy_d = wx_data[masks_loc], wy_data[masks_loc]
             
-            cu_data = df[scu][masks_inters]
-            cv_data = df[scv][masks_inters]
-            wu_data = df[swu][masks_inters]
-            wv_data = df[swv][masks_inters]
-
-            cx_data = cells_conversion[ip_key][0](cu_data, cv_data)
-            cy_data = cells_conversion[ip_key][1](cu_data, cv_data)
-            wx_data = wafer_shifts[0](wu_data, wv_data, cx_data)
-            wy_data = wafer_shifts[1](wv_data, cy_data)
-
             # x0 refers to the x position the lefmost, down corner all diamonds (TCs)
             # x1, x2, x3 are defined in a counter clockwise fashion
             # same for y0, y1, y2 and y3
             # tc positions refer to the center of the diamonds
             if loc_key in ('UL', 'UR'):
-                x0.update({loc_key: wx_data})
+                x0.update({loc_key: wx_d})
             else:
-                x0.update({loc_key: wx_data - cellDistX})
+                x0.update({loc_key: wx_d - cellDistX})
             x1.update({loc_key: x0[loc_key][:] + cellDistX})
             if loc_key in ('UL', 'UR'):
                 x2.update({loc_key: x1[loc_key]})
@@ -146,9 +155,9 @@ def convert_cells_to_xy(df):
                 x3.update({loc_key: x1[loc_key]})
 
             if loc_key in ('UL', 'UR'):
-                y0.update({loc_key: wy_data})
+                y0.update({loc_key: wy_d})
             else:
-                y0.update({loc_key: wy_data + cellDistY})
+                y0.update({loc_key: wy_d + cellDistY})
             if loc_key in ('UR', 'B'):
                 y1.update({loc_key: y0[loc_key][:] - cellDistY})
             else:
@@ -194,14 +203,14 @@ def convert_cells_to_xy(df):
 
 def get_data(event, particles):
     ds_geom = geom_data.provide()
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
-                      ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
-    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
+    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
     ds_geom = convert_cells_to_xy(ds_geom)
 
     ds_ev = data_particle[particles].provide_event(event)
