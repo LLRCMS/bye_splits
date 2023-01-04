@@ -61,11 +61,8 @@ def convert_cells_to_xy(df):
     scu, scv = 'triggercellu', 'triggercellv'
     swu, swv = 'waferu', 'waferv'
     
-    rr, rr2 = lambda x : x.astype(float).round(3), lambda x : round(x, 3)
     c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
     N = 4
-    d = 1.#1./c30
-    d4, d8 = d/4., d/8.
     # conversion = {
     #     'UL': (lambda wu,wv,cv: rr(2*wu - wv + d4 * cv),
     #            lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + d8/c30 * (2*(cu-1)-cv))),
@@ -75,8 +72,12 @@ def convert_cells_to_xy(df):
     #            lambda wv,cu,cv: rr(((d/c30)+d*t30)*wv + t30 * d4 * (2*cu-cv)))
     # } #up-right, up-left and bottom
 
-    R = d / (3 * N)
+    waferSize = 1
+    cellDistX = waferSize/8.
+    cellDistY = cellDistX * t30
+    R = waferSize / (3 * N)
     r = R * c30
+
     cells_conversion = {
         0: (lambda cu,cv: (1.5*(cu-cv)+0.5) * R,
             lambda cu,cv: (cv+cu-2*N+1) * r),
@@ -104,12 +105,12 @@ def convert_cells_to_xy(df):
              lambda cu,cv: (2*cv-cu-N+1) * r),
     }
     wafer_shifts = {
-        'UL': (lambda wu,wv,cx: rr(2*wu - wv + cx),
-               lambda wv,cy: rr(((d/c30)+d*t30)*wv + cy)),
-        'UR': (lambda wu,wv,cx: rr(2*wu - wv + cx),
-               lambda wv,cy: rr(((d/c30)+d*t30)*wv + cy)),
-        'B':  (lambda wu,wv,cx: rr(2*wu - wv + cx),
-               lambda wv,cy: rr(((d/c30)+d*t30)*wv + cy))
+        'UL': (lambda wu,wv,cx: 2*wu - wv + cx,
+               lambda wv,cy: ((waferSize/c30)+waferSize*t30)*wv + cy),
+        'UR': (lambda wu,wv,cx: 2*wu - wv + cx,
+               lambda wv,cy: ((waferSize/c30)+waferSize*t30)*wv + cy),
+        'B':  (lambda wu,wv,cx: 2*wu - wv + cx,
+               lambda wv,cy: ((waferSize/c30)+waferSize*t30)*wv + cy)
     } #up-right, up-left and bottom
 
     # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
@@ -142,31 +143,33 @@ def convert_cells_to_xy(df):
 
             cx_data = cells_conversion[ip_key][0](cu_data, cv_data)
             cy_data = cells_conversion[ip_key][1](cu_data, cv_data)
+            # if len(cx_data)!=0:
+            #     breakpoint()
             wx_data = wafer_shifts[loc_key][0](wu_data, wv_data, cx_data)
             wy_data = wafer_shifts[loc_key][1](wu_data, cy_data)
             
             x0.update({loc_key: wx_data})
-            x1.update({loc_key: x0[loc_key][:] + d4})
+            x1.update({loc_key: x0[loc_key][:] + cellDistX})
             if loc_key in ('UL', 'UR'):
                 x2.update({loc_key: x1[loc_key]})
                 x3.update({loc_key: x0[loc_key]})
             else:
-                x2.update({loc_key: x1[loc_key] + d4})
+                x2.update({loc_key: x1[loc_key] + cellDistX})
                 x3.update({loc_key: x1[loc_key]})
 
             y0.update({loc_key: wy_data})
             if loc_key in ('UR', 'B'):
-                y1.update({loc_key: y0[loc_key][:] - rr2(t30*d4)})
+                y1.update({loc_key: y0[loc_key][:] - cellDistY})
             else:
-                y1.update({loc_key: y0[loc_key][:] + rr2(t30*d4)})
+                y1.update({loc_key: y0[loc_key][:] + cellDistY})
             if loc_key in ('B'):
                 y2.update({loc_key: y0[loc_key][:]})
             else:
-                y2.update({loc_key: y1[loc_key][:] + rr2(d4/c30)})
+                y2.update({loc_key: y1[loc_key][:] + 2*cellDistY})
             if loc_key in ('UL', 'UR'):
-                y3.update({loc_key: y0[loc_key][:] + rr2(d4/c30)})
+                y3.update({loc_key: y0[loc_key][:] + 2*cellDistY})
             else:
-                y3.update({loc_key: y0[loc_key][:] + rr2(t30*d4)})
+                y3.update({loc_key: y0[loc_key][:] + cellDistY})
 
             keys = ['pos0','pos1','pos2','pos3']
             xaxis.update({
@@ -189,7 +192,7 @@ def convert_cells_to_xy(df):
         yaxis_plac[ip_key] = yaxis_plac[ip_key].groupby(yaxis_plac[ip_key].index).agg(lambda k: [k])
 
     tc_polyg_x = pd.concat(xaxis_plac.values())
-    tc_polyg_y = pd.concat(xaxis_plac.values())
+    tc_polyg_y = pd.concat(yaxis_plac.values())
     res = pd.concat([tc_polyg_x, tc_polyg_y], axis=1)
     res.columns = ['tc_polyg_x', 'tc_polyg_y']
     return df.join(res)
@@ -205,12 +208,14 @@ def get_data(event, particles):
 
     ds_ev = data_particle[particles].provide_event(event)
     ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
+                          'good_tc_cellu':'triggercellu', 'good_tc_cellv':'triggercellv',
                           'good_tc_layer':'layer'},
                  inplace=True)
 
     ds_ev = pd.merge(left=ds_ev, right=ds_geom, how='inner',
-                     on=['layer', 'waferu', 'waferv'])
+                     on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
     #ds_ev = convert_cells_to_xy(ds_ev)
+
     return {'ev': ds_ev, 'geom': ds_geom}
 
 with open(params.viz_kw['CfgEventPath'], 'r') as afile:
