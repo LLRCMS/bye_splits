@@ -70,7 +70,7 @@ def convert_cells_to_xy(df):
     R = waferSize / (3 * N)
     r = R * c30
 
-    cells_conversion = {
+    cells_conversion = { #wafer orientation-dependent
         0: (lambda cu,cv: (1.5*(cu-cv)+0.5) * R,
             lambda cu,cv: (cv+cu-2*N+1) * r),
         1: (lambda cu,cv: (1.5*(cv-N)+0.5) * R,
@@ -100,25 +100,88 @@ def convert_cells_to_xy(df):
                     lambda wv,cy: c30*wv + cy)
 
     # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
-    masks_index_placement = lambda ori : df['waferorient'] + 6 == ori
+    placement_shift = 0
+    masks_index_placement = lambda ori : df['waferorient'] + placement_shift == ori
     # masks_location = {'UL': (df[scu]>=N) & (df[scu]<=N2) & (df[scv]<df[scu]),
     #                   'UR': (df[scv]>=N) & (df[scv]<=N2) & (df[scv]>=df[scu]),
     #                   'B':  (df[scu]<N) & (df[scv]<N),
     #                   } #up-right, up-left and bottom
-    def masks_location(location, ax, ay): #up-right, up-left and bottom
+    def masks_location(location, ip, ax, ay):
+        """Filter TC location in wafer: up-right, up-left and bottom.
+        The x/y location depends on the wafer orientation."""
+        ux = np.sort(ax.unique())
+        uy = np.sort(ay.unique())
+        if len(ux)==0 or len(uy)==0:
+            return pd.Series(dtype=float)
+        
+        if len(ux) != 2*N:
+            m = 'Length unique X values vs expected: {} vs {}\n'.format(len(ux), 2*N)
+            m += 'Fix.'
+            raise AssertionError(m)
+        if len(uy) != 4*N-1:
+            m = 'Length unique Y values vs expected: {} vs {}\n'.format(len(uy), 4*N-1)
+            m += 'Fix.'
+            raise AssertionError(m)
+
+        bx, by = -1/12, 0. #base shift
+        fx, fy = 1/8, (1/8)*t30 #multiplicative factors
+        eps = 0.02 #epsilon
+        cx = abs(int((ux[0]-bx)/fx)) 
+        cy = abs(int((uy[N-1]-by)/fy))
+        # -0.216, -0.144, -0.072, -0.000 /// +0.072, -0.000, -.072, -0.144
+
+        x2y = {0: -1,
+               1: -1,
+               6: 0,
+               7: 0}
+        filt_UL = ((ax > bx-(cx-0)*fx-eps) & (ax < bx-(cx-0)*fx+eps) & (ay > by-(cy-0)*fy-eps) |
+                   (ax > bx-(cx-1)*fx-eps) & (ax < bx-(cx-1)*fx+eps) & (ay > by-(cy-1)*fy-eps) |
+                   (ax > bx-(cx-2)*fx-eps) & (ax < bx-(cx-2)*fx+eps) & (ay > by-(cy-2)*fy-eps) |
+                   (ax > bx-(cx-3)*fx-eps) & (ax < bx-(cx-3)*fx+eps) & (ay > by-(cy-3)*fy-eps))
+
+        filt_UR = ((ax > bx-(cx-4)*fx-eps) & (ax < bx-(cx-4)*fx+eps) & (ay > by-(cy-(4+x2y[ip]))*fy-eps) |
+                   (ax > bx-(cx-5)*fx-eps) & (ax < bx-(cx-5)*fx+eps) & (ay > by-(cy-(3+x2y[ip]))*fy-eps) |
+                   (ax > bx-(cx-6)*fx-eps) & (ax < bx-(cx-6)*fx+eps) & (ay > by-(cy-(2+x2y[ip]))*fy-eps) |
+                   (ax > bx-(cx-7)*fx-eps) & (ax < bx-(cx-7)*fx+eps) & (ay > by-(cy-(1+x2y[ip]))*fy-eps))
+
         if location == 'UL':
-            return df[ax] < 0 and df[ay] > 0
+            return filt_UL
         elif location == 'UR':
-            return df[ax] > 0 and df[ay] > 0
-        else:
-            return df[ay] < 0
+            return filt_UR
+        else: #bottom
+            return (~filt_UL & ~filt_UR)
 
     x0, x1, x2, x3 = ({} for _ in range(4))
     y0, y1, y2, y3 = ({} for _ in range(4))
     xaxis, yaxis = ({} for _ in range(2))
     xaxis_plac, yaxis_plac = ({} for _ in range(2))
 
-    for ip_key in range(6,12): #orientation indices
+    x0_shift = {0: 0,
+                1: 0,
+                2: 0.,
+                3: 0.,
+                4: 0.,
+                5: 0.,
+                6: cellDistX,
+                7: cellDistX,
+                8: 0.,
+                9: 0.,
+                10: 0.,
+                11: 0.}
+    y0_shift = {0: cellDistY,
+                1: cellDistY,
+                2: 0.,
+                3: 0.,
+                4: 0.,
+                5: 0.,
+                6: 0.,
+                7: 0.,
+                8: 0.,
+                9: 0.,
+                10: 0.,
+                11: 0.}
+
+    for ip_key in range(placement_shift,placement_shift+6): #orientation indices
         xaxis_plac.update({ip_key: {}})
         yaxis_plac.update({ip_key: {}})
         masks_ip = masks_index_placement(ip_key)
@@ -134,18 +197,21 @@ def convert_cells_to_xy(df):
         wy_data = wafer_shifts[1](wv_data, cy_data)
 
         for loc_key in ('UL', 'UR', 'B'):
-            masks_loc = masks_location(loc_key, cx_data, cy_data)
-            breakpoint()
+            masks_loc = masks_location(loc_key, ip_key, cx_data, cy_data)
+            #masks_loc = masks_location[loc_key]
             wx_d, wy_d = wx_data[masks_loc], wy_data[masks_loc]
-            
+
             # x0 refers to the x position the lefmost, down corner all diamonds (TCs)
             # x1, x2, x3 are defined in a counter clockwise fashion
             # same for y0, y1, y2 and y3
             # tc positions refer to the center of the diamonds
-            if loc_key in ('UL', 'UR'):
+            if loc_key == 'UL':
+                x0.update({loc_key: wx_d})
+            elif loc_key == 'UR':
                 x0.update({loc_key: wx_d})
             else:
-                x0.update({loc_key: wx_d - cellDistX})
+                x0.update({loc_key: wx_d - x0_shift[ip_key]})
+                
             x1.update({loc_key: x0[loc_key][:] + cellDistX})
             if loc_key in ('UL', 'UR'):
                 x2.update({loc_key: x1[loc_key]})
@@ -154,10 +220,13 @@ def convert_cells_to_xy(df):
                 x2.update({loc_key: x1[loc_key] + cellDistX})
                 x3.update({loc_key: x1[loc_key]})
 
-            if loc_key in ('UL', 'UR'):
-                y0.update({loc_key: wy_d})
+            if loc_key == 'UL':
+                y0.update({loc_key: wy_d - y0_shift[ip_key]})
+            elif loc_key == 'UR':
+                y0.update({loc_key: wy_d + y0_shift[ip_key]})
             else:
                 y0.update({loc_key: wy_d + cellDistY})
+
             if loc_key in ('UR', 'B'):
                 y1.update({loc_key: y0[loc_key][:] - cellDistY})
             else:
@@ -203,14 +272,17 @@ def convert_cells_to_xy(df):
 
 def get_data(event, particles):
     ds_geom = geom_data.provide()
-    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3))]
+                      # ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
+                      # ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      # ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
+
+    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
     ds_geom = convert_cells_to_xy(ds_geom)
 
     ds_ev = data_particle[particles].provide_event(event)
