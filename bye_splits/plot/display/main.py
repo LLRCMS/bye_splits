@@ -114,12 +114,12 @@ def convert_cells_to_xy(df):
         if len(ux)==0 or len(uy)==0:
             return pd.Series(dtype=float)
         
-        if len(ux) != 2*N:
-            m = 'Length unique X values vs expected: {} vs {}\n'.format(len(ux), 2*N)
+        if ip%6==0 and len(ux) != 2*N: #full wafers
+            m = 'Length unique X values vs expected for full wafers: {} vs {}\n'.format(len(ux), 2*N)
             m += 'Fix.'
             raise AssertionError(m)
-        if len(uy) != 4*N-1:
-            m = 'Length unique Y values vs expected: {} vs {}\n'.format(len(uy), 4*N-1)
+        if ip%6==0 and len(uy) != 4*N-1: #full wafers
+            m = 'Length unique Y values vs expected for full wafers: {} vs {}\n'.format(len(uy), 4*N-1)
             m += 'Fix.'
             raise AssertionError(m)
 
@@ -272,17 +272,17 @@ def convert_cells_to_xy(df):
 
 def get_data(event, particles):
     ds_geom = geom_data.provide()
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3))]
-                      # ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
-                      # ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      # ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
+    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
 
-    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
     ds_geom = convert_cells_to_xy(ds_geom)
 
     ds_ev = data_particle[particles].provide_event(event)
