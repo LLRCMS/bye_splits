@@ -71,30 +71,18 @@ def convert_cells_to_xy(df):
     r = R * c30
 
     cells_conversion = { #wafer orientation-dependent
-        0: (lambda cu,cv: (1.5*(cu-cv)+0.5) * R,
-            lambda cu,cv: (cv+cu-2*N+1) * r),
-        1: (lambda cu,cv: (1.5*(cv-N)+0.5) * R,
-            lambda cu,cv: -(2*cv-cu-N+1) * r),
-        2: (lambda cu,cv: -(1.5*(cu-N)+1) * R,
-            lambda cu,cv: -(2*cv-cu-N) * r),
-        3: (lambda cu,cv: -(1.5*(cu-cv)+0.5) * R,
-            lambda cu,cv: -(cv+cu-2*N+1) * r),
-        4: (lambda cu,cv: (1.5*(cu-N)+0.5) * R,
-            lambda cu,cv: -(2*cu-cv-N+1) * r),
-        5: (lambda cu,cv: (1.5*(cu-N)+1) * R,
-            lambda cu,cv: (2*cv-cu-N) * r),
-        6: (lambda cu,cv: (1.5*(cv-cu)+0.5) * R,
-            lambda cu,cv: (cv+cu-2*N+1) * r),
-        7: (lambda cu,cv: (1.5*(cv-N)+1) * R,
-            lambda cu,cv: (2*cu-cv-N) * r),
-        8: (lambda cu,cv: (1.5*(cu-N)+0.5) * R,
-            lambda cu,cv: -(2*cv-cu-N+1) * r),
-        9: (lambda cu,cv: -(1.5*(cv-cu)+0.5) * R,
-            lambda cu,cv: -(cv+cu-2*N+1) * r),
-        10: (lambda cu,cv: -(1.5*(cv-N)+1) * R,
-             lambda cu,cv: -(2*cu-cv-N) * r),
-        11: (lambda cu,cv: -(1.5*(cu-N)+0.5) * R,
-             lambda cu,cv: (2*cv-cu-N+1) * r),
+        0: (lambda cu,cv: (1.5*(cu-cv)+0.5) * R  , lambda cu,cv: (cv+cu-2*N+1) * r),
+        1: (lambda cu,cv: (1.5*(cv-N)+0.5) * R   , lambda cu,cv: -(2*cv-cu-N+1) * r),
+        2: (lambda cu,cv: -(1.5*(cu-N)+1) * R    , lambda cu,cv: -(2*cv-cu-N) * r),
+        3: (lambda cu,cv: -(1.5*(cu-cv)+0.5) * R , lambda cu,cv: -(cv+cu-2*N+1) * r),
+        4: (lambda cu,cv: (1.5*(cu-N)+0.5) * R   , lambda cu,cv: -(2*cu-cv-N+1) * r),
+        5: (lambda cu,cv: (1.5*(cu-N)+1) * R     , lambda cu,cv: (2*cv-cu-N) * r),
+        6: (lambda cu,cv: (1.5*(cv-cu)+0.5) * R  , lambda cu,cv: (cv+cu-2*N+1) * r),
+        7: (lambda cu,cv: (1.5*(cv-N)+1) * R     , lambda cu,cv: (2*cu-cv-N) * r),
+        8: (lambda cu,cv: (1.5*(cu-N)+0.5) * R   , lambda cu,cv: -(2*cv-cu-N+1) * r),
+        9: (lambda cu,cv: -(1.5*(cv-cu)+0.5) * R , lambda cu,cv: -(cv+cu-2*N+1) * r),
+        10: (lambda cu,cv: -(1.5*(cv-N)+1) * R   , lambda cu,cv: -(2*cu-cv-N) * r),
+        11: (lambda cu,cv: -(1.5*(cu-N)+0.5) * R , lambda cu,cv: (2*cv-cu-N+1) * r)
     }
     wafer_shifts = (lambda wu,wv,cx: (2*wu - wv)*waferSize/2 + cx,
                     lambda wv,cy: c30*wv + cy)
@@ -185,6 +173,9 @@ def convert_cells_to_xy(df):
         xaxis_plac.update({ip_key: {}})
         yaxis_plac.update({ip_key: {}})
         masks_ip = masks_index_placement(ip_key)
+        
+        if ip_key == 1:
+            breakpoint()
 
         cu_data = df[scu][masks_ip]
         cv_data = df[scv][masks_ip]
@@ -279,10 +270,11 @@ def get_data(event, particles):
 
     ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
                       ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))]
+                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3))
+                      # ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
+                      # ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
+                      # ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))
+                      ]
     ds_geom = convert_cells_to_xy(ds_geom)
 
     ds_ev = data_particle[particles].provide_event(event)
