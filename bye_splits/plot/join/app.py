@@ -1,5 +1,3 @@
-from flask import Flask, render_template
-
 from bokeh.embed import server_document
 from bokeh.layouts import column
 from bokeh.models import ColumnDataSource
@@ -8,15 +6,11 @@ from bokeh.server.server import Server
 from bokeh.themes import Theme
 from tornado.ioloop import IOLoop
 
-from bokeh.settings import settings
-
 import pandas as pd
 import numpy as np
 
-from flask_cors import CORS, cross_origin
+from flask import Flask, render_template
 app = Flask(__name__)
-cors = CORS(app)
-app.config['CORS_HEADERS'] = 'Content-Type'
 
 def bkapp(doc):
     df = pd.DataFrame({'x': [0,1,2,3,4,6],
@@ -31,7 +25,6 @@ def bkapp(doc):
     #doc.theme = Theme(filename="theme.yaml")
 
 @app.route('/bokeh', methods=['GET'])
-@cross_origin()
 def bkapp_page():
     if ssh_tunnel:
         ssh_path = 'http://localhost:{}/bkapp'
