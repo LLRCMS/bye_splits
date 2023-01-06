@@ -9,8 +9,13 @@
 
 <body>
   <div>
-	Some text.
+	Bokeh plots.
   </div>
-  {{ script | safe }}
+  {{ script_bokeh | safe }}
+
+  <div>
+	Plotly plots.
+  </div>
+  {{ script_plotly | safe }}
 </body>
 </html>
