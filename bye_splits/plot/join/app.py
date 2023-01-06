@@ -1,3 +1,6 @@
+import pandas as pd
+import argparse
+
 from bokeh.embed import server_document
 from bokeh.layouts import column
 from bokeh.models import ColumnDataSource
@@ -5,9 +8,6 @@ from bokeh.plotting import figure
 from bokeh.server.server import Server
 from bokeh.themes import Theme
 from tornado.ioloop import IOLoop
-
-import pandas as pd
-import numpy as np
 
 from flask import Flask, render_template, render_template_string
 app = Flask(__name__)
@@ -47,11 +47,11 @@ def plotly_app():
 
 @app.route('/viz', methods=['GET'])
 def webapp_page():
-    if ssh_tunnel:
+    if FLAGS.ssh:
         ssh_path = 'http://localhost:{}/bokeh_app'
     else:
         ssh_path = 'http://llruicms01.in2p3.fr:{}/bokeh_app'
-    script_bokeh = server_document(ssh_path.format(bokeh_port))
+    script_bokeh = server_document(ssh_path.format(FLAGS.bokeh_port))
 
     script_plotly = plotly_app() #not really an app, rather an html block
 
@@ -61,22 +61,24 @@ def webapp_page():
                            framework='Flask')
 
 def bk_worker():
-    if ssh_tunnel:
-        web_socket = 'localhost:{}'
-    else:
-        web_socket = 'llruicms01.in2p3.fr:{}'
+    web_socket = 'localhost:{}' if FLAGS.ssh else 'llruicms01.in2p3.fr:{}'
     server = Server({'/bokeh_app': bokeh_app}, io_loop=IOLoop(),
-                    port=bokeh_port,
-                    allow_websocket_origin=[web_socket.format(flask_port)])
+                    port=FLAGS.bokeh_port,
+                    allow_websocket_origin=[web_socket.format(FLAGS.flask_port)])
     server.start()
     server.io_loop.start()
 
 if __name__ == '__main__':
-    ssh_tunnel = True
-    bokeh_port = 8008
-    flask_port = 8010
-
+    p = argparse.ArgumentParser(description='Command line parser')
+    p.add_argument('--bokeh_port', required=True, default=8008, type=int,
+                   help='Specify port for bokeh server.')
+    p.add_argument('--flask_port', required=True, default=8010, type=int,
+                   help='Specify port for flask server.')
+    p.add_argument('--ssh', action='store_true',
+                   help='Whether to serve ports with a SSH connection in mind.')
+    FLAGS = p.parse_args()
+    
     from threading import Thread
     Thread(target=bk_worker).start()
 
-    app.run(port=flask_port, host='llruicms01.in2p3.fr', debug=False)
+    app.run(port=FLAGS.flask_port, host='llruicms01.in2p3.fr', debug=False)
