@@ -128,12 +128,11 @@ We use the [[https://docs.openshift.com/container-platform/3.11/creating_images/
 
 We will use S2I's simplest configuration possible under =app.sh=. The image is created alongside the packages specified in =requirements.txt=. The two latter definitions are documented [[https://github.com/kubesphere/s2i-python-container/blob/master/2.7/README.md#source-repository-layout][here]].
 
-We are currently running a pod at https://viz-hgcal-event-display.app.cern.ch/. The port being served by =bokeh= in =app.sh= must match the one the pod is listening to, specified at configuration time before deployment in the [[https://paas.cern.ch/][OpenShift management console]] at CERN. The [[https://paas.docs.cern.ch/5._Exposing_The_Application/2-network-visibility/][network visibility]] was also updated to allow access from outside the CERN network.
+We are currently running a pod at https://viz2-hgcal-event-display.app.cern.ch/. The port being served by =bokeh= in =app.sh= must match the one the pod is listening to, specified at configuration time before deployment in the [[https://paas.cern.ch/][OpenShift management console]] at CERN. The [[https://paas.docs.cern.ch/5._Exposing_The_Application/2-network-visibility/][network visibility]] was also updated to allow access from outside the CERN network.
 
 ***** Additional information
 + [[https://cloud.google.com/kubernetes-engine/docs/concepts/pod][What is a pod]]?
 + [[https://paas.docs.cern.ch/3._Storage/eos/][How to mount =/eos= at CERN so that it is accessible by a pod?]]
-
 
 
 *** Merging =plotly= and =bokeh= with =flask=
