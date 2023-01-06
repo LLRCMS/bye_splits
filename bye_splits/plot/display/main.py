@@ -89,11 +89,9 @@ def convert_cells_to_xy(df):
 
     # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
     placement_shift = 0
-    masks_index_placement = lambda ori : df['waferorient'] + placement_shift == ori
-    # masks_location = {'UL': (df[scu]>=N) & (df[scu]<=N2) & (df[scv]<df[scu]),
-    #                   'UR': (df[scv]>=N) & (df[scv]<=N2) & (df[scv]>=df[scu]),
-    #                   'B':  (df[scu]<N) & (df[scv]<N),
-    #                   } #up-right, up-left and bottom
+    #masks_index_placement = lambda ori : df['waferorient'] + placement_shift == ori
+    masks_index_placement = lambda ori : df['waferorient'] + placement_shift >= 0 #always true; DEBUG
+
     def masks_location(location, ip, ax, ay):
         """Filter TC location in wafer: up-right, up-left and bottom.
         The x/y location depends on the wafer orientation."""
@@ -111,27 +109,39 @@ def convert_cells_to_xy(df):
             m += 'Fix.'
             raise AssertionError(m)
 
-        bx, by = -1/12, 0. #base shift
-        fx, fy = 1/8, (1/8)*t30 #multiplicative factors
-        eps = 0.02 #epsilon
-        cx = abs(int((ux[0]-bx)/fx)) 
-        cy = abs(int((uy[N-1]-by)/fy))
+        b = {0:  (-1/12, 0.), #base shift
+             1:  (-1/12, 0.),
+             2:  (-1/12, 0.),
+             3:  (-1/12, 0.),
+             4:  (-1/12, 0.),
+             5:  (-1/12, 0.),
+             6:  (-1/12, 0.),
+             7:  (-1/24, 0.),
+             8:  (-1/12, 0.),
+             9:  (-1/12, 0.),
+             10: (-1/12, 0.),
+             11: (-1/12, 0.)}
+        fx, fy = 1/8, (1/8)*t30 #multiplicative factors: cells are evenly spaced
+        eps = 0.02 #epsilon, create an interval around the true values
+        cx = abs(round((ux[0]-b[ip][0])/fx)) 
+        cy = abs(round((uy[N-1]-b[ip][1])/fy))
         # -0.216, -0.144, -0.072, -0.000 /// +0.072, -0.000, -.072, -0.144
 
-        x2y = {0: -1,
-               1: -1,
-               6: 0,
-               7: 0}
-        filt_UL = ((ax > bx-(cx-0)*fx-eps) & (ax < bx-(cx-0)*fx+eps) & (ay > by-(cy-0)*fy-eps) |
-                   (ax > bx-(cx-1)*fx-eps) & (ax < bx-(cx-1)*fx+eps) & (ay > by-(cy-1)*fy-eps) |
-                   (ax > bx-(cx-2)*fx-eps) & (ax < bx-(cx-2)*fx+eps) & (ay > by-(cy-2)*fy-eps) |
-                   (ax > bx-(cx-3)*fx-eps) & (ax < bx-(cx-3)*fx+eps) & (ay > by-(cy-3)*fy-eps))
+        x2y = {0: (0,-1), #fix Y position for (upper-left, upper-right) cell locations
+               1: (0,1),
+               6: (0,0),
+               7: (1,0)}
 
-        filt_UR = ((ax > bx-(cx-4)*fx-eps) & (ax < bx-(cx-4)*fx+eps) & (ay > by-(cy-(4+x2y[ip]))*fy-eps) |
-                   (ax > bx-(cx-5)*fx-eps) & (ax < bx-(cx-5)*fx+eps) & (ay > by-(cy-(3+x2y[ip]))*fy-eps) |
-                   (ax > bx-(cx-6)*fx-eps) & (ax < bx-(cx-6)*fx+eps) & (ay > by-(cy-(2+x2y[ip]))*fy-eps) |
-                   (ax > bx-(cx-7)*fx-eps) & (ax < bx-(cx-7)*fx+eps) & (ay > by-(cy-(1+x2y[ip]))*fy-eps))
+        filt_UL = ((ax > b[ip][0]-(cx-0)*fx-eps) & (ax < b[ip][0]-(cx-0)*fx+eps) & (ay > b[ip][1]-(cy-(0+x2y[ip][0]))*fy-eps) |
+                   (ax > b[ip][0]-(cx-1)*fx-eps) & (ax < b[ip][0]-(cx-1)*fx+eps) & (ay > b[ip][1]-(cy-(1+x2y[ip][0]))*fy-eps) |
+                   (ax > b[ip][0]-(cx-2)*fx-eps) & (ax < b[ip][0]-(cx-2)*fx+eps) & (ay > b[ip][1]-(cy-(2+x2y[ip][0]))*fy-eps) |
+                   (ax > b[ip][0]-(cx-3)*fx-eps) & (ax < b[ip][0]-(cx-3)*fx+eps) & (ay > b[ip][1]-(cy-(3+x2y[ip][0]))*fy-eps))
 
+        filt_UR = ((ax > b[ip][0]-(cx-4)*fx-eps) & (ax < b[ip][0]-(cx-4)*fx+eps) & (ay > b[ip][1]-(cy-(4+x2y[ip][1]))*fy-eps) |
+                   (ax > b[ip][0]-(cx-5)*fx-eps) & (ax < b[ip][0]-(cx-5)*fx+eps) & (ay > b[ip][1]-(cy-(3+x2y[ip][1]))*fy-eps) |
+                   (ax > b[ip][0]-(cx-6)*fx-eps) & (ax < b[ip][0]-(cx-6)*fx+eps) & (ay > b[ip][1]-(cy-(2+x2y[ip][1]))*fy-eps) |
+                   (ax > b[ip][0]-(cx-7)*fx-eps) & (ax < b[ip][0]-(cx-7)*fx+eps) & (ay > b[ip][1]-(cy-(1+x2y[ip][1]))*fy-eps))
+        breakpoint()
         if location == 'UL':
             return filt_UL
         elif location == 'UR':
@@ -151,7 +161,7 @@ def convert_cells_to_xy(df):
                 4: 0.,
                 5: 0.,
                 6: cellDistX,
-                7: cellDistX,
+                7: 0.,
                 8: 0.,
                 9: 0.,
                 10: 0.,
@@ -163,20 +173,17 @@ def convert_cells_to_xy(df):
                 4: 0.,
                 5: 0.,
                 6: 0.,
-                7: 0.,
+                7: cellDistY,
                 8: 0.,
                 9: 0.,
                 10: 0.,
                 11: 0.}
 
-    for ip_key in range(placement_shift,placement_shift+6): #orientation indices
+    for ip_key in range(placement_shift+1,placement_shift+2): #orientation indices
         xaxis_plac.update({ip_key: {}})
         yaxis_plac.update({ip_key: {}})
         masks_ip = masks_index_placement(ip_key)
         
-        if ip_key == 1:
-            breakpoint()
-
         cu_data = df[scu][masks_ip]
         cv_data = df[scv][masks_ip]
         wu_data = df[swu][masks_ip]
@@ -263,18 +270,19 @@ def convert_cells_to_xy(df):
 
 def get_data(event, particles):
     ds_geom = geom_data.provide()
-    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) ]
+    ds_geom = ds_geom[ds_geom.layer==1]
+    # ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
+    # ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    # ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
 
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3))
-                      # ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
-                      # ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
-                      # ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))
-                      ]
+    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3))
+    #                   # ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
+    #                   # ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
+    #                   # ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))
+    #                   ]
     ds_geom = convert_cells_to_xy(ds_geom)
 
     ds_ev = data_particle[particles].provide_event(event)
