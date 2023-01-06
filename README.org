@@ -113,6 +113,7 @@ The two ports do not have to be the same, but it avoids possible confusion. Leav
 **** Visualization in local browser
 In a new terminal window go to the =llruicms01= mahcines and launch one of the apps, for instance:
 
+
 #+BEGIN_SRC shell
 bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port>  --allow-websocket-origin=localhost:<port>
 # if visualizing directly at LLR: --allow-websocket-origin=llruicms01.in2p3.fr:<port>
@@ -137,4 +138,6 @@ We are currently running a pod at https://viz-hgcal-event-display.app.cern.ch/. 
 
 *** Merging =plotly= and =bokeh= with =flask=
 Flask is a python micro web framework to simplify web development. It is considered "micro" because it’s lightweight and only provides essential components.
-Given that =plotly='s dashboard framework, =dash=, runs on top of =flask=, and that =bokeh= can produce html components programatically which can be embedded in a =flask= app, it should be possible to develop a =flask= web app mixing these two plotting packages. Having a common web framework, potentially extensible with additional packages, simplifies future integration.
+Given that =plotly='s dashboard framework, =dash=, runs on top of =flask=, and that =bokeh= can produce html components programatically (which can be embedded in a =flask= app), it should be possible to develop a =flask=-powered web app mixing these two plotting packages. Having a common web framework also simplifies future integration.
+**** Bokeh + Flask
+The embedding of bokeh plots within flask is currently demonstrated in ~plot/join/app.py~. Two servers run: one from =flask= and the other from =bokeh=, so special care is required to ensure the browser where the app is being served listens to both ports. Listening to =flask='s port only will cause the html ~plot/join/templates/embed.html~ to be rendered without bokeh plots. 
