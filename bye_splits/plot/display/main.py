@@ -81,6 +81,22 @@ def convert_cells_to_xy(df):
     wafer_shifts = (lambda wu,wv,cx: (2*wu - wv)*waferSize/2 + cx,
                     lambda wv,cy: c30*wv + cy)
 
+    univ_wcenterx = (1.5*(3-3) + 0.5)*R + cellDistX
+    univ_wcentery = (3 + 3 - 2*N + 1) * r + cellDistY
+    corner1x = univ_wcenterx - r
+    corner2x = univ_wcenterx
+    corner3x = univ_wcenterx + r
+    corner4x = univ_wcenterx + r
+    corner5x = univ_wcenterx
+    corner6x = univ_wcenterx - r
+    ysub = np.sqrt(R*R-r*r)
+    corner1y = univ_wcentery - ysub
+    corner2y = univ_wcentery - R
+    corner3y = univ_wcentery - ysub
+    corner4y = univ_wcentery + ysub
+    corner5y = univ_wcentery + R
+    corner6y = univ_wcentery + ysub
+
     # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
     placement_shift = 6
     masks_index_placement = lambda ori : df['waferorient'] + placement_shift == ori
@@ -145,8 +161,22 @@ def convert_cells_to_xy(df):
         cy_data = cells_conversion[1](cu_data, cv_data)
         wx_data = wafer_shifts[0](wu_data, wv_data, cx_data)
         wy_data = wafer_shifts[1](wv_data, cy_data)
-        wcenter_x = wafer_shifts[0](wu_data, wv_data, (1.5*(3-3) + 0.5)*R + cellDistX) # fourth vertex (center) for cu/cv=(3,3)
-        wcenter_y = wafer_shifts[1](wv_data, (3 + 3 - 2*N + 1) * r + cellDistY) # fourth vertex (center) for cu/cv=(3,3)
+        wcenter_x = wafer_shifts[0](wu_data, wv_data, univ_wcenterx) # fourth vertex (center) for cu/cv=(3,3)
+        wcenter_y = wafer_shifts[1](wv_data, univ_wcentery) # fourth vertex (center) for cu/cv=(3,3)
+
+        wcorner1x = wafer_shifts[0](wu_data, wv_data, corner1x)
+        wcorner2x = wafer_shifts[0](wu_data, wv_data, corner2x)
+        wcorner3x = wafer_shifts[0](wu_data, wv_data, corner3x)
+        wcorner4x = wafer_shifts[0](wu_data, wv_data, corner4x)
+        wcorner5x = wafer_shifts[0](wu_data, wv_data, corner5x)
+        wcorner6x = wafer_shifts[0](wu_data, wv_data, corner6x)
+        
+        wcorner1y = wafer_shifts[1](wv_data, corner1y)
+        wcorner2y = wafer_shifts[1](wv_data, corner2y)
+        wcorner3y = wafer_shifts[1](wv_data, corner3y)
+        wcorner4y = wafer_shifts[1](wv_data, corner4y)
+        wcorner5y = wafer_shifts[1](wv_data, corner5y)
+        wcorner6y = wafer_shifts[1](wv_data, corner6y)
 
         for loc_key in ('UL', 'UR', 'B'):
             masks_loc = masks_location(loc_key, ip_key, cx_data, cy_data)
@@ -223,10 +253,17 @@ def convert_cells_to_xy(df):
 
     tc_polyg_x = pd.concat(xaxis_plac.values())
     tc_polyg_y = pd.concat(yaxis_plac.values())
-    res = pd.concat([tc_polyg_x, tc_polyg_y], axis=1)
-    #res.columns = ['tc_polyg_x', 'x_tmp', 'tc_polyg_y', 'y_tmp']
-    res.columns = ['tc_polyg_x', 'tc_polyg_y']
-    return df.join(res)
+    res_tc = pd.concat([tc_x, tc_y], axis=1)
+    res_tc.columns = ['tc_x', 'tc_y']
+
+    keys = ['corner0', 'corner1', 'corner2', 'corner3', 'corner4', 'corner5', 'corner6']
+    hex_x = pd.concat((wcorner1x, wcorner2x, wcorner3x, wcorner4x, wcorner5x, wcorner6x), axis=1, keys=keys)
+    hex_y = pd.concat((wcorner1y, wcorner2y, wcorner3y, wcorner4y, wcorner5y, wcorner6y), axis=1, keys=keys)
+    hex_x = hex_x.apply(lambda row: row.dropna().tolist(), axis=1)
+    hex_y = hex_y.apply(lambda row: row.dropna().tolist(), axis=1)
+    res_hex = pd.concat([hex_x, hex_y], axis=1)
+    res_hex.columns = ['hex_x', 'hex_y']
+    return df.join(res), df.join(res_hex)
 
 def get_data(event, particles):
     ds_geom = geom_data.provide()
@@ -345,7 +382,7 @@ def display():
                           bmd.HoverTool(tooltips=[(hover_key, hover_val),]))
         common_props(p_cells, xlim=(-lim, lim), ylim=(-lim, lim))
 
-        p_cells_opt = dict(xs='tc_polyg_x', ys='tc_polyg_y', source=vsrc, view=view, **polyg_opt)
+        p_cells_opt = dict(xs='tc_x', ys='tc_y', source=vsrc, view=view, **polyg_opt)
 
         if mode == 'ev':
             p_cells.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper},
