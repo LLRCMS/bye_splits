@@ -88,9 +88,9 @@ def convert_cells_to_xy(df):
                     lambda wv,cy: c30*wv + cy)
 
     # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
-    placement_shift = 0
-    #masks_index_placement = lambda ori : df['waferorient'] + placement_shift == ori
-    masks_index_placement = lambda ori : df['waferorient'] + placement_shift >= 0 #always true; DEBUG
+    placement_shift = 6
+    masks_index_placement = lambda ori : df['waferorient'] + placement_shift == ori
+    #masks_index_placement = lambda ori : df['waferorient'] + placement_shift >= 0 #always true; DEBUG
 
     def masks_location(location, ip, ax, ay):
         """Filter TC location in wafer: up-right, up-left and bottom.
@@ -141,7 +141,7 @@ def convert_cells_to_xy(df):
                    (ax > b[ip][0]-(cx-5)*fx-eps) & (ax < b[ip][0]-(cx-5)*fx+eps) & (ay > b[ip][1]-(cy-(3+x2y[ip][1]))*fy-eps) |
                    (ax > b[ip][0]-(cx-6)*fx-eps) & (ax < b[ip][0]-(cx-6)*fx+eps) & (ay > b[ip][1]-(cy-(2+x2y[ip][1]))*fy-eps) |
                    (ax > b[ip][0]-(cx-7)*fx-eps) & (ax < b[ip][0]-(cx-7)*fx+eps) & (ay > b[ip][1]-(cy-(1+x2y[ip][1]))*fy-eps))
-        breakpoint()
+        #breakpoint()
         if location == 'UL':
             return filt_UL
         elif location == 'UR':
@@ -179,7 +179,7 @@ def convert_cells_to_xy(df):
                 10: 0.,
                 11: 0.}
 
-    for ip_key in range(placement_shift+1,placement_shift+2): #orientation indices
+    for ip_key in range(placement_shift,placement_shift+2): #orientation indices
         xaxis_plac.update({ip_key: {}})
         yaxis_plac.update({ip_key: {}})
         masks_ip = masks_index_placement(ip_key)
@@ -271,7 +271,7 @@ def convert_cells_to_xy(df):
 def get_data(event, particles):
     ds_geom = geom_data.provide()
     ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) ]
-    ds_geom = ds_geom[ds_geom.layer==1]
+    #ds_geom = ds_geom[ds_geom.layer==1]
     # ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
     # ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
     # ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
