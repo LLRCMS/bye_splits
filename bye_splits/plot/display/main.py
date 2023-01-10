@@ -83,25 +83,22 @@ def convert_cells_to_xy(df):
 
     univ_wcenterx = (1.5*(3-3) + 0.5)*R + cellDistX
     univ_wcentery = (3 + 3 - 2*N + 1) * r + cellDistY
-    corner1x = univ_wcenterx - r
+    scale_x, scale_y = (waferSize/3)*c30, (waferSize/3)
+    corner1x = univ_wcenterx - scale_x
     corner2x = univ_wcenterx
-    corner3x = univ_wcenterx + r
-    corner4x = univ_wcenterx + r
+    corner3x = univ_wcenterx + scale_x
+    corner4x = univ_wcenterx + scale_x
     corner5x = univ_wcenterx
-    corner6x = univ_wcenterx - r
-    ysub = np.sqrt(R*R-r*r)
+    corner6x = univ_wcenterx - scale_x
+    ysub = np.sqrt(scale_y*scale_y-scale_x*scale_x)
     corner1y = univ_wcentery - ysub
-    corner2y = univ_wcentery - R
+    corner2y = univ_wcentery - scale_y
     corner3y = univ_wcentery - ysub
     corner4y = univ_wcentery + ysub
-    corner5y = univ_wcentery + R
+    corner5y = univ_wcentery + scale_y
     corner6y = univ_wcentery + ysub
 
-    # https://indico.cern.ch/event/1111846/contributions/4675222/attachments/2373114/4053810/v17.pdf
-    placement_shift = 6
-    masks_index_placement = lambda ori : df['waferorient'] + placement_shift == ori
-
-    def masks_location(location, ip, ax, ay):
+    def masks_location(location, ax, ay):
         """Filter TC location in wafer: up-right, up-left and bottom.
         The x/y location depends on the wafer orientation."""
         ux = np.sort(ax.unique())
@@ -109,11 +106,11 @@ def convert_cells_to_xy(df):
         if len(ux)==0 or len(uy)==0:
             return pd.Series(dtype=float)
         
-        if ip%6==0 and len(ux) != 2*N: #full wafers
+        if len(ux) != 2*N: #full wafers
             m = 'Length unique X values vs expected for full wafers: {} vs {}\n'.format(len(ux), 2*N)
             m += 'Fix.'
             raise AssertionError(m)
-        if ip%6==0 and len(uy) != 4*N-1: #full wafers
+        if len(uy) != 4*N-1: #full wafers
             m = 'Length unique Y values vs expected for full wafers: {} vs {}\n'.format(len(uy), 4*N-1)
             m += 'Fix.'
             raise AssertionError(m)
@@ -145,132 +142,117 @@ def convert_cells_to_xy(df):
     x0, x1, x2, x3 = ({} for _ in range(4))
     y0, y1, y2, y3 = ({} for _ in range(4))
     xaxis, yaxis = ({} for _ in range(2))
-    xaxis_plac, yaxis_plac = ({} for _ in range(2))
 
-    for ip_key in range(placement_shift,placement_shift+2): #orientation indices
-        xaxis_plac.update({ip_key: {}})
-        yaxis_plac.update({ip_key: {}})
-        masks_ip = masks_index_placement(ip_key)
-        
-        cu_data = df[scu][masks_ip]
-        cv_data = df[scv][masks_ip]
-        wu_data = df[swu][masks_ip]
-        wv_data = df[swv][masks_ip]
+    cx_data = cells_conversion[0](df[scu], df[scv])
+    cy_data = cells_conversion[1](df[scu], df[scv])
+    wx_data = wafer_shifts[0](df[swu], df[swv], cx_data)
+    wy_data = wafer_shifts[1](df[swv], cy_data)
+    wcenter_x = wafer_shifts[0](df[swu], df[swv], univ_wcenterx) # fourth vertex (center) for cu/cv=(3,3)
+    wcenter_y = wafer_shifts[1](df[swv], univ_wcentery) # fourth vertex (center) for cu/cv=(3,3)
+    
+    for loc_key in ('UL', 'UR', 'B'):
+        masks_loc = masks_location(loc_key, cx_data, cy_data)
+        wx_d, wy_d = wx_data[masks_loc], wy_data[masks_loc]
+        wc_x, wc_y = wcenter_x[masks_loc], wcenter_y[masks_loc]
 
-        cx_data = cells_conversion[0](cu_data, cv_data)
-        cy_data = cells_conversion[1](cu_data, cv_data)
-        wx_data = wafer_shifts[0](wu_data, wv_data, cx_data)
-        wy_data = wafer_shifts[1](wv_data, cy_data)
-        wcenter_x = wafer_shifts[0](wu_data, wv_data, univ_wcenterx) # fourth vertex (center) for cu/cv=(3,3)
-        wcenter_y = wafer_shifts[1](wv_data, univ_wcentery) # fourth vertex (center) for cu/cv=(3,3)
-
-        wcorner1x = wafer_shifts[0](wu_data, wv_data, corner1x)
-        wcorner2x = wafer_shifts[0](wu_data, wv_data, corner2x)
-        wcorner3x = wafer_shifts[0](wu_data, wv_data, corner3x)
-        wcorner4x = wafer_shifts[0](wu_data, wv_data, corner4x)
-        wcorner5x = wafer_shifts[0](wu_data, wv_data, corner5x)
-        wcorner6x = wafer_shifts[0](wu_data, wv_data, corner6x)
-        
-        wcorner1y = wafer_shifts[1](wv_data, corner1y)
-        wcorner2y = wafer_shifts[1](wv_data, corner2y)
-        wcorner3y = wafer_shifts[1](wv_data, corner3y)
-        wcorner4y = wafer_shifts[1](wv_data, corner4y)
-        wcorner5y = wafer_shifts[1](wv_data, corner5y)
-        wcorner6y = wafer_shifts[1](wv_data, corner6y)
-
-        for loc_key in ('UL', 'UR', 'B'):
-            masks_loc = masks_location(loc_key, ip_key, cx_data, cy_data)
-            wx_d, wy_d = wx_data[masks_loc], wy_data[masks_loc]
-            wc_x, wc_y = wcenter_x[masks_loc], wcenter_y[masks_loc]
-
-            # x0 refers to the x position the lefmost, down corner all diamonds (TCs)
-            # x1, x2, x3 are defined in a counter clockwise fashion
-            # same for y0, y1, y2 and y3
-            # tc positions refer to the center of the diamonds
-            if loc_key == 'UL':
-                x0.update({loc_key: wx_d})
-            elif loc_key == 'UR':
-                x0.update({loc_key: wx_d})
-            else:
-                x0.update({loc_key: wx_d - cellDistX})
+        # x0 refers to the x position the lefmost, down corner all diamonds (TCs)
+        # x1, x2, x3 are defined in a counter clockwise fashion
+        # same for y0, y1, y2 and y3
+        # tc positions refer to the center of the diamonds
+        if loc_key == 'UL':
+            x0.update({loc_key: wx_d})
+        elif loc_key == 'UR':
+            x0.update({loc_key: wx_d})
+        else:
+            x0.update({loc_key: wx_d - cellDistX})
                 
-            x1.update({loc_key: x0[loc_key][:] + cellDistX})
-            if loc_key in ('UL', 'UR'):
-                x2.update({loc_key: x1[loc_key]})
-                x3.update({loc_key: x0[loc_key]})
-            else:
-                x2.update({loc_key: x1[loc_key] + cellDistX})
-                x3.update({loc_key: x1[loc_key]})
+        x1.update({loc_key: x0[loc_key][:] + cellDistX})
+        if loc_key in ('UL', 'UR'):
+            x2.update({loc_key: x1[loc_key]})
+            x3.update({loc_key: x0[loc_key]})
+        else:
+            x2.update({loc_key: x1[loc_key] + cellDistX})
+            x3.update({loc_key: x1[loc_key]})
 
-            if loc_key == 'UL':
-                y0.update({loc_key: wy_d})
-            elif loc_key == 'UR':
-                y0.update({loc_key: wy_d})
-            else:
-                y0.update({loc_key: wy_d + cellDistY})
+        if loc_key == 'UL':
+            y0.update({loc_key: wy_d})
+        elif loc_key == 'UR':
+            y0.update({loc_key: wy_d})
+        else:
+            y0.update({loc_key: wy_d + cellDistY})
 
-            if loc_key in ('UR', 'B'):
-                y1.update({loc_key: y0[loc_key][:] - cellDistY})
-            else:
-                y1.update({loc_key: y0[loc_key][:] + cellDistY})
-            if loc_key in ('B'):
-                y2.update({loc_key: y0[loc_key][:]})
-            else:
-                y2.update({loc_key: y1[loc_key][:] + 2*cellDistY})
-            if loc_key in ('UL', 'UR'):
-                y3.update({loc_key: y0[loc_key][:] + 2*cellDistY})
-            else:
-                y3.update({loc_key: y0[loc_key][:] + cellDistY})
+        if loc_key in ('UR', 'B'):
+            y1.update({loc_key: y0[loc_key][:] - cellDistY})
+        else:
+            y1.update({loc_key: y0[loc_key][:] + cellDistY})
+        if loc_key in ('B'):
+            y2.update({loc_key: y0[loc_key][:]})
+        else:
+            y2.update({loc_key: y1[loc_key][:] + 2*cellDistY})
+        if loc_key in ('UL', 'UR'):
+            y3.update({loc_key: y0[loc_key][:] + 2*cellDistY})
+        else:
+            y3.update({loc_key: y0[loc_key][:] + cellDistY})
 
-            angle = 2*np.pi/3
-            x0[loc_key], y0[loc_key] = rotate(angle, x0[loc_key], y0[loc_key], wc_x, wc_y)
-            x1[loc_key], y1[loc_key] = rotate(angle, x1[loc_key], y1[loc_key], wc_x, wc_y)
-            x2[loc_key], y2[loc_key] = rotate(angle, x2[loc_key], y2[loc_key], wc_x, wc_y)
-            x3[loc_key], y3[loc_key] = rotate(angle, x3[loc_key], y3[loc_key], wc_x, wc_y)
+        angle = 2*np.pi/3
+        x0[loc_key], y0[loc_key] = rotate(angle, x0[loc_key], y0[loc_key], wc_x, wc_y)
+        x1[loc_key], y1[loc_key] = rotate(angle, x1[loc_key], y1[loc_key], wc_x, wc_y)
+        x2[loc_key], y2[loc_key] = rotate(angle, x2[loc_key], y2[loc_key], wc_x, wc_y)
+        x3[loc_key], y3[loc_key] = rotate(angle, x3[loc_key], y3[loc_key], wc_x, wc_y)
             
-            keys = ['pos0','pos1','pos2','pos3']
-            xaxis.update({
-                loc_key: pd.concat([x0[loc_key],x1[loc_key],x2[loc_key],x3[loc_key]],
-                                   axis=1, keys=keys)})
-            yaxis.update(
-                {loc_key: pd.concat([y0[loc_key],y1[loc_key],y2[loc_key],y3[loc_key]],
-                                    axis=1, keys=keys)})
+        keys = ['pos0','pos1','pos2','pos3']
+        xaxis.update({
+            loc_key: pd.concat([x0[loc_key],x1[loc_key],x2[loc_key],x3[loc_key]],
+                               axis=1, keys=keys)})
+        yaxis.update(
+            {loc_key: pd.concat([y0[loc_key],y1[loc_key],y2[loc_key],y3[loc_key]],
+                                axis=1, keys=keys)})
 
-            xaxis[loc_key]['new'] = [[round(val, 3) for val in sublst]
-                                     for sublst in xaxis[loc_key].values.tolist()]
-            yaxis[loc_key]['new'] = [[round(val, 3) for val in sublst]
-                                     for sublst in yaxis[loc_key].values.tolist()]
-            # xaxis[loc_key]['x_tmp'] = x0[loc_key]
-            # yaxis[loc_key]['y_tmp'] = y0[loc_key]
+        xaxis[loc_key]['new'] = [[round(val, 3) for val in sublst]
+                                 for sublst in xaxis[loc_key].values.tolist()]
+        yaxis[loc_key]['new'] = [[round(val, 3) for val in sublst]
+                                 for sublst in yaxis[loc_key].values.tolist()]
+        xaxis[loc_key] = xaxis[loc_key].drop(keys, axis=1)
+        yaxis[loc_key] = yaxis[loc_key].drop(keys, axis=1)
 
-            xaxis[loc_key] = xaxis[loc_key].drop(keys, axis=1)
-            yaxis[loc_key] = yaxis[loc_key].drop(keys, axis=1)
+    tc_x = pd.concat(xaxis.values())
+    tc_y = pd.concat(yaxis.values())
+    tc_x = tc_x.groupby(tc_x.index).agg(lambda k: [k])
+    tc_y = tc_y.groupby(tc_y.index).agg(lambda k: [k])
 
-        xaxis_plac[ip_key] = pd.concat(xaxis.values())
-        yaxis_plac[ip_key] = pd.concat(yaxis.values())
-        xaxis_plac[ip_key] = xaxis_plac[ip_key].groupby(xaxis_plac[ip_key].index).agg(lambda k: [k])
-        yaxis_plac[ip_key] = yaxis_plac[ip_key].groupby(yaxis_plac[ip_key].index).agg(lambda k: [k])
-
-    tc_polyg_x = pd.concat(xaxis_plac.values())
-    tc_polyg_y = pd.concat(yaxis_plac.values())
-    res_tc = pd.concat([tc_x, tc_y], axis=1)
-    res_tc.columns = ['tc_x', 'tc_y']
+    # define module corners' coordinates
+    w1x = wafer_shifts[0](df[swu], df[swv], corner1x)
+    w2x = wafer_shifts[0](df[swu], df[swv], corner2x)
+    w3x = wafer_shifts[0](df[swu], df[swv], corner3x)
+    w4x = wafer_shifts[0](df[swu], df[swv], corner4x)
+    w5x = wafer_shifts[0](df[swu], df[swv], corner5x)
+    w6x = wafer_shifts[0](df[swu], df[swv], corner6x)
+    w1y = wafer_shifts[1](df[swv], corner1y)
+    w2y = wafer_shifts[1](df[swv], corner2y)
+    w3y = wafer_shifts[1](df[swv], corner3y)
+    w4y = wafer_shifts[1](df[swv], corner4y)
+    w5y = wafer_shifts[1](df[swv], corner5y)
+    w6y = wafer_shifts[1](df[swv], corner6y)
 
     keys = ['corner0', 'corner1', 'corner2', 'corner3', 'corner4', 'corner5', 'corner6']
-    hex_x = pd.concat((wcorner1x, wcorner2x, wcorner3x, wcorner4x, wcorner5x, wcorner6x), axis=1, keys=keys)
-    hex_y = pd.concat((wcorner1y, wcorner2y, wcorner3y, wcorner4y, wcorner5y, wcorner6y), axis=1, keys=keys)
+    hex_x = pd.concat((w1x, w2x, w3x, w4x, w5x, w6x), axis=1, keys=keys)
+    hex_y = pd.concat((w1y, w2y, w3y, w4y, w5y, w6y), axis=1, keys=keys)
     hex_x = hex_x.apply(lambda row: row.dropna().tolist(), axis=1)
     hex_y = hex_y.apply(lambda row: row.dropna().tolist(), axis=1)
-    res_hex = pd.concat([hex_x, hex_y], axis=1)
-    res_hex.columns = ['hex_x', 'hex_y']
-    return df.join(res), df.join(res_hex)
+    hex_x = hex_x.groupby(hex_x.index).agg(lambda k: [k])
+    hex_y = hex_y.groupby(hex_y.index).agg(lambda k: [k])
+
+    res = pd.concat([tc_x, tc_y, hex_x, hex_y], axis=1)
+    res.columns = ['tc_x', 'tc_y', 'hex_x', 'hex_y']
+
+    return df.join(res)
 
 def get_data(event, particles):
     ds_geom = geom_data.provide()
-    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) ]
-    # ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
-    # ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
-    # ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
+                      ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
 
     # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
     #                   ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
@@ -280,35 +262,42 @@ def get_data(event, particles):
     #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))
     #                   ]
     ds_geom = ds_geom[ds_geom.layer<=9]
-    ds_geom = convert_cells_to_xy(ds_geom)
+    ds_geom = ds_geom[ds_geom.waferpart==0]
     
-    ds_ev = data_particle[particles].provide_event(event)
-    ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
-                          'good_tc_cellu':'triggercellu', 'good_tc_cellv':'triggercellv',
-                          'good_tc_layer':'layer'},
-                 inplace=True)
+    ds_geom = convert_cells_to_xy(ds_geom)
 
-    ds_ev = pd.merge(left=ds_ev, right=ds_geom, how='inner',
-                     on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
-    #ds_ev = convert_cells_to_xy(ds_ev)
+    if mode=='ev':
+        ds_ev = data_particle[particles].provide_event(event)
+        ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
+                            'good_tc_cellu':'triggercellu', 'good_tc_cellv':'triggercellv',
+                              'good_tc_layer':'layer'},
+                    inplace=True)
+        ds_ev = pd.merge(left=ds_ev, right=ds_geom, how='inner',
+                         on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
+        return {'ev': ds_ev, 'geom': ds_geom}
 
-    return {'ev': ds_ev, 'geom': ds_geom}
+    else:
+        return {'geom': ds_geom}
 
-with open(params.viz_kw['CfgEventPath'], 'r') as afile:
-    cfg = yaml.safe_load(afile)
-    def_evs = cfg['defaultEvents']
-    def_ev_text = {}
-    for k in def_evs:
-        drop_text = [(str(q),str(q)) for q in def_evs[k]]
-        def_ev_text[k] = drop_text
+if mode=='ev':
+    with open(params.viz_kw['CfgEventPath'], 'r') as afile:
+        cfg = yaml.safe_load(afile)
+        def_evs = cfg['defaultEvents']
+        def_ev_text = {}
+        for k in def_evs:
+            drop_text = [(str(q),str(q)) for q in def_evs[k]]
+            def_ev_text[k] = drop_text
 
-elements = {}
-for k in ('photons', 'electrons'):
-    elements[k] = {'textinput': bmd.TextInput(value='<specify an event>', height=40,
-                                             sizing_mode='stretch_width'),
-                   'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
-                                            menu=def_ev_text[k], height=40,),
-                   'source': bmd.ColumnDataSource(data=get_data(def_evs[k][0], k)[mode])}
+elements, cds_data = ({} for _ in range(2))
+for k in (('photons', 'electrons') if mode=='ev' else ('geometry',)):
+    evs = def_evs[k][0] if mode == 'ev' else ''
+    cds_data[k] = get_data(evs, k)[mode]
+    elements[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
+    if mode=='ev':
+        elements.update({'textinput': bmd.TextInput(value='<specify an event>', height=40,
+                                                    sizing_mode='stretch_width'),
+                         'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
+                                                  menu=def_ev_text[k], height=40)})
 
 def text_callback(attr, old, new, source, particles):
     print('running ', particles, new)
@@ -324,8 +313,8 @@ def display():
     doc = curdoc()
     doc.title = 'TC Visualization'
     
-    width, height   = 1250, 1000
-    width2, height2 = 400, 300
+    width, height   = 600, 600
+    width2, height2 = 300, 200
     tabs = []
     
     for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
@@ -339,7 +328,7 @@ def display():
         slider_callback = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
         slider.js_on_change('value', slider_callback) #value_throttled
 
-        view = bmd.CDSView(filter=bmd.CustomJSFilter(args=dict(slider=slider), code="""
+        filter_cells = bmd.CustomJSFilter(args=dict(slider=slider), code="""
            var indices = new Array(source.get_length());
            var sval = slider.value;
     
@@ -348,7 +337,12 @@ def display():
                indices[i] = subset[i] == sval;
            }
            return indices;
-           """))
+           """)
+        view_cells = bmd.CDSView(filter=filter_cells)
+        # modules are duplicated for cells lying in the same wafer
+        # we want to avoid drawing the same module multiple times
+        view_modules = (~cds_data[ksrc].duplicated(subset=['layer', 'waferu', 'waferv'])).tolist()
+        view_modules = bmd.CDSView(filter=filter_cells & bmd.BooleanFilter(view_modules))
 
         ####### (u,v) plots ################################################################
         # p_uv = figure(width=width, height=height,
@@ -362,40 +356,54 @@ def display():
 
         ####### cell plots ################################################################
         lim = 22
-        polyg_opt = dict(line_color='black', line_width=2)
-        p_cells = figure(width=width, height=height,
-                         x_range=bmd.Range1d(-lim, lim),
-                         y_range=bmd.Range1d(-lim, lim),
-                         tools='save,reset', toolbar_location='right',
-                         output_backend='webgl')
+        fig_opt = dict(width=width, height=height,
+                       x_range=bmd.Range1d(-lim, lim), y_range=bmd.Range1d(-lim, lim),
+                       tools='save,reset,undo', toolbar_location='right', output_backend='webgl')
+        p_cells = figure(**fig_opt)
+        p_mods = figure(**fig_opt)
 
-        hover_val_common = '@triggercellu,@triggercellv / @waferu,@waferv'
+        hover_val_cells_common = '@triggercellu,@triggercellv / @waferu,@waferv'
+        hover_val_mods_common = '@waferu,@waferv'
         if mode == 'ev':
-            hover_key = 'Energy (cu,cv / wu,wv)'
-            hover_val = '@good_tc_mipPt (' + hover_val_common + ')'
+            hover_key_cells = 'Energy (cu,cv / wu,wv)'
+            hover_val_cells = '@good_tc_mipPt (' + hover_val_cells_common + ')'
+            hover_key_mods = 'Energy (wu,wv)'
+            hover_val_mods = '@good_tc_mipPt (' + hover_val_mods_common + ')'
         else:
-            hover_key = 'cu,cv / wu,wv'
-            hover_val = hover_val_common
+            hover_key_cells = 'cu,cv / wu,wv'
+            hover_key_mods = 'wu,wv'
+            hover_val_cells = hover_val_cells_common
+            hover_val_mods = hover_val_mods_common
 
-        p_cells.add_tools(bmd.BoxZoomTool(match_aspect=True),
-                          bmd.WheelZoomTool(),
-                          bmd.HoverTool(tooltips=[(hover_key, hover_val),]))
+        tool_list = (bmd.BoxZoomTool(match_aspect=True),)
+        p_cells.add_tools(bmd.HoverTool(tooltips=[(hover_key_cells, hover_val_cells),]), *tool_list)
+        p_mods.add_tools(bmd.HoverTool(tooltips=[(hover_key_mods, hover_val_mods),]), *tool_list)
         common_props(p_cells, xlim=(-lim, lim), ylim=(-lim, lim))
+        common_props(p_mods, xlim=(-lim, lim), ylim=(-lim, lim))
 
-        p_cells_opt = dict(xs='tc_x', ys='tc_y', source=vsrc, view=view, **polyg_opt)
+        polyg_opt = dict(line_color='black', line_width=2)
+        p_cells_opt = dict(xs='tc_x', ys='tc_y', source=vsrc, view=view_cells, **polyg_opt)
+        p_mods_opt = dict(xs='hex_x', ys='hex_y', source=vsrc, view=view_modules, **polyg_opt)
 
         if mode == 'ev':
             p_cells.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper},
                                    **p_cells_opt)
+            p_mods.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper}, #CHANGE WHEN MODULE SUMS ARE AVAILABLE
+                                   **p_mods_opt)
+
         else:
             p_cells.multi_polygons(color='green', **p_cells_opt)
-            #p_cells.circle(x='x_tmp', y='y_tmp', source=vsrc, size=3)
+            p_mods.multi_polygons(color='green', **p_mods_opt)
                         
         if mode == 'ev':
             color_bar = bmd.ColorBar(color_mapper=mapper,
                                      ticker=bmd.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
                                      formatter=bmd.PrintfTickFormatter(format="%d"))
             p_cells.add_layout(color_bar, 'right')
+            p_mods.add_layout(color_bar, 'right')
+
+            elements[ksrc]['textinput'].on_change('value', partial(text_callback, source=vsrc, particles=ksrc))
+            elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, source=vsrc, particles=ksrc))
 
         ####### (x,y) plots ################################################################
         # p_xy = figure(width=width, height=height,
@@ -427,13 +435,9 @@ def display():
         # common_props(p_yVSx)
         
         ####### text input ###################################################################
-        elements[ksrc]['textinput'].on_change('value', partial(text_callback, source=vsrc, particles=ksrc))
 
         slider_callback = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
         slider.js_on_change('value', slider_callback) #value_throttled
-
-        elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, source=vsrc, particles=ksrc))
-
 
         ####### define layout ################################################################
         blank1 = bmd.Div(width=1000, height=100, text='')
@@ -448,7 +452,7 @@ def display():
         lay = layout([first_row,
                       #[p_cells, p_uv, p_xy],
                       #[p_xVSz, p_yVSz, p_yVSx],
-                      [p_cells],
+                      [p_cells, p_mods],
                       [blank1],
                       ])
         tab = bmd.TabPanel(child=lay, title=ksrc)

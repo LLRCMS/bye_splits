@@ -12,7 +12,6 @@ import yaml
 import awkward as ak
 import uproot as up
 import pandas as pd
-import dask.dataframe as dd
 
 from utils import params, common
 from data_handle.base import BaseData
