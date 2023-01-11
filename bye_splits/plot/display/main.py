@@ -66,20 +66,18 @@ def convert_cells_to_xy(df):
     
     c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
     N = 4
-    N2 = 2*N - 1
-    waferSize = 1
-    cellDistX = waferSize/8.
-    cellDistY = cellDistX * t30
-    R = waferSize / (3 * N)
+    waferWidth = 1
+    R = waferWidth / (3 * N)
     r = R * c30
+    cellDistX = waferWidth/8.
+    cellDistY = cellDistX * t30
 
-    cells_conversion = (lambda cu,cv: (1.5*(cv-cu)+0.5) * R  , lambda cu,cv: (cv+cu-2*N+1) * r) #orientation 6
-    wafer_shifts = (lambda wu,wv,cx: (2*wu - wv)*waferSize/2 + cx,
-                    lambda wv,cy: c30*wv + cy)
+    cells_conversion = (lambda cu,cv: (1.5*(cv-cu)+0.5) * R, lambda cu,cv: (cv+cu-2*N+1) * r) #orientation 6
+    wafer_shifts = (lambda wu,wv,cx: (2*wu - wv)*waferWidth/2 + cx, lambda wv,cy: c30*wv + cy)
 
     univ_wcenterx = (1.5*(3-3) + 0.5)*R + cellDistX
-    univ_wcentery = (3 + 3 - 2*N + 1) * r + cellDistY
-    scale_x, scale_y = (waferSize/3)*c30, (waferSize/3)
+    univ_wcentery = (3 + 3 - 2*N + 1) * r + 3*cellDistY/2
+    scale_x, scale_y = waferWidth/2, waferWidth/(2*c30)
     corner1x = univ_wcenterx - scale_x
     corner2x = univ_wcenterx
     corner3x = univ_wcenterx + scale_x
@@ -190,7 +188,7 @@ def convert_cells_to_xy(df):
         else:
             y3.update({loc_key: y0[loc_key][:] + cellDistY})
 
-        angle = 2*np.pi/3
+        angle = 0#2*np.pi/3
         x0[loc_key], y0[loc_key] = rotate(angle, x0[loc_key], y0[loc_key], wc_x, wc_y)
         x1[loc_key], y1[loc_key] = rotate(angle, x1[loc_key], y1[loc_key], wc_x, wc_y)
         x2[loc_key], y2[loc_key] = rotate(angle, x2[loc_key], y2[loc_key], wc_x, wc_y)
@@ -245,20 +243,20 @@ def convert_cells_to_xy(df):
 
 def get_data(event, particles):
     ds_geom = geom_data.provide()
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
-                      ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
+    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
 
-    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
-    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))
-    #                   ]
+    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
+                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))
+                      ]
     ds_geom = ds_geom[ds_geom.layer<=9]
-    ds_geom = ds_geom[ds_geom.waferpart==0]
+    # ds_geom = ds_geom[ds_geom.waferpart==0]
     
     ds_geom = convert_cells_to_xy(ds_geom)
 
@@ -285,7 +283,7 @@ if mode=='ev':
             def_ev_text[k] = drop_text
 
 elements, cds_data = ({} for _ in range(2))
-for k in (('photons', 'electrons') if mode=='ev' else ('geometry',)):
+for k in (('photons', 'electrons') if mode=='ev' else ('Geometry',)):
     evs = def_evs[k][0] if mode == 'ev' else ''
     cds_data[k] = get_data(evs, k)[mode]
     elements[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
@@ -351,22 +349,31 @@ def display():
         # p_uv.add_tools(bmd.HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),]))
 
         # find dataset minima and maxima
-        cur_xmax, cur_ymax = 0, 0
+        cur_xmax, cur_ymax = -1e9, -1e9
         cur_xmin, cur_ymin = 1e9, 1e9
         for ex,ey in zip(vsrc.data['tc_x'],vsrc.data['tc_y']):
             if max(ex[0].tolist()[0]) > cur_xmax: cur_xmax = max(ex[0].tolist()[0])
             if min(ex[0].tolist()[0]) < cur_xmin: cur_xmin = min(ex[0].tolist()[0])
             if max(ey[0].tolist()[0]) > cur_ymax: cur_ymax = max(ey[0].tolist()[0])
             if min(ey[0].tolist()[0]) < cur_ymin: cur_ymin = min(ey[0].tolist()[0])
-        # force squared display
-        cur_max = max(cur_xmax, cur_ymax)
-        cur_min = min(cur_xmin, cur_ymin)
+        # force matching ratio to avoid distortions
+        distx, disty = cur_xmax-cur_xmin, cur_ymax-cur_ymin
+        if distx > disty:
+            cur_ymax += abs(distx-disty)/2
+            cur_ymin = cur_ymax - distx
+        else:
+            cur_xmin -= abs(distx-disty)/2
+            cur_xmax = cur_xmin + disty
+        cur_xmax += (cur_xmax-cur_xmin)*0.05
+        cur_xmin -= (cur_xmax-cur_xmin)*0.05
+        cur_ymax += (cur_ymax-cur_ymin)*0.05
+        cur_ymin -= (cur_ymax-cur_ymin)*0.05
 
         fig_opt = dict(width=width, height=height,
                        tools='save,reset,undo',
                        toolbar_location='right', output_backend='webgl'
                        )
-        p_cells = figure(x_range=bmd.Range1d(cur_min, cur_max), y_range=bmd.Range1d(cur_min, cur_max), **fig_opt)
+        p_cells = figure(x_range=bmd.Range1d(cur_xmin, cur_xmax), y_range=bmd.Range1d(cur_ymin, cur_ymax), **fig_opt)
         p_mods = figure(x_range=p_cells.x_range, y_range=p_cells.y_range, **fig_opt)
 
         hover_val_cells_common = '@triggercellu,@triggercellv / @waferu,@waferv'
@@ -384,14 +391,15 @@ def display():
 
         tool_list = (bmd.BoxZoomTool(match_aspect=True),)
         p_cells.add_tools(bmd.HoverTool(tooltips=[(hover_key_cells, hover_val_cells),]), *tool_list)
-        p_mods.add_tools(bmd.HoverTool(tooltips=[(hover_key_mods, hover_val_mods),]), *tool_list)
+        #p_mods.add_tools(bmd.HoverTool(tooltips=[(hover_key_mods, hover_val_mods),]), *tool_list)
+        p_mods.add_tools(*tool_list)
         common_props(p_cells)
         common_props(p_mods)
 
         polyg_opt = dict(line_color='black', line_width=2)
         p_cells_opt = dict(xs='tc_x', ys='tc_y', source=vsrc, view=view_cells, **polyg_opt)
         p_mods_opt = dict(xs='hex_x', ys='hex_y', source=vsrc, view=view_modules, **polyg_opt)
-        hover_opt = dict(hover_fill_color='gray', hover_line_color='black')
+        hover_opt = dict(hover_fill_color='black', hover_line_color='black', hover_line_width=4, hover_alpha=0.2)
 
         if mode == 'ev':
             p_cells.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper},
