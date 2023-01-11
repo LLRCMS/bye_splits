@@ -133,20 +133,20 @@ def convert_cells_to_xy(df):
         else: #bottom
             return (~filt_UL & ~filt_UR)
 
-    x0, x1, x2, x3 = ({} for _ in range(4))
-    y0, y1, y2, y3 = ({} for _ in range(4))
+    xpoint, x0, x1, x2, x3 = ({} for _ in range(5))
+    ypoint, y0, y1, y2, y3 = ({} for _ in range(5))
     xaxis, yaxis = ({} for _ in range(2))
 
     cx_data = cells_conversion[0](df[scu], df[scv])
     cy_data = cells_conversion[1](df[scu], df[scv])
-    wx_data = wafer_shifts[0](df[swu], df[swv], cx_data)
-    wy_data = wafer_shifts[1](df[swv], cy_data)
+    cx_data_global = wafer_shifts[0](df[swu], df[swv], cx_data)
+    cy_data_global = wafer_shifts[1](df[swv], cy_data)
     wcenter_x = wafer_shifts[0](df[swu], df[swv], univ_wcenterx) # fourth vertex (center) for cu/cv=(3,3)
     wcenter_y = wafer_shifts[1](df[swv], univ_wcentery) # fourth vertex (center) for cu/cv=(3,3)
     
     for loc_key in ('UL', 'UR', 'B'):
         masks_loc = masks_location(loc_key, cx_data, cy_data)
-        wx_d, wy_d = wx_data[masks_loc], wy_data[masks_loc]
+        cx_d, cy_d = cx_data_global[masks_loc], cy_data_global[masks_loc]
         wc_x, wc_y = wcenter_x[masks_loc], wcenter_y[masks_loc]
 
         # x0 refers to the x position the lefmost, down corner all diamonds (TCs)
@@ -154,11 +154,11 @@ def convert_cells_to_xy(df):
         # same for y0, y1, y2 and y3
         # tc positions refer to the center of the diamonds
         if loc_key == 'UL':
-            x0.update({loc_key: wx_d})
+            x0.update({loc_key: cx_d})
         elif loc_key == 'UR':
-            x0.update({loc_key: wx_d})
+            x0.update({loc_key: cx_d})
         else:
-            x0.update({loc_key: wx_d - cellDistX})
+            x0.update({loc_key: cx_d - cellDistX})
                 
         x1.update({loc_key: x0[loc_key][:] + cellDistX})
         if loc_key in ('UL', 'UR'):
@@ -169,11 +169,11 @@ def convert_cells_to_xy(df):
             x3.update({loc_key: x1[loc_key]})
 
         if loc_key == 'UL':
-            y0.update({loc_key: wy_d})
+            y0.update({loc_key: cy_d})
         elif loc_key == 'UR':
-            y0.update({loc_key: wy_d})
+            y0.update({loc_key: cy_d})
         else:
-            y0.update({loc_key: wy_d + cellDistY})
+            y0.update({loc_key: cy_d + cellDistY})
 
         if loc_key in ('UR', 'B'):
             y1.update({loc_key: y0[loc_key][:] - cellDistY})
@@ -209,10 +209,10 @@ def convert_cells_to_xy(df):
         xaxis[loc_key] = xaxis[loc_key].drop(keys, axis=1)
         yaxis[loc_key] = yaxis[loc_key].drop(keys, axis=1)
 
-    tc_x = pd.concat(xaxis.values())
-    tc_y = pd.concat(yaxis.values())
-    tc_x = tc_x.groupby(tc_x.index).agg(lambda k: [k])
-    tc_y = tc_y.groupby(tc_y.index).agg(lambda k: [k])
+    diamond_x = pd.concat(xaxis.values())
+    diamond_y = pd.concat(yaxis.values())
+    diamond_x = diamond_x.groupby(diamond_x.index).agg(lambda k: [k])
+    diamond_y = diamond_y.groupby(diamond_y.index).agg(lambda k: [k])
 
     # define module corners' coordinates
     w1x = wafer_shifts[0](df[swu], df[swv], corner1x)
@@ -236,8 +236,8 @@ def convert_cells_to_xy(df):
     hex_x = hex_x.groupby(hex_x.index).agg(lambda k: [k])
     hex_y = hex_y.groupby(hex_y.index).agg(lambda k: [k])
 
-    res = pd.concat([tc_x, tc_y, hex_x, hex_y], axis=1)
-    res.columns = ['tc_x', 'tc_y', 'hex_x', 'hex_y']
+    res = pd.concat([cx_data_global, cy_data_global, diamond_x, diamond_y, hex_x, hex_y], axis=1)
+    res.columns = ['tc_x', 'tc_y', 'diamond_x', 'diamond_y', 'hex_x', 'hex_y']
 
     return df.join(res)
 
@@ -336,6 +336,7 @@ def display():
         # modules are duplicated for cells lying in the same wafer
         # we want to avoid drawing the same module multiple times
         view_modules = (~cds_data[ksrc].duplicated(subset=['layer', 'waferu', 'waferv'])).tolist()
+        #view_modules = bmd.CDSView(filter=filter_cells & bmd.BooleanFilter(view_modules))
         view_modules = bmd.CDSView(filter=filter_cells)
 
         ####### (u,v) plots ################################################################
@@ -351,7 +352,7 @@ def display():
         # find dataset minima and maxima
         cur_xmax, cur_ymax = -1e9, -1e9
         cur_xmin, cur_ymin = 1e9, 1e9
-        for ex,ey in zip(vsrc.data['tc_x'],vsrc.data['tc_y']):
+        for ex,ey in zip(vsrc.data['diamond_x'],vsrc.data['diamond_y']):
             if max(ex[0].tolist()[0]) > cur_xmax: cur_xmax = max(ex[0].tolist()[0])
             if min(ex[0].tolist()[0]) < cur_xmin: cur_xmin = min(ex[0].tolist()[0])
             if max(ey[0].tolist()[0]) > cur_ymax: cur_ymax = max(ey[0].tolist()[0])
@@ -373,49 +374,58 @@ def display():
                        tools='save,reset,undo',
                        toolbar_location='right', output_backend='webgl'
                        )
-        p_cells = figure(x_range=bmd.Range1d(cur_xmin, cur_xmax), y_range=bmd.Range1d(cur_ymin, cur_ymax), **fig_opt)
-        p_mods = figure(x_range=p_cells.x_range, y_range=p_cells.y_range, **fig_opt)
+        p_diams = figure(x_range=bmd.Range1d(cur_xmin, cur_xmax), y_range=bmd.Range1d(cur_ymin, cur_ymax), **fig_opt)
+        p_mods = figure(x_range=p_diams.x_range, y_range=p_diams.y_range, **fig_opt)
 
-        hover_val_cells_common = '@triggercellu,@triggercellv / @waferu,@waferv'
-        hover_val_mods_common = '@waferu,@waferv'
         if mode == 'ev':
             hover_key_cells = 'Energy (cu,cv / wu,wv)'
-            hover_val_cells = '@good_tc_mipPt (' + hover_val_cells_common + ')'
+            hover_val_cells = '@good_tc_mipPt (@triggercellu,@triggercellv / @waferu,@wafer)'
             hover_key_mods = 'Energy (wu,wv)'
-            hover_val_mods = '@good_tc_mipPt (' + hover_val_mods_common + ')'
+            hover_val_mods = '@good_tc_mipPt (@waferu,@waferv)'
         else:
             hover_key_cells = 'cu,cv / wu,wv'
+            hover_val_cells = '@triggercellu,@triggercellv / @waferu,@waferv'
             hover_key_mods = 'wu,wv'
-            hover_val_cells = hover_val_cells_common
-            hover_val_mods = hover_val_mods_common
+            #hover_val_mods = '@waferu{custom},@waferv{custom}'
+            hover_val_mods = '@waferu,@waferv'
 
+        hover_code = """
+        var wcoord = special_vars.{};
+        return wcoord[0];
+        """
+        
         tool_list = (bmd.BoxZoomTool(match_aspect=True),)
-        p_cells.add_tools(bmd.HoverTool(tooltips=[(hover_key_cells, hover_val_cells),]), *tool_list)
-        #p_mods.add_tools(bmd.HoverTool(tooltips=[(hover_key_mods, hover_val_mods),]), *tool_list)
+        p_diams.add_tools(bmd.HoverTool(tooltips=[(hover_key_cells, hover_val_cells),],), *tool_list)
+        # p_mods.add_tools(bmd.HoverTool(tooltips=[(hover_key_mods, hover_val_mods),],), *tool_list)
+        #                                # formatters={'@waferu': bmd.CustomJSHover(code=hover_code.format('waferu')),
+        #                                #             '@waferv': bmd.CustomJSHover(code=hover_code.format('waferv'))}
+
         p_mods.add_tools(*tool_list)
-        common_props(p_cells)
+        common_props(p_diams)
         common_props(p_mods)
 
         polyg_opt = dict(line_color='black', line_width=2)
-        p_cells_opt = dict(xs='tc_x', ys='tc_y', source=vsrc, view=view_cells, **polyg_opt)
+        p_diams_opt = dict(xs='diamond_x', ys='diamond_y', source=vsrc, view=view_cells, **polyg_opt)
         p_mods_opt = dict(xs='hex_x', ys='hex_y', source=vsrc, view=view_modules, **polyg_opt)
         hover_opt = dict(hover_fill_color='black', hover_line_color='black', hover_line_width=4, hover_alpha=0.2)
 
         if mode == 'ev':
-            p_cells.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper},
-                                   **p_cells_opt)
+            p_diams.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper},
+                                   **hover_opt, **p_diams_opt)
             p_mods.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper}, #CHANGE WHEN MODULE SUMS ARE AVAILABLE
-                                   **p_mods_opt)
+                                   **hover_opt, **p_mods_opt)
 
         else:
-            p_cells.multi_polygons(color='green', **hover_opt, **p_cells_opt)
+            p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
+            p_diams.circle(x='tc_x', y='tc_y', source=vsrc, view=view_cells, size=4, color='red')
+
             p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
                         
         if mode == 'ev':
             color_bar = bmd.ColorBar(color_mapper=mapper,
                                      ticker=bmd.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
                                      formatter=bmd.PrintfTickFormatter(format="%d"))
-            p_cells.add_layout(color_bar, 'right')
+            p_diams.add_layout(color_bar, 'right')
             p_mods.add_layout(color_bar, 'right')
 
             elements[ksrc]['textinput'].on_change('value', partial(text_callback, source=vsrc, particles=ksrc))
@@ -466,9 +476,9 @@ def display():
             first_row = [slider]
             
         lay = layout([first_row,
-                      #[p_cells, p_uv, p_xy],
+                      #[p_diams, p_uv, p_xy],
                       #[p_xVSz, p_yVSz, p_yVSx],
-                      [p_cells, p_mods],
+                      [p_diams, p_mods],
                       [blank1],
                       ])
         tab = bmd.TabPanel(child=lay, title=ksrc)
