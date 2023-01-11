@@ -45,17 +45,13 @@ data_vars = {'ev': config['varEvents'],
              'geom': config['varGeometry']}
 mode = 'geom'
 
-def common_props(p, xlim=None, ylim=None):
+def common_props(p):
     p.output_backend = 'svg'
     p.toolbar.logo = None
     p.grid.visible = False
     p.outline_line_color = None
     p.xaxis.visible = False
     p.yaxis.visible = False
-    if xlim is not None:
-        p.x_range = bmd.Range1d(xlim[0], xlim[1])
-    if ylim is not None:
-        p.y_range = bmd.Range1d(ylim[0], ylim[1])
 
 def rotate(angle, x, y, cx, cy):
     """Counter-clockwise rotation of 'angle' [radians]"""
@@ -342,7 +338,7 @@ def display():
         # modules are duplicated for cells lying in the same wafer
         # we want to avoid drawing the same module multiple times
         view_modules = (~cds_data[ksrc].duplicated(subset=['layer', 'waferu', 'waferv'])).tolist()
-        view_modules = bmd.CDSView(filter=filter_cells & bmd.BooleanFilter(view_modules))
+        view_modules = bmd.CDSView(filter=filter_cells)
 
         ####### (u,v) plots ################################################################
         # p_uv = figure(width=width, height=height,
@@ -354,13 +350,24 @@ def display():
         #               size=1, fill_color='color', line_color='black', line_width=1, alpha=1.)    
         # p_uv.add_tools(bmd.HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),]))
 
-        ####### cell plots ################################################################
-        lim = 22
+        # find dataset minima and maxima
+        cur_xmax, cur_ymax = 0, 0
+        cur_xmin, cur_ymin = 1e9, 1e9
+        for ex,ey in zip(vsrc.data['tc_x'],vsrc.data['tc_y']):
+            if max(ex[0].tolist()[0]) > cur_xmax: cur_xmax = max(ex[0].tolist()[0])
+            if min(ex[0].tolist()[0]) < cur_xmin: cur_xmin = min(ex[0].tolist()[0])
+            if max(ey[0].tolist()[0]) > cur_ymax: cur_ymax = max(ey[0].tolist()[0])
+            if min(ey[0].tolist()[0]) < cur_ymin: cur_ymin = min(ey[0].tolist()[0])
+        # force squared display
+        cur_max = max(cur_xmax, cur_ymax)
+        cur_min = min(cur_xmin, cur_ymin)
+
         fig_opt = dict(width=width, height=height,
-                       x_range=bmd.Range1d(-lim, lim), y_range=bmd.Range1d(-lim, lim),
-                       tools='save,reset,undo', toolbar_location='right', output_backend='webgl')
-        p_cells = figure(**fig_opt)
-        p_mods = figure(**fig_opt)
+                       tools='save,reset,undo',
+                       toolbar_location='right', output_backend='webgl'
+                       )
+        p_cells = figure(x_range=bmd.Range1d(cur_min, cur_max), y_range=bmd.Range1d(cur_min, cur_max), **fig_opt)
+        p_mods = figure(x_range=p_cells.x_range, y_range=p_cells.y_range, **fig_opt)
 
         hover_val_cells_common = '@triggercellu,@triggercellv / @waferu,@waferv'
         hover_val_mods_common = '@waferu,@waferv'
@@ -378,12 +385,13 @@ def display():
         tool_list = (bmd.BoxZoomTool(match_aspect=True),)
         p_cells.add_tools(bmd.HoverTool(tooltips=[(hover_key_cells, hover_val_cells),]), *tool_list)
         p_mods.add_tools(bmd.HoverTool(tooltips=[(hover_key_mods, hover_val_mods),]), *tool_list)
-        common_props(p_cells, xlim=(-lim, lim), ylim=(-lim, lim))
-        common_props(p_mods, xlim=(-lim, lim), ylim=(-lim, lim))
+        common_props(p_cells)
+        common_props(p_mods)
 
         polyg_opt = dict(line_color='black', line_width=2)
         p_cells_opt = dict(xs='tc_x', ys='tc_y', source=vsrc, view=view_cells, **polyg_opt)
         p_mods_opt = dict(xs='hex_x', ys='hex_y', source=vsrc, view=view_modules, **polyg_opt)
+        hover_opt = dict(hover_fill_color='gray', hover_line_color='black')
 
         if mode == 'ev':
             p_cells.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper},
@@ -392,8 +400,8 @@ def display():
                                    **p_mods_opt)
 
         else:
-            p_cells.multi_polygons(color='green', **p_cells_opt)
-            p_mods.multi_polygons(color='green', **p_mods_opt)
+            p_cells.multi_polygons(color='green', **hover_opt, **p_cells_opt)
+            p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
                         
         if mode == 'ev':
             color_bar = bmd.ColorBar(color_mapper=mapper,
