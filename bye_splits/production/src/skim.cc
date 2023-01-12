@@ -41,22 +41,30 @@ void skim(string tn, string inf, string outf, string particle) {
   for(auto& v : tcvars)
 	dd = dd.Define("tmp_good_" + v, v + "[tmp_good_tcs]");
 
-  vector<string> clvars_int = {};
+  vector<string> clvars_uint = {"cl3d_id"};
   vector<string> clvars_float = {"cl3d_energy", "cl3d_pt", "cl3d_eta", "cl3d_phi"};
-  vector<string> clvars = join_vars(clvars_int, clvars_float);
+  vector<string> clvars = join_vars(clvars_uint, clvars_float);
 	
   string condcl = "cl3d_eta > 0"; //dummy selection
   dd = dd.Define("tmp_good_cl", condcl);
   for(auto& v : clvars)
 	dd = dd.Define("tmp_good_" + v, v + "[tmp_good_cl]");
 
-  vector<string> intvars = join_vars(genvars_int, tcvars_int, clvars_int);
+  vector<string> intvars = join_vars(genvars_int, tcvars_int);
   for(auto& var : intvars) {
 	dd = dd.Define("good_" + var,
 				   [](const ROOT::VecOps::RVec<int> &v) {
 					 return std::vector<int>(v.begin(), v.end());
 				   },
 				   {"tmp_good_" + var});
+  }
+  vector<string> uintvars = join_vars(clvars_uint);
+  for(auto& var : uintvars) {
+    dd = dd.Define("good_" + var,
+		   [](const ROOT::VecOps::RVec<unsigned> &v) {
+		     return std::vector<unsigned>(v.begin(), v.end());
+		   },
+		   {"tmp_good_" + var});
   }
   vector<string> floatvars = join_vars(genvars_float, tcvars_float, clvars_float);
   for(auto& var : floatvars) {
