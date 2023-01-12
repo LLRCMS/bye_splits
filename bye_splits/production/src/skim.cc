@@ -1,5 +1,13 @@
 #include "include/skim.h"
 
+// Prepare missing matching
+// def deltar(df):
+//     df['deta']=df['cl3d_eta']-df['genpart_exeta']
+//     df['dphi']=np.abs(df['cl3d_phi']-df['genpart_exphi'])
+//     sel=df['dphi']>np.pi
+//     df['dphi']-=sel*(2*np.pi)
+//     return(np.sqrt(df['dphi']*df['dphi']+df['deta']*df['deta']))
+
 void skim(string tn, string inf, string outf, string particle) {
 
   YAML::Node config = YAML::LoadFile("bye_splits/production/prod_params.yaml");
