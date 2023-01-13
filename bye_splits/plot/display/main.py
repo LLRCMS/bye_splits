@@ -13,10 +13,11 @@ from functools import partial
 import argparse
 import numpy as np
 import pandas as pd
+pd.options.mode.chained_assignment = None # disable annoying SettingCopyWarning
 import yaml
+import logging
+log = logging.getLogger(__name__)
 
-#from bokeh.io import output_file, save
-#output_file('tmp.html')
 from bokeh.plotting import figure, curdoc
 from bokeh.util.hex import axial_to_cartesian
 from bokeh import models as bmd
@@ -36,14 +37,14 @@ from data_handle.geometry import GeometryData
 with open(params.viz_kw['CfgEventPath'], 'r') as afile:
     config = yaml.safe_load(afile)
 
-data_part_opt = dict(tag='v2', reprocess=False, debug=True)
+data_part_opt = dict(tag='v2', reprocess=False, debug=True, logger=log)
 data_particle = {
     'photons': EventDataParticle(particles='photons', **data_part_opt),
     'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
-geom_data = GeometryData(inname='test_triggergeom_v2.root', reprocess=True)
+geom_data = GeometryData(inname='test_triggergeom_v2.root', reprocess=False, logger=log)
 data_vars = {'ev': config['varEvents'],
              'geom': config['varGeometry']}
-mode = 'geom'
+mode = 'ev'
 
 def common_props(p):
     p.output_backend = 'svg'
@@ -61,9 +62,6 @@ def rotate(angle, x, y, cx, cy):
     return ret_x, ret_y
 
 def convert_cells_to_xy(df):
-    scu, scv = 'triggercellu', 'triggercellv'
-    swu, swv = 'waferu', 'waferv'
-    
     c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
     N = 4
     waferWidth = 1
@@ -72,25 +70,31 @@ def convert_cells_to_xy(df):
     cellDistX = waferWidth/8.
     cellDistY = cellDistX * t30
 
+    scu, scv = 'triggercellu', 'triggercellv'
+    swu, swv = 'waferu', 'waferv'
+    df.loc[:, 'wafer_shift_x'] = (2*df[swu] - df[swv])*waferWidth/2
+    df.loc[:, 'wafer_shift_y'] = c30*df[swv]
+    
     cells_conversion = (lambda cu,cv: (1.5*(cv-cu)+0.5) * R, lambda cu,cv: (cv+cu-2*N+1) * r) #orientation 6
-    wafer_shifts = (lambda wu,wv,cx: (2*wu - wv)*waferWidth/2 + cx, lambda wv,cy: c30*wv + cy)
 
     univ_wcenterx = (1.5*(3-3) + 0.5)*R + cellDistX
     univ_wcentery = (3 + 3 - 2*N + 1) * r + 3*cellDistY/2
     scale_x, scale_y = waferWidth/2, waferWidth/(2*c30)
-    corner1x = univ_wcenterx - scale_x
-    corner2x = univ_wcenterx
-    corner3x = univ_wcenterx + scale_x
-    corner4x = univ_wcenterx + scale_x
-    corner5x = univ_wcenterx
-    corner6x = univ_wcenterx - scale_x
+
+    xcorners, ycorners = ([] for _ in range(2))
+    xcorners.append(univ_wcenterx - scale_x)
+    xcorners.append(univ_wcenterx)
+    xcorners.append(univ_wcenterx + scale_x)
+    xcorners.append(univ_wcenterx + scale_x)
+    xcorners.append(univ_wcenterx)
+    xcorners.append(univ_wcenterx - scale_x)
     ysub = np.sqrt(scale_y*scale_y-scale_x*scale_x)
-    corner1y = univ_wcentery - ysub
-    corner2y = univ_wcentery - scale_y
-    corner3y = univ_wcentery - ysub
-    corner4y = univ_wcentery + ysub
-    corner5y = univ_wcentery + scale_y
-    corner6y = univ_wcentery + ysub
+    ycorners.append(univ_wcentery - ysub)
+    ycorners.append(univ_wcentery - scale_y)
+    ycorners.append(univ_wcentery - ysub)
+    ycorners.append(univ_wcentery + ysub)
+    ycorners.append(univ_wcentery + scale_y)
+    ycorners.append(univ_wcentery + ysub)
 
     def masks_location(location, ax, ay):
         """Filter TC location in wafer: up-right, up-left and bottom.
@@ -137,16 +141,16 @@ def convert_cells_to_xy(df):
     ypoint, y0, y1, y2, y3 = ({} for _ in range(5))
     xaxis, yaxis = ({} for _ in range(2))
 
-    cx_data = cells_conversion[0](df[scu], df[scv])
-    cy_data = cells_conversion[1](df[scu], df[scv])
-    cx_data_global = wafer_shifts[0](df[swu], df[swv], cx_data)
-    cy_data_global = wafer_shifts[1](df[swv], cy_data)
-    wcenter_x = wafer_shifts[0](df[swu], df[swv], univ_wcenterx) # fourth vertex (center) for cu/cv=(3,3)
-    wcenter_y = wafer_shifts[1](df[swv], univ_wcentery) # fourth vertex (center) for cu/cv=(3,3)
-    
+    df.loc[:, 'tc_x_center'] = (1.5*(df[scv]-df[scu])+0.5) * R #orientation 6
+    df.loc[:, 'tc_y_center'] = (df[scv]+df[scu]-2*N+1) * r #orientation 6
+    df.loc[:, 'tc_x'] = df.wafer_shift_x + df['tc_x_center']
+    df.loc[:, 'tc_y'] = df.wafer_shift_y + df['tc_y_center']
+    wcenter_x = df.wafer_shift_x + univ_wcenterx # fourth vertex (center) for cu/cv=(3,3)
+    wcenter_y = df.wafer_shift_y + univ_wcentery # fourth vertex (center) for cu/cv=(3,3)
+
     for loc_key in ('UL', 'UR', 'B'):
-        masks_loc = masks_location(loc_key, cx_data, cy_data)
-        cx_d, cy_d = cx_data_global[masks_loc], cy_data_global[masks_loc]
+        masks_loc = masks_location(loc_key, df['tc_x_center'], df['tc_y_center'])
+        cx_d, cy_d = df['tc_x'][masks_loc], df['tc_y'][masks_loc]
         wc_x, wc_y = wcenter_x[masks_loc], wcenter_y[masks_loc]
 
         # x0 refers to the x position the lefmost, down corner all diamonds (TCs)
@@ -202,44 +206,32 @@ def convert_cells_to_xy(df):
             {loc_key: pd.concat([y0[loc_key],y1[loc_key],y2[loc_key],y3[loc_key]],
                                 axis=1, keys=keys)})
 
-        xaxis[loc_key]['new'] = [[round(val, 3) for val in sublst]
+        xaxis[loc_key]['new'] = [[[[round(val, 3) for val in sublst]]]
                                  for sublst in xaxis[loc_key].values.tolist()]
-        yaxis[loc_key]['new'] = [[round(val, 3) for val in sublst]
+        yaxis[loc_key]['new'] = [[[[round(val, 3) for val in sublst]]]
                                  for sublst in yaxis[loc_key].values.tolist()]
         xaxis[loc_key] = xaxis[loc_key].drop(keys, axis=1)
         yaxis[loc_key] = yaxis[loc_key].drop(keys, axis=1)
 
-    diamond_x = pd.concat(xaxis.values())
-    diamond_y = pd.concat(yaxis.values())
-    diamond_x = diamond_x.groupby(diamond_x.index).agg(lambda k: [k])
-    diamond_y = diamond_y.groupby(diamond_y.index).agg(lambda k: [k])
+    df.loc[:, 'diamond_x'] = pd.concat(xaxis.values())
+    df.loc[:, 'diamond_y'] = pd.concat(yaxis.values())
 
     # define module corners' coordinates
-    w1x = wafer_shifts[0](df[swu], df[swv], corner1x)
-    w2x = wafer_shifts[0](df[swu], df[swv], corner2x)
-    w3x = wafer_shifts[0](df[swu], df[swv], corner3x)
-    w4x = wafer_shifts[0](df[swu], df[swv], corner4x)
-    w5x = wafer_shifts[0](df[swu], df[swv], corner5x)
-    w6x = wafer_shifts[0](df[swu], df[swv], corner6x)
-    w1y = wafer_shifts[1](df[swv], corner1y)
-    w2y = wafer_shifts[1](df[swv], corner2y)
-    w3y = wafer_shifts[1](df[swv], corner3y)
-    w4y = wafer_shifts[1](df[swv], corner4y)
-    w5y = wafer_shifts[1](df[swv], corner5y)
-    w6y = wafer_shifts[1](df[swv], corner6y)
+    xcorners_str = ['corner1x','corner2x','corner3x','corner4x','corner5x','corner6x']
+    assert len(xcorners_str) == len(xcorners)
+    ycorners_str = ['corner1y','corner2y','corner3y','corner4y','corner5y','corner6y']
+    assert len(ycorners_str) == len(ycorners)
+    for i in range(len(xcorners)):
+        df[xcorners_str[i]] = df.wafer_shift_x + xcorners[i]
+    for i in range(len(ycorners)):
+        df[ycorners_str[i]] = df.wafer_shift_y + ycorners[i]
 
-    keys = ['corner0', 'corner1', 'corner2', 'corner3', 'corner4', 'corner5', 'corner6']
-    hex_x = pd.concat((w1x, w2x, w3x, w4x, w5x, w6x), axis=1, keys=keys)
-    hex_y = pd.concat((w1y, w2y, w3y, w4y, w5y, w6y), axis=1, keys=keys)
-    hex_x = hex_x.apply(lambda row: row.dropna().tolist(), axis=1)
-    hex_y = hex_y.apply(lambda row: row.dropna().tolist(), axis=1)
-    hex_x = hex_x.groupby(hex_x.index).agg(lambda k: [k])
-    hex_y = hex_y.groupby(hex_y.index).agg(lambda k: [k])
-
-    res = pd.concat([cx_data_global, cy_data_global, diamond_x, diamond_y, hex_x, hex_y], axis=1)
-    res.columns = ['tc_x', 'tc_y', 'diamond_x', 'diamond_y', 'hex_x', 'hex_y']
-
-    return df.join(res)
+    df.loc[:, 'hex_x'] = df[xcorners_str].values.tolist()
+    df.loc[:, 'hex_x'] = df['hex_x'].map(lambda x: [[x]])
+    df.loc[:, 'hex_y'] = df[ycorners_str].values.tolist()
+    df.loc[:, 'hex_y'] = df['hex_y'].map(lambda x: [[x]])
+    df = df.drop(xcorners_str + ycorners_str + ['tc_x_center', 'tc_y_center'], axis=1)
+    return df
 
 def get_data(event, particles):
     ds_geom = geom_data.provide()
@@ -248,22 +240,21 @@ def get_data(event, particles):
     #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==3)) |
     #                   ((ds_geom[data_vars['geom']['wu']]==4) & (ds_geom[data_vars['geom']['wv']]==4))]
 
-    ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
-                      ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))
-                      ]
-    ds_geom = ds_geom[ds_geom.layer<=9]
-    # ds_geom = ds_geom[ds_geom.waferpart==0]
-    
+    # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-6) & (ds_geom[data_vars['geom']['wv']]==4)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==3)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==2)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-8) & (ds_geom[data_vars['geom']['wv']]==1)) |
+    #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))
+    #                   ]
+    #ds_geom = ds_geom[ds_geom.layer<=9]
+    ds_geom = ds_geom[ds_geom.waferpart==0]
     ds_geom = convert_cells_to_xy(ds_geom)
 
     if mode=='ev':
         ds_ev = data_particle[particles].provide_event(event)
         ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
-                            'good_tc_cellu':'triggercellu', 'good_tc_cellv':'triggercellv',
+                              'good_tc_cellu':'triggercellu', 'good_tc_cellv':'triggercellv',
                               'good_tc_layer':'layer'},
                     inplace=True)
         ds_ev = pd.merge(left=ds_ev, right=ds_geom, how='inner',
@@ -288,33 +279,35 @@ for k in (('photons', 'electrons') if mode=='ev' else ('Geometry',)):
     cds_data[k] = get_data(evs, k)[mode]
     elements[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
     if mode=='ev':
-        elements.update({'textinput': bmd.TextInput(value='<specify an event>', height=40,
-                                                    sizing_mode='stretch_width'),
-                         'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
-                                                  menu=def_ev_text[k], height=40)})
+        elements[k].update({'textinput': bmd.TextInput(value='<specify an event>', height=40,
+                                                       sizing_mode='stretch_width'),
+                            'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
+                                                    menu=def_ev_text[k], height=40)})
 
 def text_callback(attr, old, new, source, particles):
-    print('running ', particles, new)
+    print('text callback ', particles, new)
     if not new.isdecimal():
         print('Wrong format!')
     else:
         source.data = get_data(int(new), particles)[mode]
 
 def dropdown_callback(event, source, particles):
+    print('dropdown callback', particles, int(event.__dict__['item']))
     source.data = get_data(int(event.__dict__['item']), particles)[mode]
 
 def display():
     doc = curdoc()
-    doc.title = 'TC Visualization'
+    doc.title = 'HGCal Visualization'
     
     width, height   = 600, 600
     width2, height2 = 300, 200
     tabs = []
-    
+
     for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
+
         if mode == 'ev':
             mapper = bmd.LinearColorMapper(palette=mypalette,
-                                          low=vsrc.data['good_tc_mipPt'].min(), high=vsrc.data['good_tc_mipPt'].min())
+                                           low=vsrc.data['good_tc_mipPt'].min(), high=vsrc.data['good_tc_mipPt'].min())
 
         slider = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
                             value=vsrc.data['layer'].min(), step=2, title='Layer',
@@ -353,10 +346,10 @@ def display():
         cur_xmax, cur_ymax = -1e9, -1e9
         cur_xmin, cur_ymin = 1e9, 1e9
         for ex,ey in zip(vsrc.data['diamond_x'],vsrc.data['diamond_y']):
-            if max(ex[0].tolist()[0]) > cur_xmax: cur_xmax = max(ex[0].tolist()[0])
-            if min(ex[0].tolist()[0]) < cur_xmin: cur_xmin = min(ex[0].tolist()[0])
-            if max(ey[0].tolist()[0]) > cur_ymax: cur_ymax = max(ey[0].tolist()[0])
-            if min(ey[0].tolist()[0]) < cur_ymin: cur_ymin = min(ey[0].tolist()[0])
+            if max(ex[0][0]) > cur_xmax: cur_xmax = max(ex[0][0])
+            if min(ex[0][0]) < cur_xmin: cur_xmin = min(ex[0][0])
+            if max(ey[0][0]) > cur_ymax: cur_ymax = max(ey[0][0])
+            if min(ey[0][0]) < cur_ymin: cur_ymin = min(ey[0][0])
         # force matching ratio to avoid distortions
         distx, disty = cur_xmax-cur_xmin, cur_ymax-cur_ymin
         if distx > disty:
@@ -379,7 +372,7 @@ def display():
 
         if mode == 'ev':
             hover_key_cells = 'Energy (cu,cv / wu,wv)'
-            hover_val_cells = '@good_tc_mipPt (@triggercellu,@triggercellv / @waferu,@wafer)'
+            hover_val_cells = '@good_tc_mipPt (@triggercellu,@triggercellv / @waferu,@waferv)'
             hover_key_mods = 'Energy (wu,wv)'
             hover_val_mods = '@good_tc_mipPt (@waferu,@waferv)'
         else:
@@ -489,4 +482,5 @@ def display():
     
 parser = argparse.ArgumentParser(description='')
 FLAGS = parser.parse_args()
+logging.basicConfig()
 display()

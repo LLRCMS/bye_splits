@@ -12,13 +12,15 @@ import yaml
 import awkward as ak
 import uproot as up
 import pandas as pd
+import logging
 
 from utils import params, common
 from data_handle.base import BaseData
 
 class GeometryData(BaseData):
-    def __init__(self, inname='', reprocess=False):
-        super().__init__(inname, 'geom', reprocess)
+    def __init__(self, inname='', reprocess=False, logger=None):
+        super().__init__(inname, 'geom', reprocess, logger)
+        self.dataset = None
         self.dname = 'tc'
         with open(params.viz_kw['CfgEventPath'], 'r') as afile:
             cfg = yaml.safe_load(afile)
@@ -30,21 +32,27 @@ class GeometryData(BaseData):
 
     def provide(self):
         if not os.path.exists(self.outpath) or self.reprocess:
+            if self.logger is not None:
+                self.logger.info('Storing geometry data...')
             self.store()
-        print('Providing geometry data...')
-        ds = ak.from_parquet(self.outpath)
 
-        # filter some columns to reduce memory usage
-        cols_to_remove = ['x', 'y', 'z', 'color']
-        cols = [x for x in ds.fields if x not in cols_to_remove]
-        ds = ds[cols]
+        if self.dataset is None: #use cached dataset
+            if self.logger is not None:
+                self.logger.info('Retrieving geometry data...')
+            ds = ak.from_parquet(self.outpath)
+            # filter some columns to reduce memory usage
+            cols_to_remove = ['x', 'y', 'z', 'color']
+            cols = [x for x in ds.fields if x not in cols_to_remove]
+            ds = ds[cols]
+            self.dataset = ak.to_dataframe(ds)
         
-        return ak.to_dataframe(ds)
+        return self.dataset
         
     def select(self):
         with up.open(self.inpath) as f:
             tree = f[ os.path.join('hgcaltriggergeomtester', 'TreeTriggerCells') ]
-            #print(tree.show())
+            if self.logger is not None:
+                self.logger.debug(tree.show())
             data = tree.arrays(self.readvars)
             sel = (data.zside==1) & (data.subdet==1)
             fields = data.fields[:]
@@ -65,8 +73,8 @@ class GeometryData(BaseData):
         return data
 
     def store(self):
-        print('Store geometry data...')
-        data = self.select()
+        ds = self.select()
         if os.path.exists(self.outpath):
             os.remove(self.outpath)
-        ak.to_parquet(data, self.outpath)
+        ak.to_parquet(ds, self.outpath)
+        self.dataset = ak.to_dataframe(ds)

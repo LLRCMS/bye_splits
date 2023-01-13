@@ -10,14 +10,16 @@ sys.path.insert(0, parent_dir)
 
 import abc
 import awkward as ak
+import logging
 
 from utils import params, common
 
 class BaseData(abc.ABC):
-    def __init__(self, inname, tag, reprocess):
+    def __init__(self, inname, tag, reprocess, logger):
         self.inpath = os.path.join(str(params.viz_kw['DataPath']), inname)
         self.tag = tag
         self.reprocess = reprocess
+        self.logger = logger
 
         self.outpath = os.path.join(str(params.viz_kw['LocalPath']), self.tag + '.parquet')
         self.var = common.dot_dict({})
