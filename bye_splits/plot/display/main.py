@@ -306,9 +306,11 @@ def display():
     for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
 
         if mode == 'ev':
-            mapper = bmd.LinearColorMapper(palette=mypalette,
-                                           low=vsrc.data['good_tc_mipPt'].min(), high=vsrc.data['good_tc_mipPt'].max())
-
+            mapper_diams = bmd.LinearColorMapper(palette=mypalette,
+                                                 low=vsrc.data['good_tc_mipPt'].min(), high=vsrc.data['good_tc_mipPt'].max())
+            mapper_mods = bmd.LinearColorMapper(palette=mypalette,
+                                                low=vsrc.data['good_tc_mipPt'].min(), high=vsrc.data['good_tc_mipPt'].max())  #CHANGE!!!!!!
+            
         slider = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
                             value=vsrc.data['layer'].min(), step=2, title='Layer',
                             bar_color='red', width=600, background='white')
@@ -403,9 +405,9 @@ def display():
         hover_opt = dict(hover_fill_color='black', hover_line_color='black', hover_line_width=4, hover_alpha=0.2)
 
         if mode == 'ev':
-            p_diams.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper},
+            p_diams.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper_diams},
                                    **hover_opt, **p_diams_opt)
-            p_mods.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper}, #CHANGE WHEN MODULE SUMS ARE AVAILABLE
+            p_mods.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper_mods}, #CHANGE WHEN MODULE SUMS ARE AVAILABLE
                                    **hover_opt, **p_mods_opt)
 
         else:
@@ -415,11 +417,13 @@ def display():
             p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
                         
         if mode == 'ev':
-            color_bar = bmd.ColorBar(color_mapper=mapper,
-                                     ticker=bmd.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
-                                     formatter=bmd.PrintfTickFormatter(format="%d"))
-            p_diams.add_layout(color_bar, 'right')
-            p_mods.add_layout(color_bar, 'right')
+            cbar_opt = dict(ticker=bmd.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
+                            formatter=bmd.PrintfTickFormatter(format="%d"))
+            cbar_diams = bmd.ColorBar(color_mapper=mapper_diams, title='TC energy [mipPt]', **cbar_opt)
+            cbar_mods = bmd.ColorBar(color_mapper=mapper_mods, title='Module Sums [mipPt]', **cbar_opt)
+
+            p_diams.add_layout(cbar_diams, 'right')
+            p_mods.add_layout(cbar_mods, 'right')
 
             elements[ksrc]['textinput'].on_change('value', partial(text_callback, source=vsrc, particles=ksrc))
             elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, source=vsrc, particles=ksrc))
