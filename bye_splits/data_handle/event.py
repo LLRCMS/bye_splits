@@ -44,10 +44,10 @@ class EventData(BaseData):
             mes = 'Events {} not found (tag = {}).'
             raise RuntimeError(mes.format(' '.join([str(x) for x in events]), self.tag))
 
-        if not self.cache: #first cache_events() call
+        if self.cache is None: #first cache_events() call
             self.cache = ds
         else:
-            self.cache = dd.concat([self.cache, ds], axis=0)
+            self.cache = pd.concat([self.cache, ds], axis=0)
         #self.cache = self.cache.persist() only for dask dataframes
 
     def provide(self):
@@ -60,7 +60,7 @@ class EventData(BaseData):
         """Provide single event, checking if it is in cache"""
         if event not in self.events:
             self.events += [event]
-            self.cache_events(event, False)
+            self.cache_events(event)
         ret = self.cache[self.cache.event==event].drop(['event'], axis=1)
         ret = ret.apply(pd.Series.explode).reset_index(drop=True)
         return ret

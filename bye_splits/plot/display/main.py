@@ -307,7 +307,7 @@ def display():
 
         if mode == 'ev':
             mapper = bmd.LinearColorMapper(palette=mypalette,
-                                           low=vsrc.data['good_tc_mipPt'].min(), high=vsrc.data['good_tc_mipPt'].min())
+                                           low=vsrc.data['good_tc_mipPt'].min(), high=vsrc.data['good_tc_mipPt'].max())
 
         slider = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
                             value=vsrc.data['layer'].min(), step=2, title='Layer',
