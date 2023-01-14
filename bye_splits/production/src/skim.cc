@@ -56,10 +56,11 @@ void skim(string tn, string inf, string outf, string particle) {
   for(auto& v : genvars)
    	dd = dd.Define(vtmp + "_" + v, v + "[" + vtmp + "_gens]");
 
+  vector<string> tcvars_uint = {"tc_cluster_id"};
   vector<string> tcvars_int = {"tc_layer", "tc_cellu", "tc_cellv", "tc_waferu", "tc_waferv"};
   vector<string> tcvars_float = {"tc_energy", "tc_mipPt", "tc_pt", 
 								 "tc_x", "tc_y", "tc_z", "tc_phi", "tc_eta"};
-  vector<string> tcvars = join_vars(tcvars_int, tcvars_float);
+  vector<string> tcvars = join_vars(tcvars_uint, tcvars_int, tcvars_float);
 
   string condtc = "tc_zside == 1 && tc_mipPt > " + mipThreshold;// && tc_layer%2 == 0";
   dd = dd.Define(vtmp + "_tcs", condtc);
