@@ -38,8 +38,8 @@ void skim(string tn, string inf, string outf, string particle) {
   string vtmp = "tmp_good";
   
   //ROOT::EnableImplicitMT();
-  ROOT::RDataFrame df(tn, inf);
-  auto dd = df.Range(0, 100);
+  ROOT::RDataFrame dataframe(tn, inf);
+  auto df = dataframe.Range(0, 500);
   
   vector<string> genvars_int = {"genpart_pid"};
   vector<string> genvars_float = {"genpart_exphi", "genpart_exeta", "genpart_energy"};
@@ -52,61 +52,68 @@ void skim(string tn, string inf, string outf, string particle) {
   condgen += " && genpart_pid == " + pmap[particle];
   condgen += " && genpart_exeta > 0";
 
-  dd = dd.Define(vtmp + "_gens", condgen);
+  df = df.Define(vtmp + "_gens", condgen);
   for(auto& v : genvars)
-   	dd = dd.Define(vtmp + "_" + v, v + "[" + vtmp + "_gens]");
+   	df = df.Define(vtmp + "_" + v, v + "[" + vtmp + "_gens]");
 
+  //remove events with zero generated particles
+  auto dfilt = df.Filter(vtmp + "_genpart_pid.size()!=0");
+
+  // selection on trigger cells
   vector<string> tcvars_uint = {"tc_cluster_id"};
   vector<string> tcvars_int = {"tc_layer", "tc_cellu", "tc_cellv", "tc_waferu", "tc_waferv"};
   vector<string> tcvars_float = {"tc_energy", "tc_mipPt", "tc_pt", 
 								 "tc_x", "tc_y", "tc_z", "tc_phi", "tc_eta"};
   vector<string> tcvars = join_vars(tcvars_uint, tcvars_int, tcvars_float);
-
   string condtc = "tc_zside == 1 && tc_mipPt > " + mipThreshold;// && tc_layer%2 == 0";
-  dd = dd.Define(vtmp + "_tcs", condtc);
+  auto dd1 = dfilt.Define(vtmp + "_tcs", condtc);
   for(auto& v : tcvars)
-	dd = dd.Define(vtmp + "_" + v, v + "[" + vtmp + "_tcs]");
+	dd1 = dd1.Define(vtmp + "_" + v, v + "[" + vtmp + "_tcs]");
 
+  // selection on clusters
   vector<string> clvars_uint = {"cl3d_id"};
   vector<string> clvars_float = {"cl3d_energy", "cl3d_pt", "cl3d_eta", "cl3d_phi"};
   vector<string> clvars = join_vars(clvars_uint, clvars_float);
 	
   string condcl = "cl3d_eta > 0";
-  dd = dd.Define(vtmp + "_cl", condcl);
+  dd1 = dd1.Define(vtmp + "_cl", condcl);
   for(auto& v : clvars)
-	dd = dd.Define(vtmp + "_" + v, v + "[" + vtmp + "_cl]");
+	dd1 = dd1.Define(vtmp + "_" + v, v + "[" + vtmp + "_cl]");
+
+  //remove events with zero clusters
+  auto dfilt2 = dd1.Filter(vtmp + "_cl3d_id.size()!=0");
 
   // matching
   vector<string> matchvars = {"deltaR", "matches"};
   string cond_deltaR = matchvars[0] + " <= " + deltarThreshold;
-  dd = dd.Define(matchvars[0], calcDeltaR, {vtmp + "_genpart_exeta", vtmp + "_genpart_exphi",
-											vtmp + "_cl3d_eta", vtmp + "_cl3d_phi"})
+  auto dd2 = dfilt2.Define(matchvars[0], calcDeltaR, {vtmp + "_genpart_exeta", vtmp + "_genpart_exphi",
+													  vtmp + "_cl3d_eta", vtmp + "_cl3d_phi"})
 	.Define(matchvars[1], cond_deltaR);
 
   // convert root vector types to vector equivalents (uproot friendly)
   vector<string> intvars = join_vars(genvars_int, tcvars_int);
   for(auto& var : intvars) {
-	dd = dd.Define("good_" + var,
-				   [](const ROOT::VecOps::RVec<int> &v) {
-					 return vector<int>(v.begin(), v.end());
-				   },
-				   {vtmp + "_" + var});
+	dd2 = dd2.Define("good_" + var,
+					 [](const ROOT::VecOps::RVec<int> &v) {
+					   return vector<int>(v.begin(), v.end());
+					 },
+					 {vtmp + "_" + var});
   }
-  vector<string> uintvars = join_vars(clvars_uint);
+  vector<string> uintvars = join_vars(clvars_uint, tcvars_uint);
   for(auto& var : uintvars) {
-    dd = dd.Define("good_" + var,
-		   [](const ROOT::VecOps::RVec<unsigned> &v) {
-		     return vector<unsigned>(v.begin(), v.end());
-		   },
-		   {vtmp + "_" + var});
+    dd2 = dd2.Define("good_" + var,
+					 [](const ROOT::VecOps::RVec<unsigned> &v) {
+					   return vector<unsigned>(v.begin(), v.end());
+					 },
+					 {vtmp + "_" + var});
   }
   vector<string> floatvars = join_vars(genvars_float, tcvars_float, clvars_float);
   for(auto& var : floatvars) {
-	dd = dd.Define("good_" + var,
-				   [](const ROOT::VecOps::RVec<float> &v) {
-					 return vector<float>(v.begin(), v.end());
-				   },
-				   {vtmp + "_" + var});
+	dd2 = dd2.Define("good_" + var,
+					 [](const ROOT::VecOps::RVec<float> &v) {
+					   return vector<float>(v.begin(), v.end());
+					 },
+					 {vtmp + "_" + var});
   }
   
   // define stored variables (and rename some)
@@ -117,5 +124,5 @@ void skim(string tn, string inf, string outf, string particle) {
 	good_allvars.push_back("good_" + v);
 
   // store skimmed file
-  dd.Snapshot(tn, outf, good_allvars);
+  dd2.Snapshot(tn, outf, good_allvars);
 }
