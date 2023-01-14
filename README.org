@@ -41,21 +41,21 @@ The above should print the contents stored in =bye_splits/tests/params.yaml=.
 Occasionally the following error message is printed: ~relocation R_X86_64_32 against symbol `_ZTVN4YAML9ExceptionE' can not be used when making a PIE object; recompile with -fPIE~. This is currently not understood but removing the =yaml-cpp-yaml-cpp-0.7.0= folder (=rm -rf=) and running the above from scratch solves the issue.
 
 **** Skimming: run
-To run the skimming step, you will need to compile the =C++= files stored under =bye_splits/production=.
+To run the skimming step, you will need to compile the =C++= files stored under =bye_splits/production=. Run =make= from the top repository directory.
 
-An additional matching step might be required:
-
-#+BEGIN_SRC shell
-python bye_splits/production/matching.py
-#+END_SRC
-
-Finally, run the following, specifying the particle type:
+Run the following, specifying the particle type:
 
 #+BEGIN_SRC shell
-make
 ./produce.exe electrons
 #+END_SRC
 
+The above skims the input files, applying:
++ \Delta R matching between the generated particle and the clusters (currently works only for one generated particle, and throws an assertion error otherwise)
++ a trigger cell energy threshold cut
++ unconverted photon cut
++ positive endcap cut (reduces the amount of data processed by a factor of 2)
++ type conversion for =uproot= usage at later steps
+  
 **** Reconstruction Chain
 The chain is implemented in Python. I recommend creating a separate =conda= environment for running the code.
 
