@@ -1,6 +1,9 @@
 #ifndef _SKIM_H_
 #define _SKIM_H_
 
+#include <math.h> // includes M_PI
+#include <cmath> 
+#include <cassert> // includes assert
 #include <vector>
 #include <unordered_map>
 
