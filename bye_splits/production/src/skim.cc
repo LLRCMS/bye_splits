@@ -24,6 +24,7 @@ ROOT::VecOps::RVec<float> calcDeltaR(ROOT::VecOps::RVec<float> geta, ROOT::VecOp
 
 void skim(string tn, string inf, string outf, string particle) {
 
+  // read input parameters
   YAML::Node config = YAML::LoadFile("bye_splits/production/prod_params.yaml");
   vector<int> discLayers;
   if (config["disconnectedTriggerLayers"]) {
@@ -40,11 +41,13 @@ void skim(string tn, string inf, string outf, string particle) {
   //ROOT::EnableImplicitMT();
   ROOT::RDataFrame dataframe(tn, inf);
   auto df = dataframe.Range(0, 500);
-  
+
+  // gen-related variables
   vector<string> genvars_int = {"genpart_pid"};
   vector<string> genvars_float = {"genpart_exphi", "genpart_exeta", "genpart_energy"};
   vector<string> genvars = join_vars(genvars_int, genvars_float);
-  
+
+  // selection on generated particles (within each event)
   unordered_map<string,string> pmap = {{"photons", "22"},
 									   {"electrons", "11"}};
   string condgen = "genpart_gen != -1 && ";
@@ -59,22 +62,25 @@ void skim(string tn, string inf, string outf, string particle) {
   //remove events with zero generated particles
   auto dfilt = df.Filter(vtmp + "_genpart_pid.size()!=0");
 
-  // selection on trigger cells
+  // trigger cells-related variables
   vector<string> tcvars_uint = {"tc_cluster_id"};
   vector<string> tcvars_int = {"tc_layer", "tc_cellu", "tc_cellv", "tc_waferu", "tc_waferv"};
   vector<string> tcvars_float = {"tc_energy", "tc_mipPt", "tc_pt", 
 								 "tc_x", "tc_y", "tc_z", "tc_phi", "tc_eta"};
+
+  // selection on trigger cells (within each event)
   vector<string> tcvars = join_vars(tcvars_uint, tcvars_int, tcvars_float);
   string condtc = "tc_zside == 1 && tc_mipPt > " + mipThreshold;// && tc_layer%2 == 0";
   auto dd1 = dfilt.Define(vtmp + "_tcs", condtc);
   for(auto& v : tcvars)
 	dd1 = dd1.Define(vtmp + "_" + v, v + "[" + vtmp + "_tcs]");
 
-  // selection on clusters
+  // cluster-related variables
   vector<string> clvars_uint = {"cl3d_id"};
   vector<string> clvars_float = {"cl3d_energy", "cl3d_pt", "cl3d_eta", "cl3d_phi"};
   vector<string> clvars = join_vars(clvars_uint, clvars_float);
-	
+
+  // selection on clusters (within each event)
   string condcl = "cl3d_eta > 0";
   dd1 = dd1.Define(vtmp + "_cl", condcl);
   for(auto& v : clvars)
