@@ -30,6 +30,13 @@ class GeometryData(BaseData):
         self.readvars.remove(self.var.wvs)
         self.readvars.remove(self.var.c)
 
+    def filter_columns(self, d):
+        """Filter some columns to reduce memory usage"""
+        #cols_to_remove = ['x', 'y', 'z', 'color']
+        cols_to_remove = ['z', 'color']
+        cols = [x for x in d.fields if x not in cols_to_remove]
+        return d[cols]
+        
     def provide(self):
         if not os.path.exists(self.outpath) or self.reprocess:
             if self.logger is not None:
@@ -40,10 +47,7 @@ class GeometryData(BaseData):
             if self.logger is not None:
                 self.logger.info('Retrieving geometry data...')
             ds = ak.from_parquet(self.outpath)
-            # filter some columns to reduce memory usage
-            cols_to_remove = ['x', 'y', 'z', 'color']
-            cols = [x for x in ds.fields if x not in cols_to_remove]
-            ds = ds[cols]
+            ds = self.filter_columns(ds)
             self.dataset = ak.to_dataframe(ds)
         
         return self.dataset

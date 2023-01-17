@@ -41,18 +41,19 @@ data_part_opt = dict(tag='v2', reprocess=False, debug=True, logger=log)
 data_particle = {
     'photons': EventDataParticle(particles='photons', **data_part_opt),
     'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
-geom_data = GeometryData(inname='test_triggergeom_v2.root', reprocess=False, logger=log)
+geom_data = GeometryData(inname='test_triggergeom.root',
+                         reprocess=False, logger=log)
 data_vars = {'ev': config['varEvents'],
              'geom': config['varGeometry']}
-mode = 'ev'
+mode = 'geom'
 
 def common_props(p):
     p.output_backend = 'svg'
-    p.toolbar.logo = None
-    p.grid.visible = False
-    p.outline_line_color = None
-    p.xaxis.visible = False
-    p.yaxis.visible = False
+    # p.toolbar.logo = None
+    # p.grid.visible = False
+    # p.outline_line_color = None
+    # p.xaxis.visible = False
+    # p.yaxis.visible = False
 
 def rotate(angle, x, y, cx, cy):
     """Counter-clockwise rotation of 'angle' [radians]"""
@@ -248,9 +249,9 @@ def get_data(event, particles):
     #                   ((ds_geom[data_vars['geom']['wu']]==-7) & (ds_geom[data_vars['geom']['wv']]==2))
     #                   ]
     #ds_geom = ds_geom[ds_geom.layer<=9]
-    ds_geom = ds_geom[ds_geom.waferpart==0]
+    #ds_geom = ds_geom[ds_geom.waferpart==0]
     ds_geom = convert_cells_to_xy(ds_geom)
-
+    
     if mode=='ev':
         ds_ev = data_particle[particles].provide_event(event)
         ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
@@ -347,11 +348,16 @@ def display():
         # find dataset minima and maxima
         cur_xmax, cur_ymax = -1e9, -1e9
         cur_xmin, cur_ymin = 1e9, 1e9
-        for ex,ey in zip(vsrc.data['diamond_x'],vsrc.data['diamond_y']):
-            if max(ex[0][0]) > cur_xmax: cur_xmax = max(ex[0][0])
-            if min(ex[0][0]) < cur_xmin: cur_xmin = min(ex[0][0])
-            if max(ey[0][0]) > cur_ymax: cur_ymax = max(ey[0][0])
-            if min(ey[0][0]) < cur_ymin: cur_ymin = min(ey[0][0])
+        # for ex,ey in zip(vsrc.data['diamond_x'],vsrc.data['diamond_y']): DEBUG!
+            # if max(ex[0][0]) > cur_xmax: cur_xmax = max(ex[0][0])
+            # if min(ex[0][0]) < cur_xmin: cur_xmin = min(ex[0][0])
+            # if max(ey[0][0]) > cur_ymax: cur_ymax = max(ey[0][0])
+            # if min(ey[0][0]) < cur_ymin: cur_ymin = min(ey[0][0])
+        for ex,ey in zip(vsrc.data['x'],vsrc.data['y']):
+            if ex > cur_xmax: cur_xmax = ex
+            if ex < cur_xmin: cur_xmin = ex
+            if ey > cur_ymax: cur_ymax = ey
+            if ey < cur_ymin: cur_ymin = ey
         # force matching ratio to avoid distortions
         distx, disty = cur_xmax-cur_xmin, cur_ymax-cur_ymin
         if distx > disty:
@@ -369,7 +375,9 @@ def display():
                        tools='save,reset,undo',
                        toolbar_location='right', output_backend='webgl'
                        )
-        p_diams = figure(x_range=bmd.Range1d(cur_xmin, cur_xmax), y_range=bmd.Range1d(cur_ymin, cur_ymax), **fig_opt)
+        p_diams = figure(
+            x_range=bmd.Range1d(cur_xmin, cur_xmax), y_range=bmd.Range1d(cur_ymin, cur_ymax),
+            **fig_opt)
         p_mods = figure(x_range=p_diams.x_range, y_range=p_diams.y_range, **fig_opt)
 
         if mode == 'ev':
@@ -411,8 +419,9 @@ def display():
                                    **hover_opt, **p_mods_opt)
 
         else:
-            p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
-            p_diams.circle(x='tc_x', y='tc_y', source=vsrc, view=view_cells, size=4, color='red')
+            #p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
+            p_diams.circle(x='tc_x', y='tc_y', source=vsrc, view=view_cells, size=4, color='red', alpha=0.4)
+            p_diams.circle(x='x', y='y', source=vsrc, view=view_cells, size=10, color='blue')
 
             p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
                         
@@ -475,7 +484,9 @@ def display():
         lay = layout([first_row,
                       #[p_diams, p_uv, p_xy],
                       #[p_xVSz, p_yVSz, p_yVSx],
-                      [p_diams, p_mods],
+                      [p_diams,
+                       #p_mods
+                       ],
                       [blank1],
                       ])
         tab = bmd.TabPanel(child=lay, title=ksrc)
