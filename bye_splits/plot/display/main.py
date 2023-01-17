@@ -45,18 +45,18 @@ geom_data = GeometryData(inname='test_triggergeom.root',
                          reprocess=False, logger=log)
 data_vars = {'ev': config['varEvents'],
              'geom': config['varGeometry']}
-mode = 'geom'
+mode = 'ev'
 
 def common_props(p):
     p.output_backend = 'svg'
-    # p.toolbar.logo = None
-    # p.grid.visible = False
-    # p.outline_line_color = None
-    # p.xaxis.visible = False
-    # p.yaxis.visible = False
+    p.toolbar.logo = None
+    p.grid.visible = False
+    p.outline_line_color = None
+    p.xaxis.visible = False
+    p.yaxis.visible = False
 
 def rotate(angle, x, y, cx, cy):
-    """Counter-clockwise rotation of 'angle' [radians]"""
+    """Counter-clockwise rotation of 'angle' [radians]."""
     assert angle >= 0 and angle < 2 * np.pi
     ret_x = np.cos(angle)*(x-cx) - np.sin(angle)*(y-cy) + cx
     ret_y = np.sin(angle)*(x-cx) + np.cos(angle)*(y-cy) + cy
@@ -73,7 +73,7 @@ def convert_cells_to_xy(df):
 
     scu, scv = 'triggercellu', 'triggercellv'
     swu, swv = 'waferu', 'waferv'
-    df.loc[:, 'wafer_shift_x'] = (2*df[swu] - df[swv])*waferWidth/2
+    df.loc[:, 'wafer_shift_x'] = (-2*df[swu] + df[swv])*waferWidth/2
     df.loc[:, 'wafer_shift_y'] = c30*df[swv]
     
     cells_conversion = (lambda cu,cv: (1.5*(cv-cu)+0.5) * R, lambda cu,cv: (cv+cu-2*N+1) * r) #orientation 6
@@ -193,7 +193,9 @@ def convert_cells_to_xy(df):
         else:
             y3.update({loc_key: y0[loc_key][:] + cellDistY})
 
-        angle = 0#2*np.pi/3
+        angle = 5*np.pi/3
+        # orientation 1 of bottom row of slide 4 in
+        # https://indico.cern.ch/event/1111846/contributions/4675223/attachments/2372915/4052852/PartialsRotation.pdf
         x0[loc_key], y0[loc_key] = rotate(angle, x0[loc_key], y0[loc_key], wc_x, wc_y)
         x1[loc_key], y1[loc_key] = rotate(angle, x1[loc_key], y1[loc_key], wc_x, wc_y)
         x2[loc_key], y2[loc_key] = rotate(angle, x2[loc_key], y2[loc_key], wc_x, wc_y)
@@ -235,6 +237,7 @@ def convert_cells_to_xy(df):
     return df
 
 def get_data(event, particles):
+    print('call!')
     ds_geom = geom_data.provide()
     # ds_geom = ds_geom[((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==3)) |
     #                   ((ds_geom[data_vars['geom']['wu']]==3) & (ds_geom[data_vars['geom']['wv']]==4)) |
@@ -250,8 +253,8 @@ def get_data(event, particles):
     #                   ]
     #ds_geom = ds_geom[ds_geom.layer<=9]
     #ds_geom = ds_geom[ds_geom.waferpart==0]
+
     ds_geom = convert_cells_to_xy(ds_geom)
-    
     if mode=='ev':
         ds_ev = data_particle[particles].provide_event(event)
         ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
@@ -348,16 +351,11 @@ def display():
         # find dataset minima and maxima
         cur_xmax, cur_ymax = -1e9, -1e9
         cur_xmin, cur_ymin = 1e9, 1e9
-        # for ex,ey in zip(vsrc.data['diamond_x'],vsrc.data['diamond_y']): DEBUG!
-            # if max(ex[0][0]) > cur_xmax: cur_xmax = max(ex[0][0])
-            # if min(ex[0][0]) < cur_xmin: cur_xmin = min(ex[0][0])
-            # if max(ey[0][0]) > cur_ymax: cur_ymax = max(ey[0][0])
-            # if min(ey[0][0]) < cur_ymin: cur_ymin = min(ey[0][0])
-        for ex,ey in zip(vsrc.data['x'],vsrc.data['y']):
-            if ex > cur_xmax: cur_xmax = ex
-            if ex < cur_xmin: cur_xmin = ex
-            if ey > cur_ymax: cur_ymax = ey
-            if ey < cur_ymin: cur_ymin = ey
+        for ex,ey in zip(vsrc.data['diamond_x'],vsrc.data['diamond_y']):
+            if max(ex[0][0]) > cur_xmax: cur_xmax = max(ex[0][0])
+            if min(ex[0][0]) < cur_xmin: cur_xmin = min(ex[0][0])
+            if max(ey[0][0]) > cur_ymax: cur_ymax = max(ey[0][0])
+            if min(ey[0][0]) < cur_ymin: cur_ymin = min(ey[0][0])
         # force matching ratio to avoid distortions
         distx, disty = cur_xmax-cur_xmin, cur_ymax-cur_ymin
         if distx > disty:
@@ -419,9 +417,9 @@ def display():
                                    **hover_opt, **p_mods_opt)
 
         else:
-            #p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
-            p_diams.circle(x='tc_x', y='tc_y', source=vsrc, view=view_cells, size=4, color='red', alpha=0.4)
-            p_diams.circle(x='x', y='y', source=vsrc, view=view_cells, size=10, color='blue')
+            p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
+            #p_diams.circle(x='tc_x', y='tc_y', source=vsrc, view=view_cells, size=4, color='red', alpha=0.4)
+            #p_diams.circle(x='x', y='y', source=vsrc, view=view_cells, size=10, color='blue')
 
             p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
                         
@@ -484,9 +482,7 @@ def display():
         lay = layout([first_row,
                       #[p_diams, p_uv, p_xy],
                       #[p_xVSz, p_yVSz, p_yVSx],
-                      [p_diams,
-                       #p_mods
-                       ],
+                      [p_diams, p_mods],
                       [blank1],
                       ])
         tab = bmd.TabPanel(child=lay, title=ksrc)
