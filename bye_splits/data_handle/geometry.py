@@ -195,7 +195,7 @@ class GeometryData(BaseData):
             else:
                 y3.update({loc_key: y0[loc_key][:] + cellDistY})
 
-            angle = 5*np.pi/3
+            angle = 0#5*np.pi/3
             # orientation 1 of bottom row of slide 4 in
             # https://indico.cern.ch/event/1111846/contributions/4675223/attachments/2372915/4052852/PartialsRotation.pdf
             x0[loc_key], y0[loc_key] = self.rotate(angle, x0[loc_key], y0[loc_key], wc_x, wc_y)
@@ -238,7 +238,7 @@ class GeometryData(BaseData):
         df = df.drop(xcorners_str + ycorners_str + ['tc_x_center', 'tc_y_center'], axis=1)
         return df
 
-    def provide(self):
+    def provide(self, region=None):
         if not os.path.exists(self.outpath) or self.reprocess:
             if self.logger is not None:
                 self.logger.info('Storing geometry data...')
@@ -250,7 +250,7 @@ class GeometryData(BaseData):
             ds = ak.from_parquet(self.outpath)
             ds = self.filter_columns(ds)
             ds = ak.to_dataframe(ds)
-            ds = self.region_selection(ds, region=None)
+            ds = self.region_selection(ds, region)
             self.dataset = self.prepare_for_display(ds)
         
         return self.dataset

@@ -43,7 +43,7 @@ data_particle = {
     'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
 geom_data = GeometryData(inname='test_triggergeom.root',
                          reprocess=False, logger=log)
-mode = 'ev'
+mode = 'geom'
 
 def common_props(p):
     p.output_backend = 'svg'
