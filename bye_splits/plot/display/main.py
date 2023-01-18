@@ -154,14 +154,16 @@ def display():
                """)
 
         if mode == 'ev':
-            view_cells = bmd.CDSView(filter=filt_layers & filt_en)
+            all_filters = filt_layers & filt_en
         else:
-            view_cells = bmd.CDSView(filter=filt_layers)
+            all_filters = filt_layers
+
+        view_cells = bmd.CDSView(filter=all_filters)
         # modules are duplicated for cells lying in the same wafer
         # we want to avoid drawing the same module multiple times
         view_modules = (~cds_data[ksrc].duplicated(subset=['layer', 'waferu', 'waferv'])).tolist()
         #view_modules = bmd.CDSView(filter=filt_layers & bmd.BooleanFilter(view_modules))
-        view_modules = bmd.CDSView(filter=filt_layers)
+        view_modules = bmd.CDSView(filter=all_filters)
 
         ####### (u,v) plots ################################################################
         # p_uv = figure(width=width, height=height,
