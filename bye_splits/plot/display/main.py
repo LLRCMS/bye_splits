@@ -84,7 +84,7 @@ for k in (('photons', 'electrons') if mode=='ev' else ('Geometry',)):
     cds_data[k] = get_data(evs, k)[mode]
     elements[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
     if mode=='ev':
-        elements[k].update({'textinput': bmd.TextInput(placeholder='specify an event', height=40,
+        elements[k].update({'textinput': bmd.TextInput(placeholder='event number', height=40,
                                                        sizing_mode='stretch_width'),
                             'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
                                                     menu=def_ev_text[k], height=40)})
@@ -178,11 +178,13 @@ def display():
         # find dataset minima and maxima
         cur_xmax, cur_ymax = -1e9, -1e9
         cur_xmin, cur_ymin = 1e9, 1e9
-        for ex,ey in zip(vsrc.data['diamond_x'],vsrc.data['diamond_y']):
-            if max(ex[0][0]) > cur_xmax: cur_xmax = max(ex[0][0])
-            if min(ex[0][0]) < cur_xmin: cur_xmin = min(ex[0][0])
-            if max(ey[0][0]) > cur_ymax: cur_ymax = max(ey[0][0])
-            if min(ey[0][0]) < cur_ymin: cur_ymin = min(ey[0][0])
+        for ex,ey,ee in zip(vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt']):
+            if ee > cfg_prod['mipThreshold']: #cut replicates what is done in the default `view_en`
+                if max(ex[0][0]) > cur_xmax: cur_xmax = max(ex[0][0])
+                if min(ex[0][0]) < cur_xmin: cur_xmin = min(ex[0][0])
+                if max(ey[0][0]) > cur_ymax: cur_ymax = max(ey[0][0])
+                if min(ey[0][0]) < cur_ymin: cur_ymin = min(ey[0][0])
+                    
         # force matching ratio to avoid distortions
         distx, disty = cur_xmax-cur_xmin, cur_ymax-cur_ymin
         if distx > disty:
