@@ -20,7 +20,7 @@ class EventData(BaseData):
     def __init__(self, inname='', tag='v0', default_events=[], reprocess=False, logger=None):
         super().__init__(inname, tag, reprocess, logger)
         
-        with open(params.viz_kw['CfgEventPath'], 'r') as afile:
+        with open(params.viz_kw['CfgDataPath'], 'r') as afile:
             cfg = yaml.safe_load(afile)
             self.var = cfg['varEvents']
             

@@ -19,7 +19,7 @@ class EventDataParticle:
         assert particles in ('photons', 'electrons')
         self.particles = particles
         self.tag = self.particles + '_' + tag
-        with open(params.viz_kw['CfgEventPath'], 'r') as afile:
+        with open(params.viz_kw['CfgDataPath'], 'r') as afile:
             self.config = yaml.safe_load(afile)
 
         data_suffix = 'skim' + ('_small' if debug else '')

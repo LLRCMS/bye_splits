@@ -34,8 +34,10 @@ import data_handle
 from data_handle.data_handle import EventDataParticle
 from data_handle.geometry import GeometryData
 
-with open(params.viz_kw['CfgEventPath'], 'r') as afile:
-    config = yaml.safe_load(afile)
+with open(params.viz_kw['CfgProdPath'], 'r') as afile:
+    cfg_prod = yaml.safe_load(afile)
+with open(params.viz_kw['CfgDataPath'], 'r') as afile:
+    cfg_data = yaml.safe_load(afile)
 
 data_part_opt = dict(tag='v2', reprocess=False, debug=True, logger=log)
 data_particle = {
@@ -43,7 +45,7 @@ data_particle = {
     'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
 geom_data = GeometryData(inname='test_triggergeom.root',
                          reprocess=False, logger=log)
-mode = 'geom'
+mode = 'ev'
 
 def common_props(p):
     p.output_backend = 'svg'
@@ -70,13 +72,11 @@ def get_data(event, particles):
         return {'geom': ds_geom}
 
 if mode=='ev':
-    with open(params.viz_kw['CfgEventPath'], 'r') as afile:
-        cfg = yaml.safe_load(afile)
-        def_evs = cfg['defaultEvents']
-        def_ev_text = {}
-        for k in def_evs:
-            drop_text = [(str(q),str(q)) for q in def_evs[k]]
-            def_ev_text[k] = drop_text
+    def_evs = cfg_data['defaultEvents']
+    def_ev_text = {}
+    for k in def_evs:
+        drop_text = [(str(q),str(q)) for q in def_evs[k]]
+        def_ev_text[k] = drop_text
 
 elements, cds_data = ({} for _ in range(2))
 for k in (('photons', 'electrons') if mode=='ev' else ('Geometry',)):
@@ -108,21 +108,23 @@ def display():
     width2, height2 = 300, 200
     tabs = []
 
+    vev = cfg_data['varEvents']
+    
     for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
 
         if mode == 'ev':
             mapper_diams = bmd.LinearColorMapper(palette=mypalette,
-                                                 low=vsrc.data['good_tc_mipPt'].min(), high=vsrc.data['good_tc_mipPt'].max())
+                                                 low=vsrc.data[vev['en']].min(), high=vsrc.data[vev['en']].max())
             mapper_mods = bmd.LinearColorMapper(palette=mypalette,
-                                                low=vsrc.data['good_tc_mipPt'].min(), high=vsrc.data['good_tc_mipPt'].max())  #CHANGE!!!!!!
-            
-        slider = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
-                            value=vsrc.data['layer'].min(), step=2, title='Layer',
-                            bar_color='red', width=600, background='white')
-        slider_callback = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
-        slider.js_on_change('value', slider_callback) #value_throttled
+                                                low=vsrc.data[vev['en']].min(), high=vsrc.data[vev['en']].max())  #CHANGE!!!!!!
 
-        filter_cells = bmd.CustomJSFilter(args=dict(slider=slider), code="""
+        sld_opt = dict(bar_color='red', width=width, background='white')
+        sld_layers = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
+                                value=vsrc.data['layer'].min(), step=2, title='Layer', **sld_opt)
+        sld_layers_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
+        sld_layers.js_on_change('value', sld_layers_cb) #value_throttled
+        
+        filt_layers = bmd.CustomJSFilter(args=dict(slider=sld_layers), code="""
            var indices = new Array(source.get_length());
            var sval = slider.value;
     
@@ -132,12 +134,34 @@ def display():
            }
            return indices;
            """)
-        view_cells = bmd.CDSView(filter=filter_cells)
+
+        if mode == 'ev':
+            sld_en = bmd.Slider(start=cfg_prod['mipThreshold'], end=5,
+                                value=cfg_prod['mipThreshold'], step=0.1,
+                                title='Energy threshold [mip]', **sld_opt)
+            sld_en_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
+            sld_en.js_on_change('value', sld_en_cb) #value_throttled
+
+            filt_en = bmd.CustomJSFilter(args=dict(slider=sld_en), code="""
+               var indices = new Array(source.get_length());
+               var sval = slider.value;
+        
+               const subset = source.data['good_tc_mipPt'];
+               for (var i=0; i < source.get_length(); i++) {
+                   indices[i] = subset[i] >= sval;
+               }
+               return indices;
+               """)
+
+        if mode == 'ev':
+            view_cells = bmd.CDSView(filter=filt_layers & filt_en)
+        else:
+            view_cells = bmd.CDSView(filter=filt_layers)
         # modules are duplicated for cells lying in the same wafer
         # we want to avoid drawing the same module multiple times
         view_modules = (~cds_data[ksrc].duplicated(subset=['layer', 'waferu', 'waferv'])).tolist()
-        #view_modules = bmd.CDSView(filter=filter_cells & bmd.BooleanFilter(view_modules))
-        view_modules = bmd.CDSView(filter=filter_cells)
+        #view_modules = bmd.CDSView(filter=filt_layers & bmd.BooleanFilter(view_modules))
+        view_modules = bmd.CDSView(filter=filt_layers)
 
         ####### (u,v) plots ################################################################
         # p_uv = figure(width=width, height=height,
@@ -265,22 +289,18 @@ def display():
         # p_yVSx.scatter(x=variables['x'], y=variables['y'], source=vsrc)
         # common_props(p_yVSx)
         
-        ####### text input ###################################################################
-
-        slider_callback = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
-        slider.js_on_change('value', slider_callback) #value_throttled
-
         ####### define layout ################################################################
         blank1 = bmd.Div(width=1000, height=100, text='')
         blank2 = bmd.Div(width=70, height=100, text='')
 
         if mode == 'ev':
-            first_row = [elements[ksrc]['dropdown'], elements[ksrc]['textinput'],
-                         blank2, slider]
+            first_row = [elements[ksrc]['dropdown'], elements[ksrc]['textinput']]
         else:
-            first_row = [slider]
+            first_row = [sld_layers]
             
         lay = layout([first_row,
+                      sld_layers,
+                      sld_en,
                       #[p_diams, p_uv, p_xy],
                       #[p_xVSz, p_yVSz, p_yVSx],
                       [p_diams, p_mods],

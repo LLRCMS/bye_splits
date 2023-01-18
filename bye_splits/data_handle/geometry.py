@@ -28,7 +28,7 @@ class GeometryData(BaseData):
         super().__init__(inname, 'geom', reprocess, logger)
         self.dataset = None
         self.dname = 'tc'
-        with open(params.viz_kw['CfgEventPath'], 'r') as afile:
+        with open(params.viz_kw['CfgDataPath'], 'r') as afile:
             cfg = yaml.safe_load(afile)
             self.var = common.dot_dict(cfg['varGeometry'])
 

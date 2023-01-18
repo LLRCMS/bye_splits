@@ -23,7 +23,8 @@ viz_kw = {
     'DataPath': Path(EOSDataFolder),
     'OutPath': Path(EOSDataFolder),
     'LocalPath': Path(__file__).parents[2] / LocalDataFolder,
-    'CfgEventPath': Path(__file__).parents[2] / 'bye_splits/data_handle/config.yaml',
+    'CfgProdPath': Path(__file__).parents[2] / 'bye_splits/production/prod_params.yaml',
+    'CfgDataPath': Path(__file__).parents[2] / 'bye_splits/data_handle/config.yaml',
 }
 
 base_kw = {
