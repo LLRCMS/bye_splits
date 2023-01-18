@@ -50,13 +50,13 @@ mode = 'ev'
 def common_props(p):
     p.output_backend = 'svg'
     p.toolbar.logo = None
-    p.grid.visible = False
-    p.outline_line_color = None
-    p.xaxis.visible = False
-    p.yaxis.visible = False
+    # p.grid.visible = False
+    # p.outline_line_color = None
+    # p.xaxis.visible = False
+    # p.yaxis.visible = False
 
 def get_data(event, particles):
-    ds_geom = geom_data.provide()
+    ds_geom = geom_data.provide(region='periphery')
 
     if mode=='ev':
         ds_ev = data_particle[particles].provide_event(event)
@@ -178,12 +178,19 @@ def display():
         # find dataset minima and maxima
         cur_xmax, cur_ymax = -1e9, -1e9
         cur_xmin, cur_ymin = 1e9, 1e9
-        for ex,ey,ee in zip(vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt']):
-            if ee > cfg_prod['mipThreshold']: #cut replicates what is done in the default `view_en`
-                if max(ex[0][0]) > cur_xmax: cur_xmax = max(ex[0][0])
-                if min(ex[0][0]) < cur_xmin: cur_xmin = min(ex[0][0])
-                if max(ey[0][0]) > cur_ymax: cur_ymax = max(ey[0][0])
-                if min(ey[0][0]) < cur_ymin: cur_ymin = min(ey[0][0])
+
+        if mode == 'ev':
+            zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt'])
+        else:
+            zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
+        for elem in zip(*zip_obj):
+            if mode == 'ev' and elem[2] < cfg_prod['mipThreshold']: #cut replicates the default `view_en`
+                continue
+            #breakpoint()
+            if max(elem[0][0][0]) > cur_xmax: cur_xmax = max(elem[0][0][0])
+            if min(elem[0][0][0]) < cur_xmin: cur_xmin = min(elem[0][0][0])
+            if max(elem[1][0][0]) > cur_ymax: cur_ymax = max(elem[1][0][0])
+            if min(elem[1][0][0]) < cur_ymin: cur_ymin = min(elem[1][0][0])
                     
         # force matching ratio to avoid distortions
         distx, disty = cur_xmax-cur_xmin, cur_ymax-cur_ymin
@@ -199,13 +206,16 @@ def display():
         cur_ymin -= (cur_ymax-cur_ymin)*0.05
 
         fig_opt = dict(width=width, height=height,
+                       x_axis_label='X [cm]', y_axis_label='Y [cm]',
                        tools='save,reset,undo',
                        toolbar_location='right', output_backend='webgl'
                        )
         p_diams = figure(
             x_range=bmd.Range1d(cur_xmin, cur_xmax), y_range=bmd.Range1d(cur_ymin, cur_ymax),
             **fig_opt)
-        p_mods = figure(x_range=p_diams.x_range, y_range=p_diams.y_range, **fig_opt)
+        p_mods = figure(
+            x_range=p_diams.x_range, y_range=p_diams.y_range,
+            **fig_opt)
 
         if mode == 'ev':
             hover_key_cells = 'Energy (cu,cv / wu,wv)'
@@ -247,8 +257,8 @@ def display():
 
         else:
             p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
-            #p_diams.circle(x='tc_x', y='tc_y', source=vsrc, view=view_cells, size=4, color='red', alpha=0.4)
-            #p_diams.circle(x='x', y='y', source=vsrc, view=view_cells, size=10, color='blue')
+            p_diams.circle(x='tc_x', y='tc_y', source=vsrc, view=view_cells, size=5, color='blue', legend_label='u,v conversion')
+            p_diams.circle(x='x', y='y', source=vsrc, view=view_cells, size=5, color='orange', legend_label='tc original')
 
             p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
                         
@@ -299,17 +309,23 @@ def display():
 
         if mode == 'ev':
             first_row = [elements[ksrc]['dropdown'], elements[ksrc]['textinput']]
+            lay = layout([first_row,
+                        sld_layers,
+                        sld_en,
+                        #[p_diams, p_uv, p_xy],
+                        #[p_xVSz, p_yVSz, p_yVSx],
+                        [p_diams, p_mods],
+                        [blank1],
+                        ])
         else:
-            first_row = [sld_layers]
+            first_row = [sld_layers]            
+            lay = layout([first_row,
+                          #[p_diams, p_uv, p_xy],
+                          #[p_xVSz, p_yVSz, p_yVSx],
+                          [p_diams, p_mods],
+                          [blank1],
+                        ])
             
-        lay = layout([first_row,
-                      sld_layers,
-                      sld_en,
-                      #[p_diams, p_uv, p_xy],
-                      #[p_xVSz, p_yVSz, p_yVSx],
-                      [p_diams, p_mods],
-                      [blank1],
-                      ])
         tab = bmd.TabPanel(child=lay, title=ksrc)
         tabs.append(tab)
         # end for loop
