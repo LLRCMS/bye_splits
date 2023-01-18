@@ -84,7 +84,7 @@ for k in (('photons', 'electrons') if mode=='ev' else ('Geometry',)):
     cds_data[k] = get_data(evs, k)[mode]
     elements[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
     if mode=='ev':
-        elements[k].update({'textinput': bmd.TextInput(placeholder='event number', height=40,
+        elements[k].update({'textinput': bmd.TextInput(placeholder=str(def_evs[k][0]), height=40,
                                                        sizing_mode='stretch_width'),
                             'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
                                                     menu=def_ev_text[k], height=40)})
