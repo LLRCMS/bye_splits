@@ -39,7 +39,7 @@ with open(params.viz_kw['CfgProdPath'], 'r') as afile:
 with open(params.viz_kw['CfgDataPath'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
-data_part_opt = dict(tag='v2', reprocess=False, debug=True, logger=log)
+data_part_opt = dict(tag='mytag', reprocess=False, debug=True, logger=log)
 data_particle = {
     'photons': EventDataParticle(particles='photons', **data_part_opt),
     'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
@@ -56,7 +56,10 @@ def common_props(p):
     # p.yaxis.visible = False
 
 def get_data(event, particles):
-    ds_geom = geom_data.provide(region='periphery')
+    region = None
+    if mode == event:
+        assert region is None
+    ds_geom = geom_data.provide(region=region)
 
     if mode=='ev':
         ds_ev = data_particle[particles].provide_event(event)
@@ -89,16 +92,27 @@ for k in (('photons', 'electrons') if mode=='ev' else ('Geometry',)):
                             'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
                                                     menu=def_ev_text[k], height=40)})
 
-def text_callback(attr, old, new, source, particles):
+def range_callback(fig, source, xvar, yvar):
+    """18 (centimeters) makes sures entire modules are always within the area shown"""
+    fig.x_range.start = min(source.data[xvar]-18)
+    fig.x_range.end = max(source.data[xvar]+18)
+    fig.y_range.start = min(source.data[yvar]-18)
+    fig.y_range.end = max(source.data[yvar]+18)
+
+def text_callback(attr, old, new, source, figs, particles):
     print('text callback ', particles, new)
     if not new.isdecimal():
         print('Wrong format!')
     else:
         source.data = get_data(int(new), particles)[mode]
+    for fig in figs:
+        range_callback(fig, source, 'tc_x', 'tc_y')
 
-def dropdown_callback(event, source, particles):
+def dropdown_callback(event, source, figs, particles):
     print('dropdown callback', particles, int(event.__dict__['item']))
     source.data = get_data(int(event.__dict__['item']), particles)[mode]
+    for fig in figs:
+        range_callback(fig, source, 'tc_x', 'tc_y')
 
 def display():
     doc = curdoc()
@@ -136,7 +150,7 @@ def display():
            """)
 
         if mode == 'ev':
-            sld_en = bmd.Slider(start=cfg_prod['mipThreshold'], end=5,
+            sld_en = bmd.Slider(start=0, end=5, #cfg_prod['mipThreshold']
                                 value=cfg_prod['mipThreshold'], step=0.1,
                                 title='Energy threshold [mip]', **sld_opt)
             sld_en_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
@@ -186,7 +200,6 @@ def display():
         for elem in zip(*zip_obj):
             if mode == 'ev' and elem[2] < cfg_prod['mipThreshold']: #cut replicates the default `view_en`
                 continue
-            #breakpoint()
             if max(elem[0][0][0]) > cur_xmax: cur_xmax = max(elem[0][0][0])
             if min(elem[0][0][0]) < cur_xmin: cur_xmin = min(elem[0][0][0])
             if max(elem[1][0][0]) > cur_ymax: cur_ymax = max(elem[1][0][0])
@@ -214,7 +227,8 @@ def display():
             x_range=bmd.Range1d(cur_xmin, cur_xmax), y_range=bmd.Range1d(cur_ymin, cur_ymax),
             **fig_opt)
         p_mods = figure(
-            x_range=p_diams.x_range, y_range=p_diams.y_range,
+            #x_range=p_diams.x_range, y_range=p_diams.y_range,
+            x_range=bmd.Range1d(-200, 200), y_range=bmd.Range1d(-200, 200),
             **fig_opt)
 
         if mode == 'ev':
@@ -270,9 +284,14 @@ def display():
 
             p_diams.add_layout(cbar_diams, 'right')
             p_mods.add_layout(cbar_mods, 'right')
+            # p_diams.x_range.callback = bmd.CustomJS(args=dict(xrange=myplot.x_range), code="""
+            # xrange.set({"start": 10, "end": 20})
+            # """)
 
-            elements[ksrc]['textinput'].on_change('value', partial(text_callback, source=vsrc, particles=ksrc))
-            elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, source=vsrc, particles=ksrc))
+            elements[ksrc]['textinput'].on_change('value', partial(text_callback, source=vsrc,
+                                                                   figs=(p_diams, p_mods), particles=ksrc))           
+            elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, source=vsrc,
+                                                                           figs=(p_diams,p_mods), particles=ksrc))
 
         ####### (x,y) plots ################################################################
         # p_xy = figure(width=width, height=height,
