@@ -2,6 +2,10 @@ defaultEvents:
     photons: [4681, 4677]
     electrons: [92243, 92244]
 
+geometry:
+    waferSize: 16.64408
+    sensorSeparation: 0.1
+
 varEvents:
     event: 'event'
     wu: 'good_tc_waferu'
@@ -26,3 +30,4 @@ varGeometry:
     c: 'color'
     orient: 'waferorient'
     part: 'waferpart'
+

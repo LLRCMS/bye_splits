@@ -40,41 +40,63 @@ class GeometryData(BaseData):
         self.wu, self.wv = 'waferu', 'waferv'
 
         ## geometry-specific parameters
-        self.waferWidth = 1 #this defines all other sizes
+        self.waferWidth = cfg['geometry']['waferSize'] #this defines all other sizes
+        self.sensorSeparation = cfg['geometry']['sensorSeparation']
         self.N = 4 #number of cells per wafer side
         self.c30 = np.sqrt(3)/2 #cossine of 30 degrees
         self.t30 = 1/np.sqrt(3) #tangent of 30 degrees
         self.R = self.waferWidth / (3 * self.N)
         self.r = self.R * self.c30
+        self.cellDistX = self.waferWidth/8.
+        self.cellDistY = self.cellDistX * self.t30
 
     def filter_columns(self, d):
         """Filter some columns to reduce memory usage"""
-        cols_to_remove = ['x', 'y', 'z', 'color']
+        #cols_to_remove = ['x', 'y', 'z', 'color']
+        cols_to_remove = ['z', 'color']
         cols = [x for x in d.fields if x not in cols_to_remove]
         return d[cols]
 
     def cell_location(self, df):
-        """Filter TC location in wafer: up-right, up-left and bottom."""
-        conds = {'UL': ~((df[self.cu] >= self.N) & (df[self.cu] > df[self.cv])),
-                 'UR': ~((df[self.cv] >= self.N) & (df[self.cu] <= df[self.cv])),
-                 'B':  ~((df[self.cu] < self.N) & (df[self.cv] < self.N))}
+        """
+        Filter TC location in wafer based on the orientation: up-right, up-left and bottom.
+        In V11 "orientation 0" actually corresponds to 6, as the concept of orientation is only introduced for later versions.
+        """
+        conds = {'UL': ~(((df['waferorient']==6) & (df[self.cu] >= self.N) & (df[self.cu] > df[self.cv])) |
+                         ((df['waferorient']<6) & (df[self.cv] < self.N) & (df[self.cu] > df[self.cv]))),
+
+                 'UR': ~(((df['waferorient']==6) & (df[self.cv] >= self.N) & (df[self.cu] <= df[self.cv])) |
+                         ((df['waferorient']<6) & (df[self.cv] >= self.N) & (df[self.cu] >= self.N))),
+
+                 'B':  ~(((df['waferorient']==6) & (df[self.cu] < self.N) & (df[self.cv] < self.N)) |
+                         ((df['waferorient']<6) & (df[self.cu] < self.N) & (df[self.cv] >= df[self.cu])))}
         df['cloc'] = np.nan
         df['cloc'] = df['cloc'].where(conds['B'], 'B')
         df['cloc'] = df['cloc'].where(conds['UL'], 'UL')
         df['cloc'] = df['cloc'].where(conds['UR'], 'UR')
         return df
 
+    def cell_location_shift(self, df):
+        """
+        Shift the position of TCs according to their location to allow an aligned display.
+        The true cell position becomes however more distant from the displayed cell center.
+        """
+        df.loc[:, 'tc_y'] = np.where(df['cloc']=='UR', df['tc_y']+self.cellDistY, df['tc_y'])
+        df.loc[:, 'tc_x'] = np.where(df['cloc']=='B', df['tc_x']+self.cellDistX/2, df['tc_x'])
+        df.loc[:, 'tc_y'] = np.where(df['cloc']=='B', df['tc_y']+self.cellDistY/2, df['tc_y'])
+        return df
+
     def region_selection(self, df, region=None):
         """Select a specific geometry region. Used mostly for debugging."""
         if region is not None:
-            regions = ('inside', 'periphery')
+            regions = ('inside', 'periphery', 'wafer')
             assert region in regions
             if region == 'inside':
                 df = df[((df[self.wu]==3) & (df[self.wv]==3)) |
                         ((df[self.wu]==3) & (df[self.wv]==4)) |
                         ((df[self.wu]==4) & (df[self.wv]==3)) |
                         ((df[self.wu]==4) & (df[self.wv]==4))]
-
+     
             elif region == 'periphery':
                 df = df[((df[self.wu]==-6) & (df[self.wv]==3)) |
                         ((df[self.wu]==-6) & (df[self.wv]==4)) |
@@ -83,6 +105,9 @@ class GeometryData(BaseData):
                         ((df[self.wu]==-8) & (df[self.wv]==1)) |
                         ((df[self.wu]==-7) & (df[self.wv]==2))
                         ]
+
+            elif region == 'wafer':
+                df = df[((df[self.wu]==3) & (df[self.wv]==3))]
 
         # df = df[df.layer<9]
         # df = df[df.waferpart==0]
@@ -93,17 +118,16 @@ class GeometryData(BaseData):
         libraries = ('bokeh', )
         assert library in libraries
         
-        cellDistX = self.waferWidth/8.
-        cellDistY = cellDistX * self.t30
-
-        df.loc[:, 'wafer_shift_x'] = (-2*df[self.wu] + df[self.wv])*self.waferWidth/2
-        df.loc[:, 'wafer_shift_y'] = self.c30*df[self.wv]
+        df['wafer_shift_x'] = (-2*df[self.wu] + df[self.wv])*(self.waferWidth+self.sensorSeparation)/2
+        df['wafer_shift_y'] = (self.c30*df[self.wv])*(self.waferWidth+self.sensorSeparation)
     
-        cells_conversion = (lambda cu,cv: (1.5*(cv-cu)+0.5) * self.R,
-                            lambda cu,cv: (cv+cu-2*N+1) * self.r) #orientation 6
+        # cells_conversion = (lambda cu,cv: (1.5*(cv-cu)+0.5) * self.R,
+        #                     lambda cu,cv: (cv+cu-2*self.N+1) * self.r) #orientation 6
+        cells_conversion = (lambda cu,cv: (1.5*(cv-self.N)+1) * self.R,
+                            lambda cu,cv: (2*cu-cv-self.N) * self.r) #orientation 7
 
-        univ_wcenterx = (1.5*(3-3) + 0.5)*self.R + cellDistX
-        univ_wcentery = (3 + 3 - 2*self.N + 1) * self.r + 3*cellDistY/2
+        univ_wcenterx = cells_conversion[0](3,3) + self.cellDistX
+        univ_wcentery = cells_conversion[1](3,3) + 3*self.cellDistY/2
         scale_x, scale_y = self.waferWidth/2, self.waferWidth/(2*self.c30)
         
         xcorners, ycorners = ([] for _ in range(2))
@@ -125,16 +149,17 @@ class GeometryData(BaseData):
         ypoint, y0, y1, y2, y3 = ({} for _ in range(5))
         xaxis, yaxis = ({} for _ in range(2))
 
-        # orientation 6
-        df['tc_x_center'] = (1.5*(df[self.cv]-df[self.cu])+0.5) * self.R
-        df['tc_y_center'] = (df[self.cv]+df[self.cu]-2*self.N+1) * self.r
+        df['tc_x_center'] = cells_conversion[0](df[self.cu],df[self.cv])
+        df['tc_y_center'] = cells_conversion[1](df[self.cu],df[self.cv])
         df['tc_x'] = df.wafer_shift_x + df['tc_x_center']
         df['tc_y'] = df.wafer_shift_y + df['tc_y_center']
         df['wx_center'] = df.wafer_shift_x + univ_wcenterx # fourth vertex (center) for cu/cv=(3,3)
         df['wy_center'] = df.wafer_shift_y + univ_wcentery # fourth vertex (center) for cu/cv=(3,3)
 
         df = self.cell_location(df)
-        
+        # df = self.cell_location_shift(df)
+
+        angle = 0 # must be changed for different wafer orientations
         for kloc in ('UL', 'UR', 'B'):
             cx_d, cy_d = df[df.cloc==kloc]['tc_x'], df[df.cloc==kloc]['tc_y']
             wc_x, wc_y = df[df.cloc==kloc]['wx_center'], df[df.cloc==kloc]['wy_center']
@@ -144,41 +169,40 @@ class GeometryData(BaseData):
             # same for y0, y1, y2 and y3
             # tc positions refer to the center of the diamonds
             if kloc == 'UL':
-                x0.update({kloc: cx_d})
+                x0.update({kloc: cx_d - self.cellDistX/2})
             elif kloc == 'UR':
-                x0.update({kloc: cx_d})
+                x0.update({kloc: cx_d - self.cellDistX/2})
             else:
-                x0.update({kloc: cx_d - cellDistX})
+                x0.update({kloc: cx_d - self.cellDistX})
                 
-            x1.update({kloc: x0[kloc][:] + cellDistX})
+            x1.update({kloc: x0[kloc][:] + self.cellDistX})
             if kloc in ('UL', 'UR'):
                 x2.update({kloc: x1[kloc]})
                 x3.update({kloc: x0[kloc]})
             else:
-                x2.update({kloc: x1[kloc] + cellDistX})
+                x2.update({kloc: x1[kloc] + self.cellDistX})
                 x3.update({kloc: x1[kloc]})
 
             if kloc == 'UL':
-                y0.update({kloc: cy_d})
+                y0.update({kloc: cy_d - (self.cellDistY/2 + self.cellDistX*self.t30)})
             elif kloc == 'UR':
-                y0.update({kloc: cy_d})
+                y0.update({kloc: cy_d - (self.cellDistY/2)})
             else:
-                y0.update({kloc: cy_d + cellDistY})
+                y0.update({kloc: cy_d})
 
             if kloc in ('UR', 'B'):
-                y1.update({kloc: y0[kloc][:] - cellDistY})
+                y1.update({kloc: y0[kloc][:] - self.cellDistY})
             else:
-                y1.update({kloc: y0[kloc][:] + cellDistY})
+                y1.update({kloc: y0[kloc][:] + self.cellDistY})
             if kloc in ('B'):
                 y2.update({kloc: y0[kloc][:]})
             else:
-                y2.update({kloc: y1[kloc][:] + 2*cellDistY})
+                y2.update({kloc: y1[kloc][:] + 2*self.cellDistY})
             if kloc in ('UL', 'UR'):
-                y3.update({kloc: y0[kloc][:] + 2*cellDistY})
+                y3.update({kloc: y0[kloc][:] + 2*self.cellDistY})
             else:
-                y3.update({kloc: y0[kloc][:] + cellDistY})
+                y3.update({kloc: y0[kloc][:] + self.cellDistY})
 
-            angle = 5*np.pi/3
             x0[kloc], y0[kloc] = self.rotate(angle, x0[kloc], y0[kloc], wc_x, wc_y)
             x1[kloc], y1[kloc] = self.rotate(angle, x1[kloc], y1[kloc], wc_x, wc_y)
             x2[kloc], y2[kloc] = self.rotate(angle, x2[kloc], y2[kloc], wc_x, wc_y)
@@ -199,8 +223,8 @@ class GeometryData(BaseData):
             xaxis[kloc] = xaxis[kloc].drop(keys, axis=1)
             yaxis[kloc] = yaxis[kloc].drop(keys, axis=1)
 
-        df.loc[:, 'diamond_x'] = pd.concat(xaxis.values())
-        df.loc[:, 'diamond_y'] = pd.concat(yaxis.values())
+        df['diamond_x'] = pd.concat(xaxis.values())
+        df['diamond_y'] = pd.concat(yaxis.values())
             
         # define module corners' coordinates
         xcorners_str = ['corner1x','corner2x','corner3x','corner4x','corner5x','corner6x']
@@ -212,10 +236,10 @@ class GeometryData(BaseData):
         for i in range(len(ycorners)):
             df[ycorners_str[i]] = df.wafer_shift_y + ycorners[i]
 
-        df.loc[:, 'hex_x'] = df[xcorners_str].values.tolist()
-        df.loc[:, 'hex_x'] = df['hex_x'].map(lambda x: [[x]])
-        df.loc[:, 'hex_y'] = df[ycorners_str].values.tolist()
-        df.loc[:, 'hex_y'] = df['hex_y'].map(lambda x: [[x]])
+        df['hex_x'] = df[xcorners_str].values.tolist()
+        df['hex_x'] = df['hex_x'].map(lambda x: [[x]])
+        df['hex_y'] = df[ycorners_str].values.tolist()
+        df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
         df = df.drop(xcorners_str + ycorners_str + ['tc_x_center', 'tc_y_center'], axis=1)
         return df
 
