@@ -79,6 +79,7 @@ class GeometryData(BaseData):
     def cell_location_shift(self, df):
         """
         Shift the position of TCs according to their location to allow an aligned display.
+        The true cell position becomes however more distant from the displayed cell center.
         """
         df.loc[:, 'tc_y'] = np.where(df['cloc']=='UR', df['tc_y']+self.cellDistY, df['tc_y'])
         df.loc[:, 'tc_x'] = np.where(df['cloc']=='B', df['tc_x']+self.cellDistX/2, df['tc_x'])
@@ -156,9 +157,9 @@ class GeometryData(BaseData):
         df['wy_center'] = df.wafer_shift_y + univ_wcentery # fourth vertex (center) for cu/cv=(3,3)
 
         df = self.cell_location(df)
-        df = self.cell_location_shift(df)
+        # df = self.cell_location_shift(df)
 
-        angle = 0#5*np.pi/3 #CHANGE!!!!!!!!!        
+        angle = 0 # must be changed for different wafer orientations
         for kloc in ('UL', 'UR', 'B'):
             cx_d, cy_d = df[df.cloc==kloc]['tc_x'], df[df.cloc==kloc]['tc_y']
             wc_x, wc_y = df[df.cloc==kloc]['wx_center'], df[df.cloc==kloc]['wy_center']
