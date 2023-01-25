@@ -27,17 +27,19 @@ int convert_to_int(char** argv, int idx) {
 //Run with ./produce.exe photons
 int main(int argc, char **argv) {
   std::string dir = "/eos/user/b/bfontana/FPGAs/new_algos/";
-  std::string tree_name = "FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple";
+  std::string root_folder = "hgcalTriggerNtuplizer";
+  std::string root_tree = "HGCalTriggerNtuple";
 
   if (strlen(argv[1]) == 0) {
-	return 1; // empty string
+	return 1; // empty std::string
   }
 
   //process_program_options(argc, argv);
-  string particle = std::string(argv[1]);
+  std::string particle = std::string(argv[1]);
 
-  std::string infile = particle + "_0PU_bc_stc_hadd.root";
-  std::string outfile = "skim_small_" + infile;
-  skim(tree_name, dir + infile, dir + outfile, particle);
+  // std::std::string infile = particle + "_0PU_bc_stc_hadd.root";
+  std::string infile = "module_TEST_BIG.root";
+  std::string outfile = "skim_small_TEST_" + infile;
+  skim(root_folder + "/" + root_tree, dir + infile, dir + outfile, particle);
   return 0;
 }
