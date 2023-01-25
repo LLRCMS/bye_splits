@@ -24,7 +24,8 @@ ROOT::VecOps::RVec<float> calcDeltaR(ROOT::VecOps::RVec<float> geta, ROOT::VecOp
 
 ROOT::RDF::RResultPtr<long long unsigned> addProgressBar(ROOT::RDF::RNode df) {
   auto c = df.Count();
-  c.OnPartialResult(/*every=*/100, [] (long long unsigned e) { std::cout << e << std::endl; });
+  c.OnPartialResult(/*every=*/100,
+					[] (long long unsigned e) { std::cout << "Progress: " << e << "\t\r" << std::endl; });
   return c;
 }
 
