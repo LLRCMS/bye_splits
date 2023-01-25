@@ -52,7 +52,8 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
   // gen-related variables
   std::vector<std::string> gen_intv = {"genpart_pid"};
   std::vector<std::string> gen_floatv = {"genpart_exphi", "genpart_exeta", "genpart_energy"};
-  std::vector<std::string> gen_v = join_vars(gen_intv, gen_floatv);
+  std::vector<std::string> gen_floatv2 = {"genpart_posx", "genpart_posy", "genpart_posz"};
+  std::vector<std::string> gen_v = join_vars(gen_intv, gen_floatv, gen_floatv2);
 
   // selection on generated particles (within each event)
   std::unordered_map<std::string,std::string> pmap = {{"photons", "22"}, {"electrons", "11"}};
@@ -134,6 +135,18 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
 	dd2 = dd2.Define("good_" + var,
 					 [](const ROOT::VecOps::RVec<float> &v) {
 					   return std::vector<float>(v.begin(), v.end());
+					 },
+					 {vtmp + "_" + var});
+  }
+  std::vector<std::string> floatv2 = join_vars(gen_floatv2);
+  for(auto& var : floatv2) {
+	dd2 = dd2.Define("good_" + var,
+					 [](const ROOT::VecOps::RVec<std::vector<float>> &v) {
+					   std::vector<std::vector<float>> vec(v.size());
+					   for(unsigned i=0; i<v.size(); ++i) {
+						 vec[i] = std::vector<float>(v[i].begin(), v[i].end());
+					   }
+					   return vec;
 					 },
 					 {vtmp + "_" + var});
   }
