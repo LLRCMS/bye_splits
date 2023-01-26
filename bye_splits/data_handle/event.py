@@ -38,6 +38,9 @@ class EventData(BaseData):
         ds = ak.from_parquet(self.outpath)
         evmask = False
         for ev in events:
+            if not ak.sum(ds.event == ev):
+                mes = 'Event {} is not present in file {}.'
+                raise RuntimeError(mes.format(ev, self.outpath))
             evmask = evmask | (ds.event==ev)
         ds = ak.to_dataframe(ds[evmask])
         if ds.empty:
@@ -49,7 +52,7 @@ class EventData(BaseData):
         else:
             self.cache = pd.concat([self.cache, ds], axis=0)
         #self.cache = self.cache.persist() only for dask dataframes
-
+            
     def provide(self):
         print('Providing event {} data...'.format(self.tag))
         if not os.path.exists(self.outpath):
@@ -70,7 +73,6 @@ class EventData(BaseData):
         atree = 'HGCalTriggerNtuple'
 
         with up.open(str(self.inpath), array_cache='550 MB', num_workers=8) as f:
-            # print(tree.show())
             tree = f[adir + '/' + atree]
             data = tree.arrays(filter_name='/' + '|'.join(self.var.values()) + '/',
                                library='ak',
