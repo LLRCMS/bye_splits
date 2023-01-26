@@ -39,13 +39,15 @@ with open(params.viz_kw['CfgProdPath'], 'r') as afile:
 with open(params.viz_kw['CfgDataPath'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
-data_part_opt = dict(tag='mytag', reprocess=False, debug=True, logger=log)
+mode = 'ev'
+reprocess = True
+
+data_part_opt = dict(tag='mytag', reprocess=reprocess, debug=True, logger=log)
 data_particle = {
-    'photons': EventDataParticle(particles='photons', **data_part_opt),
+    #'photons': EventDataParticle(particles='photons', **data_part_opt),
     'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
 geom_data = GeometryData(inname='test_triggergeom.root',
                          reprocess=False, logger=log)
-mode = 'ev'
 
 def common_props(p):
     p.output_backend = 'svg'
@@ -60,7 +62,7 @@ def get_data(event, particles):
     if mode == event:
         assert region is None
     ds_geom = geom_data.provide(region=region)
-
+    
     if mode=='ev':
         ds_ev = data_particle[particles].provide_event(event)
         ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
@@ -82,7 +84,7 @@ if mode=='ev':
         def_ev_text[k] = drop_text
 
 elements, cds_data = ({} for _ in range(2))
-for k in (('photons', 'electrons') if mode=='ev' else ('Geometry',)):
+for k in (data_particle.keys() if mode=='ev' else ('Geometry',)):
     evs = def_evs[k][0] if mode == 'ev' else ''
     cds_data[k] = get_data(evs, k)[mode]
     elements[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
@@ -92,27 +94,27 @@ for k in (('photons', 'electrons') if mode=='ev' else ('Geometry',)):
                             'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
                                                     menu=def_ev_text[k], height=40)})
 
-def range_callback(fig, source, xvar, yvar):
+def range_callback(fig, source, xvar, yvar, shift):
     """18 (centimeters) makes sures entire modules are always within the area shown"""
-    fig.x_range.start = min(source.data[xvar]-18)
-    fig.x_range.end = max(source.data[xvar]+18)
-    fig.y_range.start = min(source.data[yvar]-18)
-    fig.y_range.end = max(source.data[yvar]+18)
+    fig.x_range.start = min(source.data[xvar]-shift)
+    fig.x_range.end = max(source.data[xvar]+shift)
+    fig.y_range.start = min(source.data[yvar]-shift)
+    fig.y_range.end = max(source.data[yvar]+shift)
 
-def text_callback(attr, old, new, source, figs, particles):
+def text_callback(attr, old, new, source, figs, particles, border):
     print('text callback ', particles, new)
     if not new.isdecimal():
         print('Wrong format!')
     else:
         source.data = get_data(int(new), particles)[mode]
     for fig in figs:
-        range_callback(fig, source, 'tc_x', 'tc_y')
+        range_callback(fig, source, 'tc_x', 'tc_y', border)
 
-def dropdown_callback(event, source, figs, particles):
+def dropdown_callback(event, source, figs, particles, border):
     print('dropdown callback', particles, int(event.__dict__['item']))
     source.data = get_data(int(event.__dict__['item']), particles)[mode]
     for fig in figs:
-        range_callback(fig, source, 'tc_x', 'tc_y')
+        range_callback(fig, source, 'tc_x', 'tc_y', border)
 
 def display():
     doc = curdoc()
@@ -122,15 +124,16 @@ def display():
     width2, height2 = 300, 200
     tabs = []
 
-    vev = cfg_data['varEvents']
+    vev = common.dot_dict(cfg_data['varEvents'])
     
     for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
-
         if mode == 'ev':
             mapper_diams = bmd.LinearColorMapper(palette=mypalette,
-                                                 low=vsrc.data[vev['en']].min(), high=vsrc.data[vev['en']].max())
+                                                 low=vsrc.data[vev.en].min(),
+                                                 high=vsrc.data[vev.en].max())
             mapper_mods = bmd.LinearColorMapper(palette=mypalette,
-                                                low=vsrc.data[vev['en']].min(), high=vsrc.data[vev['en']].max())  #CHANGE!!!!!!
+                                                low=vsrc.data[vev.en_tsum].min(),
+                                                high=vsrc.data[vev.en_tsum].max())
 
         sld_opt = dict(bar_color='red', width=width, background='white')
         sld_layers = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
@@ -150,8 +153,8 @@ def display():
            """)
 
         if mode == 'ev':
-            sld_en = bmd.Slider(start=0, end=5, #cfg_prod['mipThreshold']
-                                value=cfg_prod['mipThreshold'], step=0.1,
+            sld_en = bmd.Slider(start=cfg_prod['selection']['mipThreshold'], end=5,
+                                value=cfg_prod['selection']['mipThreshold'], step=0.1,
                                 title='Energy threshold [mip]', **sld_opt)
             sld_en_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
             sld_en.js_on_change('value', sld_en_cb) #value_throttled
@@ -198,7 +201,7 @@ def display():
         else:
             zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
         for elem in zip(*zip_obj):
-            if mode == 'ev' and elem[2] < cfg_prod['mipThreshold']: #cut replicates the default `view_en`
+            if mode == 'ev' and elem[2] < cfg_prod['selection']['mipThreshold']: #cut replicates the default `view_en`
                 continue
             if max(elem[0][0][0]) > cur_xmax: cur_xmax = max(elem[0][0][0])
             if min(elem[0][0][0]) < cur_xmin: cur_xmin = min(elem[0][0][0])
@@ -221,27 +224,27 @@ def display():
         fig_opt = dict(width=width, height=height,
                        x_axis_label='X [cm]', y_axis_label='Y [cm]',
                        tools='save,reset,undo',
-                       toolbar_location='right', output_backend='webgl'
-                       )
+                       toolbar_location='right', output_backend='webgl')
+        border = 18
         p_diams = figure(
-            x_range=bmd.Range1d(cur_xmin, cur_xmax), y_range=bmd.Range1d(cur_ymin, cur_ymax),
+            x_range=bmd.Range1d(cur_xmin-border, cur_xmax+border),
+            y_range=bmd.Range1d(cur_ymin-border, cur_ymax+border),
             **fig_opt)
         p_mods = figure(
-            #x_range=p_diams.x_range, y_range=p_diams.y_range,
-            x_range=bmd.Range1d(-200, 200), y_range=bmd.Range1d(-200, 200),
+            x_range=p_diams.x_range, y_range=p_diams.y_range,
             **fig_opt)
 
         if mode == 'ev':
             hover_key_cells = 'Energy (cu,cv / wu,wv)'
-            hover_val_cells = '@good_tc_mipPt (@triggercellu,@triggercellv / @waferu,@waferv)'
+            hover_val_cells = '@' + vev.en + ' (@triggercellu,@triggercellv / @waferu,@waferv)'
             hover_key_mods = 'Energy (wu,wv)'
-            hover_val_mods = '@good_tc_mipPt (@waferu,@waferv)'
+            hover_val_mods = '@' + vev.en_tsum + ' (@'+vev.wu_tsum+',@'+vev.wv_tsum+')'
         else:
             hover_key_cells = 'cu,cv / wu,wv'
             hover_val_cells = '@triggercellu,@triggercellv / @waferu,@waferv'
             hover_key_mods = 'wu,wv'
             #hover_val_mods = '@waferu{custom},@waferv{custom}'
-            hover_val_mods = '@waferu,@waferv'
+            hover_val_mods = '@'+vev.wu_tsum+',@'+vev.wv_tsum
 
         hover_code = """
         var wcoord = special_vars.{};
@@ -250,11 +253,10 @@ def display():
         
         tool_list = (bmd.BoxZoomTool(match_aspect=True),)
         p_diams.add_tools(bmd.HoverTool(tooltips=[(hover_key_cells, hover_val_cells),],), *tool_list)
-        # p_mods.add_tools(bmd.HoverTool(tooltips=[(hover_key_mods, hover_val_mods),],), *tool_list)
-        #                                # formatters={'@waferu': bmd.CustomJSHover(code=hover_code.format('waferu')),
-        #                                #             '@waferv': bmd.CustomJSHover(code=hover_code.format('waferv'))}
+        p_mods.add_tools(bmd.HoverTool(tooltips=[(hover_key_mods, hover_val_mods),],), *tool_list)
+                                       # formatters={'@waferu': bmd.CustomJSHover(code=hover_code.format('waferu')),
+                                       #             '@waferv': bmd.CustomJSHover(code=hover_code.format('waferv'))}
 
-        p_mods.add_tools(*tool_list)
         common_props(p_diams)
         common_props(p_mods)
 
@@ -264,15 +266,16 @@ def display():
         hover_opt = dict(hover_fill_color='black', hover_line_color='black', hover_line_width=4, hover_alpha=0.2)
 
         if mode == 'ev':
-            p_diams.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper_diams},
+            p_diams.multi_polygons(fill_color={'field': vev.en, 'transform': mapper_diams},
                                    **hover_opt, **p_diams_opt)
-            p_mods.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper_mods}, #CHANGE WHEN MODULE SUMS ARE AVAILABLE
+            p_mods.multi_polygons(fill_color={'field': vev.en_tsum, 'transform': mapper_mods},
                                    **hover_opt, **p_mods_opt)
 
         else:
             p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
-            p_diams.circle(x='tc_x', y='tc_y', source=vsrc, view=view_cells, size=5, color='blue', legend_label='u,v conversion')
-            p_diams.circle(x='x', y='y', source=vsrc, view=view_cells, size=5, color='orange', legend_label='tc original')
+            circ_opt = dict(source=vsrc, view=view_cells, size=5)
+            p_diams.circle(x='tc_x', y='tc_y', color='blue', legend_label='u,v conversion', **circ_opt)
+            p_diams.circle(x='x', y='y', color='orange', legend_label='tc original', **circ_opt)
 
             p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
                         
@@ -288,10 +291,9 @@ def display():
             # xrange.set({"start": 10, "end": 20})
             # """)
 
-            elements[ksrc]['textinput'].on_change('value', partial(text_callback, source=vsrc,
-                                                                   figs=(p_diams, p_mods), particles=ksrc))           
-            elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, source=vsrc,
-                                                                           figs=(p_diams,p_mods), particles=ksrc))
+            elem_opt = dict(source=vsrc, figs=(p_diams, p_mods), particles=ksrc, border=border)
+            elements[ksrc]['textinput'].on_change('value', partial(text_callback, **elem_opt))           
+            elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, **elem_opt))
 
         ####### (x,y) plots ################################################################
         # p_xy = figure(width=width, height=height,

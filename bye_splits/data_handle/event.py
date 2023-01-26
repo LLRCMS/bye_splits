@@ -21,9 +21,8 @@ class EventData(BaseData):
         super().__init__(inname, tag, reprocess, logger)
         
         with open(params.viz_kw['CfgDataPath'], 'r') as afile:
-            cfg = yaml.safe_load(afile)
-            self.var = cfg['varEvents']
-            
+            cfg_data = yaml.safe_load(afile)
+            self.var = cfg_data['varEvents']
         self.cache = None
         self.events = default_events
         self.cache_events(self.events)
@@ -42,7 +41,7 @@ class EventData(BaseData):
                 mes = 'Event {} is not present in file {}.'
                 raise RuntimeError(mes.format(ev, self.outpath))
             evmask = evmask | (ds.event==ev)
-        ds = ak.to_dataframe(ds[evmask])
+        ds = ak.to_dataframe(ds[evmask], how='outer')
         if ds.empty:
             mes = 'Events {} not found (tag = {}).'
             raise RuntimeError(mes.format(' '.join([str(x) for x in events]), self.tag))
@@ -69,8 +68,10 @@ class EventData(BaseData):
         return ret
     
     def select(self):
-        adir = 'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple'
-        atree = 'HGCalTriggerNtuple'
+        with open(params.viz_kw['CfgProdPath'], 'r') as afile:
+            cfg_prod = yaml.safe_load(afile)
+            adir = cfg_prod['io']['dir']
+            atree = cfg_prod['io']['tree']
 
         with up.open(str(self.inpath), array_cache='550 MB', num_workers=8) as f:
             tree = f[adir + '/' + atree]

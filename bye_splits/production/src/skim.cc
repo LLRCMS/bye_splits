@@ -34,13 +34,16 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
   // read input parameters
   YAML::Node config = YAML::LoadFile("bye_splits/production/prod_params.yaml");
   std::vector<int> discLayers;
-  if (config["disconnectedTriggerLayers"]) {
+  if (config["selection"]["disconnectedTriggerLayers"]) {
 	discLayers = config["disconnectedTriggerLayers"].as<std::vector<int>>();
   }
   std::string reachedEE="", deltarThreshold="", mipThreshold="";
-  if (config["reachedEE"]) reachedEE = config["reachedEE"].as<std::string>();
-  if (config["deltarThreshold"]) deltarThreshold = config["deltarThreshold"].as<std::string>();
-  if (config["mipThreshold"]) mipThreshold = config["mipThreshold"].as<std::string>();
+  if (config["selection"]["reachedEE"])
+	reachedEE = config["selection"]["reachedEE"].as<std::string>();
+  if (config["selection"]["deltarThreshold"])
+	deltarThreshold = config["selection"]["deltarThreshold"].as<std::string>();
+  if (config["selection"]["mipThreshold"])
+	mipThreshold = config["selection"]["mipThreshold"].as<std::string>();
 
   // variables
   std::string vtmp = "tmp_good";
@@ -160,7 +163,8 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
 
   // store skimmed file
   dd2.Snapshot(tn, outf, good_allvars);
+
+  // display event processing progress
   ROOT::RDF::RResultPtr<long long unsigned> count = addProgressBar(ROOT::RDF::RNode(dd2));
   count.GetValue();
-
 }

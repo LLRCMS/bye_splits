@@ -23,7 +23,10 @@ class EventDataParticle:
             self.config = yaml.safe_load(afile)
 
         data_suffix = 'skim' + ('_small' if debug else '')
-        in_name = '_'.join((data_suffix, self.particles, '0PU_bc_stc_hadd.root'))
+        in_name = '_'.join((data_suffix, self.particles,
+                            #'0PU_bc_stc_hadd.root'
+                            'skim_small_TEST_module_TEST_BIG.root'
+                            ))
         default_events = self.config['defaultEvents'][self.particles]
         self.data = EventData(in_name, self.tag + '_debug' * debug,
                               default_events, reprocess=reprocess, logger=logger)

@@ -26,13 +26,14 @@ int convert_to_int(char** argv, int idx) {
 
 //Run with ./produce.exe photons
 int main(int argc, char **argv) {
+  YAML::Node config = YAML::LoadFile("bye_splits/production/prod_params.yaml");
   std::string dir = "/eos/user/b/bfontana/FPGAs/new_algos/";
-  std::string root_folder = "hgcalTriggerNtuplizer";
-  std::string root_tree = "HGCalTriggerNtuple";
+  std::string root_folder;
+  std::string root_tree;
+  if (config["io"]["dir"]) root_folder = config["io"]["dir"].as<std::string>();
+  if (config["io"]["tree"]) root_tree = config["io"]["tree"].as<std::string>();
 
-  if (strlen(argv[1]) == 0) {
-	return 1; // empty std::string
-  }
+  if (strlen(argv[1]) == 0)	return 1; // empty std::string
 
   //process_program_options(argc, argv);
   std::string particle = std::string(argv[1]);
