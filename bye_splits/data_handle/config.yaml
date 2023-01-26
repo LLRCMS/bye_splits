@@ -7,6 +7,9 @@ geometry:
     sensorSeparation: 0.1
 
 varEvents:
+  gen:
+    event: 'event'
+  tc:
     event: 'event'
     wu: 'good_tc_waferu'
     wv: 'good_tc_waferv'
@@ -14,10 +17,14 @@ varEvents:
     cv: 'good_tc_cellu'
     cu: 'good_tc_cellv'
     en: 'good_tc_mipPt'
-    wu_tsum: 'good_ts_waferu'
-    wv_tsum: 'good_ts_waferv'
-    l_tsum:  'good_ts_layer'
-    en_tsum: 'good_ts_mipPt'
+  tsum:
+    event: 'event'
+    wu: 'good_ts_waferu'
+    wv: 'good_ts_waferv'
+    l:  'good_ts_layer'
+    en: 'good_ts_mipPt'
+  cl:
+    event: 'event'
 
 varGeometry:
     wu: 'waferu'

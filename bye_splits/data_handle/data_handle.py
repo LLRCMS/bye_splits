@@ -31,5 +31,5 @@ class EventDataParticle:
         self.data = EventData(in_name, self.tag + '_debug' * debug,
                               default_events, reprocess=reprocess, logger=logger)
 
-    def provide_event(self, event):
-        return self.data.provide_event(event)
+    def provide_event(self, event, merge):
+        return self.data.provide_event(event, merge)

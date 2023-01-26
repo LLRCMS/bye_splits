@@ -12,6 +12,7 @@ import yaml
 import uproot as up
 import pandas as pd
 import awkward as ak
+import functools
 
 from utils import params
 from data_handle.base import BaseData
@@ -41,15 +42,17 @@ class EventData(BaseData):
                 mes = 'Event {} is not present in file {}.'
                 raise RuntimeError(mes.format(ev, self.outpath))
             evmask = evmask | (ds.event==ev)
-        ds = ak.to_dataframe(ds[evmask], how='outer')
-        if ds.empty:
-            mes = 'Events {} not found (tag = {}).'
-            raise RuntimeError(mes.format(' '.join([str(x) for x in events]), self.tag))
+        ds = ds[evmask]
+
+        dsd = {}
+        for k in self.var.keys():
+            dsd[k] = ak.to_dataframe(ds[list(self.var[k].values())], how='outer')
 
         if self.cache is None: #first cache_events() call
-            self.cache = ds
+            self.cache = dsd
         else:
-            self.cache = pd.concat([self.cache, ds], axis=0)
+            for k in self.var.keys():
+                self.cache[k] = pd.concat([self.cache, dsd[k]], axis=0)
         #self.cache = self.cache.persist() only for dask dataframes
             
     def provide(self):
@@ -58,13 +61,20 @@ class EventData(BaseData):
             self.store()
         return ak.from_parquet(self.outpath)
 
-    def provide_event(self, event):
+    def provide_event(self, event, merge=False):
         """Provide single event, checking if it is in cache"""
         if event not in self.events:
             self.events += [event]
             self.cache_events(event)
-        ret = self.cache[self.cache.event==event].drop(['event'], axis=1)
-        ret = ret.apply(pd.Series.explode).reset_index(drop=True)
+
+        ret = {}
+        for k in self.var.keys():
+            tmp = self.cache[k][self.cache[k].event==event].drop(['event'], axis=1)
+            ret[k] = tmp.apply(pd.Series.explode).reset_index(drop=True)
+
+        if merge:
+            ret = functools.reduce(lambda left,right: pd.concat((left,right), axis=1),
+                                   list(ret.values()))
         return ret
     
     def select(self):
@@ -75,7 +85,8 @@ class EventData(BaseData):
 
         with up.open(str(self.inpath), array_cache='550 MB', num_workers=8) as f:
             tree = f[adir + '/' + atree]
-            data = tree.arrays(filter_name='/' + '|'.join(self.var.values()) + '/',
+            allvars = set([y for x in self.var.values() for y in x.values()])
+            data = tree.arrays(filter_name='/' + '|'.join(allvars) + '/',
                                library='ak',
                                #entry_stop=50, debug
                                )
