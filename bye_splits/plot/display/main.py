@@ -40,7 +40,7 @@ with open(params.viz_kw['CfgDataPath'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
 mode = 'ev'
-reprocess = True
+reprocess = False
 
 data_part_opt = dict(tag='mytag', reprocess=reprocess, debug=True, logger=log)
 data_particle = {
@@ -62,14 +62,24 @@ def get_data(event, particles):
     if mode == event:
         assert region is None
     ds_geom = geom_data.provide(region=region)
-    
+
+    vev = common.dot_dict(cfg_data['varEvents'])
     if mode=='ev':
         ds_ev = data_particle[particles].provide_event(event)
-        ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
-                              'good_tc_cellu':'triggercellu', 'good_tc_cellv':'triggercellv',
-                              'good_tc_layer':'layer'},
-                    inplace=True)
-        ds_ev = pd.merge(left=ds_ev, right=ds_geom, how='inner',
+        ds_ev['tc'] = ds_ev['tc'].rename(columns={vev.tc['wu']: 'waferu',
+                                                  vev.tc['wv']: 'waferv',
+                                                  vev.tc['cu']: 'triggercellu',
+                                                  vev.tc['cv']: 'triggercellv',
+                                                  vev.tc['l']: 'layer', })
+        ds_ev['tsum'] = ds_ev['tsum'].rename(columns={vev.tsum['wu']: 'waferu',
+                                                      vev.tsum['wv']: 'waferv',
+                                                      vev.tsum['l']: 'layer'})
+        #ds_ev['tc'] = ds_ev['tc'].groupby(['layer', 'waferu', 'waferv']).agg(list)
+        # ds_ev['tsum'] = ds_ev['tsum'].groupby(['layer', 'waferu', 'waferv']).agg(list)
+        # ds_ev = pd.merge(left=ds_ev['tc'], right=ds_ev['tsum'], how='inner',
+        #                  on=['layer', 'waferu', 'waferv'])
+
+        ds_ev = pd.merge(left=ds_ev['tc'], right=ds_geom, how='inner',
                          on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
         return {'ev': ds_ev, 'geom': ds_geom}
 
@@ -129,11 +139,11 @@ def display():
     for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
         if mode == 'ev':
             mapper_diams = bmd.LinearColorMapper(palette=mypalette,
-                                                 low=vsrc.data[vev.en].min(),
-                                                 high=vsrc.data[vev.en].max())
+                                                 low=vsrc.data[vev.tc['en']].min(),
+                                                 high=vsrc.data[vev.tc['en']].max())
             mapper_mods = bmd.LinearColorMapper(palette=mypalette,
-                                                low=vsrc.data[vev.en_tsum].min(),
-                                                high=vsrc.data[vev.en_tsum].max())
+                                                low=vsrc.data[vev.tc['en']].min(),
+                                                high=vsrc.data[vev.tc['en']].max())
 
         sld_opt = dict(bar_color='red', width=width, background='white')
         sld_layers = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
@@ -236,15 +246,15 @@ def display():
 
         if mode == 'ev':
             hover_key_cells = 'Energy (cu,cv / wu,wv)'
-            hover_val_cells = '@' + vev.en + ' (@triggercellu,@triggercellv / @waferu,@waferv)'
+            hover_val_cells = '@' + vev.tc['en'] + ' (@triggercellu,@triggercellv / @waferu,@waferv)'
             hover_key_mods = 'Energy (wu,wv)'
-            hover_val_mods = '@' + vev.en_tsum + ' (@'+vev.wu_tsum+',@'+vev.wv_tsum+')'
+            hover_val_mods = '@' + vev.tc['en'] + ' (@'+vev.tc['wu']+',@'+vev.tc['wv']+')'
         else:
             hover_key_cells = 'cu,cv / wu,wv'
             hover_val_cells = '@triggercellu,@triggercellv / @waferu,@waferv'
             hover_key_mods = 'wu,wv'
             #hover_val_mods = '@waferu{custom},@waferv{custom}'
-            hover_val_mods = '@'+vev.wu_tsum+',@'+vev.wv_tsum
+            hover_val_mods = '@'+vev.tc['wu']+',@'+vev.tc['wu']
 
         hover_code = """
         var wcoord = special_vars.{};
@@ -266,9 +276,9 @@ def display():
         hover_opt = dict(hover_fill_color='black', hover_line_color='black', hover_line_width=4, hover_alpha=0.2)
 
         if mode == 'ev':
-            p_diams.multi_polygons(fill_color={'field': vev.en, 'transform': mapper_diams},
+            p_diams.multi_polygons(fill_color={'field': vev.tc['en'], 'transform': mapper_diams},
                                    **hover_opt, **p_diams_opt)
-            p_mods.multi_polygons(fill_color={'field': vev.en_tsum, 'transform': mapper_mods},
+            p_mods.multi_polygons(fill_color={'field': vev.tc['en'], 'transform': mapper_mods},
                                    **hover_opt, **p_mods_opt)
 
         else:
@@ -294,6 +304,9 @@ def display():
             elem_opt = dict(source=vsrc, figs=(p_diams, p_mods), particles=ksrc, border=border)
             elements[ksrc]['textinput'].on_change('value', partial(text_callback, **elem_opt))           
             elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, **elem_opt))
+            cols_diams = [bmd.TableColumn(field=x, title=x)
+                          for x in ['waferu', 'waferv', 'triggercellu', 'triggercellv', 'good_tc_mipPt']]
+            table_diams = bmd.DataTable(width=width, height=int(height/2), source=vsrc, columns=cols_diams, view=view_cells)
 
         ####### (x,y) plots ################################################################
         # p_xy = figure(width=width, height=height,
@@ -336,6 +349,7 @@ def display():
                         #[p_diams, p_uv, p_xy],
                         #[p_xVSz, p_yVSz, p_yVSx],
                         [p_diams, p_mods],
+                        [table_diams],
                         [blank1],
                         ])
         else:

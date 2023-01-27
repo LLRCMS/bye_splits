@@ -61,7 +61,7 @@ class EventData(BaseData):
             self.store()
         return ak.from_parquet(self.outpath)
 
-    def provide_event(self, event, merge=False):
+    def provide_event(self, event, merge):
         """Provide single event, checking if it is in cache"""
         if event not in self.events:
             self.events += [event]
@@ -71,7 +71,6 @@ class EventData(BaseData):
         for k in self.var.keys():
             tmp = self.cache[k][self.cache[k].event==event].drop(['event'], axis=1)
             ret[k] = tmp.apply(pd.Series.explode).reset_index(drop=True)
-
         if merge:
             ret = functools.reduce(lambda left,right: pd.concat((left,right), axis=1),
                                    list(ret.values()))

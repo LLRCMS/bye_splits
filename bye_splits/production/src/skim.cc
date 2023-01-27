@@ -2,7 +2,6 @@
 
 ROOT::VecOps::RVec<float> calcDeltaR(ROOT::VecOps::RVec<float> geta, ROOT::VecOps::RVec<float> gphi,
 									 ROOT::VecOps::RVec<float> cleta,  ROOT::VecOps::RVec<float> clphi)
-  
 {
   if(geta.size()==0) // empty event (filtered before)
 	return ROOT::VecOps::RVec<float>();
@@ -35,7 +34,7 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
   YAML::Node config = YAML::LoadFile("bye_splits/production/prod_params.yaml");
   std::vector<int> discLayers;
   if (config["selection"]["disconnectedTriggerLayers"]) {
-	discLayers = config["disconnectedTriggerLayers"].as<std::vector<int>>();
+	discLayers = config["selection"]["disconnectedTriggerLayers"].as<std::vector<int>>();
   }
   std::string reachedEE="", deltarThreshold="", mipThreshold="";
   if (config["selection"]["reachedEE"])
@@ -44,7 +43,6 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
 	deltarThreshold = config["selection"]["deltarThreshold"].as<std::string>();
   if (config["selection"]["mipThreshold"])
 	mipThreshold = config["selection"]["mipThreshold"].as<std::string>();
-
   // variables
   std::string vtmp = "tmp_good";
   
