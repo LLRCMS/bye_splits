@@ -44,7 +44,7 @@ reprocess = False
 
 data_part_opt = dict(tag='mytag', reprocess=reprocess, debug=True, logger=log)
 data_particle = {
-    #'photons': EventDataParticle(particles='photons', **data_part_opt),
+    'photons': EventDataParticle(particles='photons', **data_part_opt),
     'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
 geom_data = GeometryData(inname='test_triggergeom.root',
                          reprocess=False, logger=log)
@@ -71,12 +71,12 @@ def get_data(event, particles):
                                                   vev.tc['cu']: 'triggercellu',
                                                   vev.tc['cv']: 'triggercellv',
                                                   vev.tc['l']: 'layer', })
-        ds_ev['tsum'] = ds_ev['tsum'].rename(columns={vev.tsum['wu']: 'waferu',
-                                                      vev.tsum['wv']: 'waferv',
-                                                      vev.tsum['l']: 'layer'})
+        ds_ev['tc'] = ds_ev['tc'].rename(columns={vev.tc['wu']: 'waferu',
+                                                  vev.tc['wv']: 'waferv',
+                                                  vev.tc['l']: 'layer'})
         #ds_ev['tc'] = ds_ev['tc'].groupby(['layer', 'waferu', 'waferv']).agg(list)
-        # ds_ev['tsum'] = ds_ev['tsum'].groupby(['layer', 'waferu', 'waferv']).agg(list)
-        # ds_ev = pd.merge(left=ds_ev['tc'], right=ds_ev['tsum'], how='inner',
+        # ds_ev['tc'] = ds_ev['tc'].groupby(['layer', 'waferu', 'waferv']).agg(list)
+        # ds_ev = pd.merge(left=ds_ev['tc'], right=ds_ev['tc'], how='inner',
         #                  on=['layer', 'waferu', 'waferv'])
 
         ds_ev = pd.merge(left=ds_ev['tc'], right=ds_geom, how='inner',
@@ -97,12 +97,13 @@ elements, cds_data = ({} for _ in range(2))
 for k in (data_particle.keys() if mode=='ev' else ('Geometry',)):
     evs = def_evs[k][0] if mode == 'ev' else ''
     cds_data[k] = get_data(evs, k)[mode]
+
     elements[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
     if mode=='ev':
         elements[k].update({'textinput': bmd.TextInput(placeholder=str(def_evs[k][0]), height=40,
                                                        sizing_mode='stretch_width'),
                             'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
-                                                    menu=def_ev_text[k], height=40)})
+                                                     menu=def_ev_text[k], height=40)})
 
 def range_callback(fig, source, xvar, yvar, shift):
     """18 (centimeters) makes sures entire modules are always within the area shown"""
@@ -130,8 +131,7 @@ def display():
     doc = curdoc()
     doc.title = 'HGCal Visualization'
     
-    width, height   = 600, 600
-    width2, height2 = 300, 200
+    width, height   = 600, 500
     tabs = []
 
     vev = common.dot_dict(cfg_data['varEvents'])
@@ -304,9 +304,23 @@ def display():
             elem_opt = dict(source=vsrc, figs=(p_diams, p_mods), particles=ksrc, border=border)
             elements[ksrc]['textinput'].on_change('value', partial(text_callback, **elem_opt))           
             elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, **elem_opt))
-            cols_diams = [bmd.TableColumn(field=x, title=x)
-                          for x in ['waferu', 'waferv', 'triggercellu', 'triggercellv', 'good_tc_mipPt']]
-            table_diams = bmd.DataTable(width=width, height=int(height/2), source=vsrc, columns=cols_diams, view=view_cells)
+            col_names = {'waferu': 'Wafer U', 'waferv': 'Wafer V',
+                         'triggercellu': 'Trigger Cell U', 'triggercellv': 'Trigger Cell V',
+                         'good_tc_mipPt': 'Energy [mipPt]'}
+
+            template_ints="""<b><div><%= (value).toFixed(0) %></div></b>"""
+            template_floats="""<b><div><%= (value).toFixed(3) %></div></b>"""
+            formatter_ints = bmd.HTMLTemplateFormatter(template=template_ints)
+            formatter_floats = bmd.HTMLTemplateFormatter(template=template_floats)
+            cols_diams = [bmd.TableColumn(field=x, title=col_names[x],
+                                          formatter=formatter_floats if x=='good_tc_mipPt' else formatter_ints)
+                          for x in ['good_tc_mipPt', 'waferu', 'waferv', 'triggercellu', 'triggercellv']]
+            table_diams = bmd.DataTable(width=width, height=height,
+                                        source=vsrc, columns=cols_diams, view=view_cells)
+            cols_mods = [bmd.TableColumn(field=x, title=col_names[x],
+                                         formatter=formatter_floats if x=='good_tc_mipPt' else formatter_ints)
+                         for x in ['good_tc_mipPt', 'waferu', 'waferv']]
+            table_mods = bmd.DataTable(width=width, height=height, source=vsrc, columns=cols_mods, view=view_cells)
 
         ####### (x,y) plots ################################################################
         # p_xy = figure(width=width, height=height,
@@ -344,14 +358,14 @@ def display():
         if mode == 'ev':
             first_row = [elements[ksrc]['dropdown'], elements[ksrc]['textinput']]
             lay = layout([first_row,
-                        sld_layers,
-                        sld_en,
-                        #[p_diams, p_uv, p_xy],
-                        #[p_xVSz, p_yVSz, p_yVSx],
-                        [p_diams, p_mods],
-                        [table_diams],
-                        [blank1],
-                        ])
+                          sld_layers,
+                          sld_en,
+                          #[p_diams, p_uv, p_xy],
+                          #[p_xVSz, p_yVSz, p_yVSx],
+                          [p_diams, p_mods],
+                          [table_diams, table_mods],
+                          [blank1],
+                          ])
         else:
             first_row = [sld_layers]            
             lay = layout([first_row,
@@ -359,7 +373,7 @@ def display():
                           #[p_xVSz, p_yVSz, p_yVSx],
                           [p_diams, p_mods],
                           [blank1],
-                        ])
+                          ])
             
         tab = bmd.TabPanel(child=lay, title=ksrc)
         tabs.append(tab)

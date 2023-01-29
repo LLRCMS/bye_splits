@@ -24,8 +24,8 @@ class EventDataParticle:
 
         data_suffix = 'skim' + ('_small' if debug else '')
         in_name = '_'.join((data_suffix, self.particles,
-                            #'0PU_bc_stc_hadd.root'
-                            'skim_small_electron_module_TEST.root'
+                            '0PU_bc_stc_hadd.root'
+                            #'skim_small_electron_module_TEST.root'
                             ))
         default_events = self.config['defaultEvents'][self.particles]
         self.data = EventData(in_name, self.tag + '_debug' * debug,

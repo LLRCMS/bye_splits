@@ -1,5 +1,5 @@
 io:
-    dir: hgcalTriggerNtuplizer
+    dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
     tree: HGCalTriggerNtuple
 
 selection:
@@ -8,5 +8,5 @@ selection:
     deltarThreshold: 0.05
     mipThreshold: 0.5
 
-###dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
-###tree: HGCalTriggerNtuple
+###    dir: hgcalTriggerNtuplizer
+###    tree: HGCalTriggerNtuple
