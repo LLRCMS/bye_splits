@@ -21,7 +21,9 @@ class BaseData(abc.ABC):
         self.reprocess = reprocess
         self.logger = logger
 
-        self.outpath = os.path.join(str(params.viz_kw['LocalPath']), self.tag + '.parquet')
+        loc = str(params.viz_kw['LocalPath'])
+        os.makedirs(loc, exist_ok=True)
+        self.outpath = os.path.join(loc, self.tag + '.parquet')
         self.var = common.dot_dict({})
         self.newvar = common.dot_dict({})
 
