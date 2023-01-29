@@ -289,7 +289,7 @@ class GeometryData(BaseData):
             #data = data.drop_duplicates(subset=[self.var.cu, self.var.cv, self.var.l])
             data[self.var.wv] = data.waferv
             data[self.var.wvs] = -1 * data.waferv
-            data[self.var.c] = "#8a2be2"
+            #data[self.var.c] = "#8a2be2"
 
         return data
 
