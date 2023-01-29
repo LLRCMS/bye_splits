@@ -2,8 +2,9 @@ python_version>="3.6"
 tables
 numpy>="1.23.4"
 pandas>="1.5.1"
-bokeh>="3.0.0"
 uproot>="4.3.7"
+pyarrow
+bokeh>="3.0.0"
 flask>="2.2.2"
 plotly>="5.10.0"
 dash
