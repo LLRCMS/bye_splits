@@ -53,7 +53,7 @@ class GeometryData(BaseData):
     def filter_columns(self, d):
         """Filter some columns to reduce memory usage"""
         #cols_to_remove = ['x', 'y', 'z', 'color']
-        cols_to_remove = ['z', 'color']
+        cols_to_remove = ['color']
         cols = [x for x in d.fields if x not in cols_to_remove]
         return d[cols]
 

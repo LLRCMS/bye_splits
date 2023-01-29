@@ -97,6 +97,8 @@ if mode=='ev':
         drop_text = [(str(q),str(q)) for q in def_evs[k]]
         def_ev_text[k] = drop_text
 
+    ev_txt = '<p style="width: 60px; padding: 10px; border: 1px solid black;">{}</p>'
+
 widg, cds_data = ({} for _ in range(2))
 for k in (data_particle.keys() if mode=='ev' else ('Geometry',)):
     evs = def_evs[k][0] if mode == 'ev' else ''
@@ -105,13 +107,14 @@ for k in (data_particle.keys() if mode=='ev' else ('Geometry',)):
     widg[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
     wopt = dict(height=40,)
     if mode=='ev':
-        widg[k].update({'textinput': bmd.TextInput(placeholder=str(def_evs[k][0]), 
+        widg[k].update({'textinput': bmd.TextInput(placeholder=str(def_evs[k][0]),
                                                    sizing_mode='stretch_width', **wopt),
                         'dropdown': bmd.Dropdown(label='Default Events',
                                                  button_type='primary',
                                                  menu=def_ev_text[k], **wopt),
                         'button': bmd.Button(label='Random Event', button_type='danger',
-                                             **wopt) })
+                                             **wopt),
+                        'text': bmd.Div(text=ev_txt.format(str(def_evs[k][0])), **wopt)})
 
 def range_callback(fig, source, xvar, yvar, shift):
     """18 (centimeters) makes sures entire modules are always within the area shown"""
@@ -135,12 +138,12 @@ def dropdown_callback(event, source, figs, particles, border):
     for fig in figs:
         range_callback(fig, source, 'tc_x', 'tc_y', border)
 
-def button_callback(event, source, figs, particles, border):
-    print('button callback', particles, event.__dict__)
+def button_callback(event, pretext, source, figs, particles, border):
+    print('button callback', particles)
     gd = get_data(particles)
     source.data = gd[mode]
     rand_ev = gd['rand_ev']
-    print(rand_ev)
+    pretext.text = ev_txt.format(str(rand_ev))
     for fig in figs:
         range_callback(fig, source, 'tc_x', 'tc_y', border)
 
@@ -164,7 +167,8 @@ def display():
 
         sld_opt = dict(bar_color='red', width=width, background='white')
         sld_layers = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
-                                value=vsrc.data['layer'].min(), step=2, title='Layer', **sld_opt)
+                                value=9 if vsrc.data['layer'].max() > 9 else vsrc.data['layer'].min(),
+                                step=2, title='Layer', **sld_opt)
         sld_layers_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
         sld_layers.js_on_change('value', sld_layers_cb) #value_throttled
         
@@ -314,14 +318,11 @@ def display():
 
             p_diams.add_layout(cbar_diams, 'right')
             p_mods.add_layout(cbar_mods, 'right')
-            # p_diams.x_range.callback = bmd.CustomJS(args=dict(xrange=myplot.x_range), code="""
-            # xrange.set({"start": 10, "end": 20})
-            # """)
 
             widg_opt = dict(source=vsrc, figs=(p_diams, p_mods), particles=ksrc, border=border)
             widg[ksrc]['textinput'].on_change('value', partial(text_callback, **widg_opt))           
             widg[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, **widg_opt))
-            widg[ksrc]['button'].on_event('button_click', partial(button_callback, **widg_opt))
+            widg[ksrc]['button'].on_event('button_click', partial(button_callback, pretext=widg[ksrc]['text'], **widg_opt))
             col_names = {'waferu': 'Wafer U', 'waferv': 'Wafer V',
                          'triggercellu': 'Trigger Cell U', 'triggercellv': 'Trigger Cell V',
                          'good_tc_mipPt': 'Energy [mipPt]'}
@@ -333,57 +334,55 @@ def display():
             cols_diams = [bmd.TableColumn(field=x, title=col_names[x],
                                           formatter=formatter_floats if x=='good_tc_mipPt' else formatter_ints)
                           for x in ['good_tc_mipPt', 'waferu', 'waferv', 'triggercellu', 'triggercellv']]
-            table_diams = bmd.DataTable(width=width, height=height,
-                                        source=vsrc, columns=cols_diams, view=view_cells)
             cols_mods = [bmd.TableColumn(field=x, title=col_names[x],
                                          formatter=formatter_floats if x=='good_tc_mipPt' else formatter_ints)
                          for x in ['good_tc_mipPt', 'waferu', 'waferv']]
-            table_mods = bmd.DataTable(width=width, height=height, source=vsrc, columns=cols_mods, view=view_cells)
+            table_opt = dict(width=width, height=int(0.7*height), source=vsrc)
+            table_diams = bmd.DataTable(columns=cols_diams, view=view_cells, **table_opt)
+            table_mods = bmd.DataTable(columns=cols_mods, view=view_cells, **table_opt)
 
-        ####### (x,y) plots ################################################################
-        # p_xy = figure(width=width, height=height,
-        #             tools='save,reset', toolbar_location='right',
-        #             output_backend='webgl')
-        # p_xy.add_tools(bmd.WheelZoomTool(), bmd.BoxZoomTool(match_aspect=True))
-        # p_xy.add_tools(bmd.HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),],))       
-        # common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
-        # p_xy.rect(x=variables['tcwu'], y=variables['tcwv'], source=vsrc, view=view,
-        #           width=1., height=1., width_units='data', height_units='data',
-        #           fill_color='color', line_color='black',)
+            ####### (x,y) plots ################################################################
+            coord_opt = dict(width=int(0.6*width), height=int(0.6*width),
+                             tools='save,reset', toolbar_location='right',
+                             output_backend='webgl')
+            coord_widg = (bmd.BoxZoomTool(match_aspect=True),)
+            p_xy = figure(**coord_opt, x_axis_label='X [cm]', y_axis_label='Y [cm]')
+            p_xy.add_tools(*coord_widg)
+            common_props(p_xy)
+            p_xy.scatter(x='x', y='y', source=vsrc, view=view_cells,
+                         fill_color='blue', line_color='black',)
 
-        # ####### x vs. z plots ################################################################
-        # p_xVSz = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_xVSz.add_tools(bmd.BoxZoomTool(match_aspect=True))
-        # p_xVSz.scatter(x=variables['z'], y=variables['x'], source=vsrc)
-        # common_props(p_xVSz)
+            # ####### x vs. z plots ################################################################
+            p_xz = figure(**coord_opt, x_axis_label='Z [cm]', y_axis_label='X [cm]',)
+            p_xz.add_tools(*coord_widg)
+            common_props(p_xz)
+            p_xz.scatter(x='z', y='x', source=vsrc, view=view_cells,
+                         fill_color='blue', line_color='black',)
         
-        # ####### y vs. z plots ################################################################
-        # p_yVSz = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_yVSz.add_tools(bmd.BoxZoomTool(match_aspect=True))
-        # p_yVSz.scatter(x=variables['z'], y=variables['y'], source=vsrc)
-        # common_props(p_yVSz)
-        
-        # ####### y vs. x plots ################################################################
-        # p_yVSx = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_yVSx.add_tools(bmd.BoxZoomTool(match_aspect=True))
-        # p_yVSx.scatter(x=variables['x'], y=variables['y'], source=vsrc)
-        # common_props(p_yVSx)
-        
+            # ####### y vs. z plots ################################################################
+            p_yz = figure(**coord_opt, x_axis_label='Z [cm]', y_axis_label='Y [cm]')
+            p_yz.add_tools(*coord_widg)
+            common_props(p_yz)
+            p_yz.scatter(x='z', y='y', source=vsrc, view=view_cells,
+                         fill_color='blue', line_color='black',)
+                
         ####### define layout ################################################################
-        blank1 = bmd.Div(width=1000, height=100, text='')
-        blank2 = bmd.Div(width=70, height=100, text='')
+        blank1 = bmd.Div(width=30, height=20, text='')
+        signature = bmd.Div(width=500, height=40, text='\u00A9'+' Bruno Alves (bruno.alves@cern.ch)')
 
         if mode == 'ev':
-            first_row = [widg[ksrc]['dropdown'], widg[ksrc]['textinput'],
-                         widg[ksrc]['button']]
+            first_row = [widg[ksrc]['dropdown'], widg[ksrc]['textinput'], blank1,
+                         widg[ksrc]['button'], widg[ksrc]['text']]
             lay = layout([first_row,
                           sld_layers,
                           sld_en,
-                          #[p_diams, p_uv, p_xy],
                           #[p_xVSz, p_yVSz, p_yVSx],
                           [p_diams, p_mods],
                           [table_diams, table_mods],
                           [blank1],
+                          [p_xy, p_xz, p_yz],
+                          [blank1],
+                          [signature],
                           ])
         else:
             first_row = [sld_layers]            
@@ -391,6 +390,8 @@ def display():
                           #[p_diams, p_uv, p_xy],
                           #[p_xVSz, p_yVSz, p_yVSx],
                           [p_diams, p_mods],
+                          [blank1],
+                          [signature],
                           [blank1],
                           ])
             
