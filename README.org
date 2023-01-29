@@ -132,12 +132,14 @@ We use S2I's simplest configuration possible under =app.sh=. The image is create
 + The [[https://paas.docs.cern.ch/5._Exposing_The_Application/2-network-visibility/][network visibility]] must be updated to allow access from outside the CERN network
 + For the pod to access the data stored in =/eos/=, [[https://paas.docs.cern.ch/3._Storage/eos/][these instructions]] must be followed
 
-A pod is currently running at https://viz2-hgcal-event-display.app.cern.ch/.
+A pod is currently running at https://viz2-hgcal-event-display.app.cern.ch/. To re-deploy a pod with updated content, simply build it again after pushing the latest commits into the repository (by looking at the logs one can see the commit from which the repository is cloned).
 
 ***** Additional information
 + [[https://cloud.google.com/kubernetes-engine/docs/concepts/pod][What is a pod]]?
 + [[https://paas.docs.cern.ch/3._Storage/eos/][How to mount =/eos= at CERN so that it is accessible by a pod?]]
 
+***** Delete a deployment
++ Delete all Services, Routes, Deployments and DeploymentConfigs bearing the same name, using the "Administrator" access (top left)
 
 *** Merging =plotly= and =bokeh= with =flask=
 **** Introduction
