@@ -139,7 +139,7 @@ A pod is currently running at https://viz2-hgcal-event-display.app.cern.ch/. To 
 + [[https://paas.docs.cern.ch/3._Storage/eos/][How to mount =/eos= at CERN so that it is accessible by a pod?]]
 
 ***** Delete a deployment
-+ Delete all Services, Routes, Deployments and DeploymentConfigs bearing the same name, using the "Administrator" access (top left)
+Delete all Services, Routes, Deployments, DeploymentConfigs, BuildConfigs and Image Streams bearing the same name, using the "Administrator" access (top left).
 
 *** Merging =plotly= and =bokeh= with =flask=
 **** Introduction
