@@ -228,6 +228,7 @@ def display():
         cur_xmin, cur_ymin = 1e9, 1e9
 
         if mode == 'ev':
+            breakpoint()
             zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt'])
         else:
             zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
