@@ -40,7 +40,7 @@ with open(params.viz_kw['CfgDataPath'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
 mode = 'ev'
-reprocess = False
+reprocess = True
 
 data_part_opt = dict(tag='mytag', reprocess=reprocess, debug=True, logger=log)
 data_particle = {

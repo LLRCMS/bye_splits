@@ -11,6 +11,7 @@ sys.path.insert(0, parent_dir)
 import numpy as np
 import yaml
 import awkward as ak
+breakpoint()
 import uproot as up
 import pandas as pd
 import logging
@@ -33,7 +34,7 @@ class GeometryData(BaseData):
             self.var = common.dot_dict(cfg['varGeometry'])
 
         self.readvars = list(self.var.values())
-        self.readvars.remove(self.var.wvs)
+        self.readvars.remove(self.varwvs)
         self.readvars.remove(self.var.c)
 
         self.cu, self.cv = 'triggercellu', 'triggercellv'
@@ -289,7 +290,7 @@ class GeometryData(BaseData):
             #data = data.drop_duplicates(subset=[self.var.cu, self.var.cv, self.var.l])
             data[self.var.wv] = data.waferv
             data[self.var.wvs] = -1 * data.waferv
-            data[self.var.c] = "#8a2be2"
+            #data[self.var.c] = "#8a2be2"
 
         return data
 

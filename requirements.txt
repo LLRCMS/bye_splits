@@ -6,6 +6,7 @@ uproot>="4.3.7"
 pyarrow
 fsspec
 bokeh>="3.0.0"
+awkward>="2.0"
 flask>="2.2.2"
 plotly>="5.10.0"
 dash
