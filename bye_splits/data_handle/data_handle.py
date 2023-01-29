@@ -33,3 +33,6 @@ class EventDataParticle:
 
     def provide_event(self, event, merge=False):
         return self.data.provide_event(event, merge)
+
+    def provide_random_event(self, merge=False):
+        return self.data.provide_random_event(merge)

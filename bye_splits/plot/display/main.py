@@ -57,15 +57,19 @@ def common_props(p):
     # p.xaxis.visible = False
     # p.yaxis.visible = False
 
-def get_data(event, particles):
+def get_data(particles, event=None):
     region = None
-    if mode == event:
+    if mode == 'ev':
         assert region is None
     ds_geom = geom_data.provide(region=region)
 
     vev = common.dot_dict(cfg_data['varEvents'])
     if mode=='ev':
-        ds_ev = data_particle[particles].provide_event(event)
+        if event is None:
+            ds_ev, rand_ev = data_particle[particles].provide_random_event()
+        else:
+            ds_ev = data_particle[particles].provide_event(event)
+            rand_ev = -1
         ds_ev['tc'] = ds_ev['tc'].rename(columns={vev.tc['wu']: 'waferu',
                                                   vev.tc['wv']: 'waferv',
                                                   vev.tc['cu']: 'triggercellu',
@@ -81,7 +85,7 @@ def get_data(event, particles):
 
         ds_ev = pd.merge(left=ds_ev['tc'], right=ds_geom, how='inner',
                          on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
-        return {'ev': ds_ev, 'geom': ds_geom}
+        return {'ev': ds_ev, 'geom': ds_geom, 'rand_ev': rand_ev}
 
     else:
         return {'geom': ds_geom}
@@ -93,17 +97,21 @@ if mode=='ev':
         drop_text = [(str(q),str(q)) for q in def_evs[k]]
         def_ev_text[k] = drop_text
 
-elements, cds_data = ({} for _ in range(2))
+widg, cds_data = ({} for _ in range(2))
 for k in (data_particle.keys() if mode=='ev' else ('Geometry',)):
     evs = def_evs[k][0] if mode == 'ev' else ''
-    cds_data[k] = get_data(evs, k)[mode]
+    cds_data[k] = get_data(k, evs)[mode]
 
-    elements[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
+    widg[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
+    wopt = dict(height=40,)
     if mode=='ev':
-        elements[k].update({'textinput': bmd.TextInput(placeholder=str(def_evs[k][0]), height=40,
-                                                       sizing_mode='stretch_width'),
-                            'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
-                                                     menu=def_ev_text[k], height=40)})
+        widg[k].update({'textinput': bmd.TextInput(placeholder=str(def_evs[k][0]), 
+                                                   sizing_mode='stretch_width', **wopt),
+                        'dropdown': bmd.Dropdown(label='Default Events',
+                                                 button_type='primary',
+                                                 menu=def_ev_text[k], **wopt),
+                        'button': bmd.Button(label='Random Event', button_type='danger',
+                                             **wopt) })
 
 def range_callback(fig, source, xvar, yvar, shift):
     """18 (centimeters) makes sures entire modules are always within the area shown"""
@@ -117,13 +125,22 @@ def text_callback(attr, old, new, source, figs, particles, border):
     if not new.isdecimal():
         print('Wrong format!')
     else:
-        source.data = get_data(int(new), particles)[mode]
+        source.data = get_data(particles, int(new))[mode]
     for fig in figs:
         range_callback(fig, source, 'tc_x', 'tc_y', border)
 
 def dropdown_callback(event, source, figs, particles, border):
     print('dropdown callback', particles, int(event.__dict__['item']))
-    source.data = get_data(int(event.__dict__['item']), particles)[mode]
+    source.data = get_data(particles, int(event.__dict__['item']))[mode]
+    for fig in figs:
+        range_callback(fig, source, 'tc_x', 'tc_y', border)
+
+def button_callback(event, source, figs, particles, border):
+    print('button callback', particles, event.__dict__)
+    gd = get_data(particles)
+    source.data = gd[mode]
+    rand_ev = gd['rand_ev']
+    print(rand_ev)
     for fig in figs:
         range_callback(fig, source, 'tc_x', 'tc_y', border)
 
@@ -136,7 +153,7 @@ def display():
 
     vev = common.dot_dict(cfg_data['varEvents'])
     
-    for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
+    for ksrc,vsrc in [(k,v['source']) for k,v in widg.items()]:
         if mode == 'ev':
             mapper_diams = bmd.LinearColorMapper(palette=mypalette,
                                                  low=vsrc.data[vev.tc['en']].min(),
@@ -301,9 +318,10 @@ def display():
             # xrange.set({"start": 10, "end": 20})
             # """)
 
-            elem_opt = dict(source=vsrc, figs=(p_diams, p_mods), particles=ksrc, border=border)
-            elements[ksrc]['textinput'].on_change('value', partial(text_callback, **elem_opt))           
-            elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, **elem_opt))
+            widg_opt = dict(source=vsrc, figs=(p_diams, p_mods), particles=ksrc, border=border)
+            widg[ksrc]['textinput'].on_change('value', partial(text_callback, **widg_opt))           
+            widg[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, **widg_opt))
+            widg[ksrc]['button'].on_event('button_click', partial(button_callback, **widg_opt))
             col_names = {'waferu': 'Wafer U', 'waferv': 'Wafer V',
                          'triggercellu': 'Trigger Cell U', 'triggercellv': 'Trigger Cell V',
                          'good_tc_mipPt': 'Energy [mipPt]'}
@@ -356,7 +374,8 @@ def display():
         blank2 = bmd.Div(width=70, height=100, text='')
 
         if mode == 'ev':
-            first_row = [elements[ksrc]['dropdown'], elements[ksrc]['textinput']]
+            first_row = [widg[ksrc]['dropdown'], widg[ksrc]['textinput'],
+                         widg[ksrc]['button']]
             lay = layout([first_row,
                           sld_layers,
                           sld_en,

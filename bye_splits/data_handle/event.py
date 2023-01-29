@@ -9,6 +9,7 @@ parent_dir = os.path.abspath(__file__ + 2 * '/..')
 sys.path.insert(0, parent_dir)
 
 import yaml
+import numpy as np
 import uproot as up
 import pandas as pd
 import awkward as ak
@@ -27,6 +28,7 @@ class EventData(BaseData):
         self.cache = None
         self.events = default_events
         self.cache_events(self.events)
+        self.ev_numbers = self._get_event_numbers()
 
     def cache_events(self, events):
         """Read dataset from parquet to cache"""
@@ -52,9 +54,13 @@ class EventData(BaseData):
             self.cache = dsd
         else:
             for k in self.var.keys():
-                self.cache[k] = pd.concat([self.cache, dsd[k]], axis=0)
+                self.cache[k] = pd.concat([self.cache[k], dsd[k]], axis=0)
         #self.cache = self.cache.persist() only for dask dataframes
-            
+
+    def _get_event_numbers(self):
+        ds = ak.from_parquet(self.outpath)
+        return ds.event.tolist()
+
     def provide(self):
         print('Providing event {} data...'.format(self.tag))
         if not os.path.exists(self.outpath):
@@ -69,13 +75,21 @@ class EventData(BaseData):
 
         ret = {}
         for k in self.var.keys():
-            tmp = self.cache[k][self.cache[k].event==event].drop(['event'], axis=1)
+            tmp = self.cache[k][self.cache[k].event==event]
+            tmp = tmp.drop(['event'], axis=1)
             ret[k] = tmp.apply(pd.Series.explode).reset_index(drop=True)
         if merge:
-            ret = functools.reduce(lambda left,right: pd.concat((left,right), axis=1),
-                                   list(ret.values()))
+            ret = functools.reduce(
+                lambda left,right: pd.concat((left,right), axis=1),
+                list(ret.values()))
+
         return ret
-    
+
+    def provide_random_event(self, merge):
+        """Provide a random event"""
+        event = np.random.choice(self.ev_numbers)
+        return self.provide_event(event, merge), event
+        
     def select(self):
         with open(params.viz_kw['CfgProdPath'], 'r') as afile:
             cfg_prod = yaml.safe_load(afile)
