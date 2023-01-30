@@ -1,3 +1,5 @@
+#+OPTIONS: toc:2
+
 #+CAPTION: license
 #+NAME:   fig:license
 [[https://img.shields.io/github/license/bfonta/bye_splits.svg]]
