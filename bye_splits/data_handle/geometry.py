@@ -91,13 +91,9 @@ class GeometryData(BaseData):
         In principle all these steps could be done without using pandas,
         but the latter improves clarity.
         """
-        print('check from 0')
         ds = ak.to_dataframe(ds)
-        print('check from 1')
         ds = self.region_selection(ds, region)
-        print('check from 2')
         ds = self.prepare_for_display(ds)
-        print('check from 3')
         return ds
 
     def prepare_for_display(self, df, library='bokeh'):
@@ -145,12 +141,10 @@ class GeometryData(BaseData):
 
         df = self.cell_location(df)
         # df = self.cell_location_shift(df)
-        print('inside 0')
         angle = 0 # must be changed for different wafer orientations
         for kloc in ('UL', 'UR', 'B'):
             cx_d, cy_d = df[df.cloc==kloc]['tc_x'], df[df.cloc==kloc]['tc_y']
             wc_x, wc_y = df[df.cloc==kloc]['wx_center'], df[df.cloc==kloc]['wy_center']
-            print('inside 1 ', kloc)
             # x0 refers to the x position the lefmost, down corner all diamonds (TCs)
             # x1, x2, x3 are defined in a counter clockwise fashion
             # same for y0, y1, y2 and y3
@@ -161,7 +155,7 @@ class GeometryData(BaseData):
                 x0.update({kloc: cx_d - self.cellDistX/2})
             else:
                 x0.update({kloc: cx_d - self.cellDistX})
-            print('inside 2 ', kloc)
+
             x1.update({kloc: x0[kloc][:] + self.cellDistX})
             if kloc in ('UL', 'UR'):
                 x2.update({kloc: x1[kloc]})
@@ -169,14 +163,14 @@ class GeometryData(BaseData):
             else:
                 x2.update({kloc: x1[kloc] + self.cellDistX})
                 x3.update({kloc: x1[kloc]})
-            print('inside 2 ', kloc)
+
             if kloc == 'UL':
                 y0.update({kloc: cy_d - (self.cellDistY/2 + self.cellDistX*self.t30)})
             elif kloc == 'UR':
                 y0.update({kloc: cy_d - (self.cellDistY/2)})
             else:
                 y0.update({kloc: cy_d})
-            print('inside 3 ', kloc)
+
             if kloc in ('UR', 'B'):
                 y1.update({kloc: y0[kloc][:] - self.cellDistY})
             else:
@@ -189,12 +183,12 @@ class GeometryData(BaseData):
                 y3.update({kloc: y0[kloc][:] + 2*self.cellDistY})
             else:
                 y3.update({kloc: y0[kloc][:] + self.cellDistY})
-            print('inside 4 ', kloc)
+
             x0[kloc], y0[kloc] = self.rotate(angle, x0[kloc], y0[kloc], wc_x, wc_y)
             x1[kloc], y1[kloc] = self.rotate(angle, x1[kloc], y1[kloc], wc_x, wc_y)
             x2[kloc], y2[kloc] = self.rotate(angle, x2[kloc], y2[kloc], wc_x, wc_y)
             x3[kloc], y3[kloc] = self.rotate(angle, x3[kloc], y3[kloc], wc_x, wc_y)
-            print('inside 5 ', kloc)
+
             keys = ['pos0','pos1','pos2','pos3']
             xaxis.update({
                 kloc: pd.concat([x0[kloc],x1[kloc],x2[kloc],x3[kloc]],
@@ -202,17 +196,16 @@ class GeometryData(BaseData):
             yaxis.update(
                 {kloc: pd.concat([y0[kloc],y1[kloc],y2[kloc],y3[kloc]],
                                     axis=1, keys=keys)})
-            print('inside 6 ', kloc)
             xaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
                                      for sublst in xaxis[kloc].values.tolist()]
             yaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
                                      for sublst in yaxis[kloc].values.tolist()]
             xaxis[kloc] = xaxis[kloc].drop(keys, axis=1)
             yaxis[kloc] = yaxis[kloc].drop(keys, axis=1)
-            print('inside 7 ', kloc)
+
         df['diamond_x'] = pd.concat(xaxis.values())
         df['diamond_y'] = pd.concat(yaxis.values())
-        print('inside 8 ')
+
         # define module corners' coordinates
         xcorners_str = ['corner1x','corner2x','corner3x','corner4x','corner5x','corner6x']
         assert len(xcorners_str) == len(xcorners)
@@ -222,38 +215,25 @@ class GeometryData(BaseData):
             df[xcorners_str[i]] = df.wafer_shift_x + xcorners[i]
         for i in range(len(ycorners)):
             df[ycorners_str[i]] = df.wafer_shift_y + ycorners[i]
-        # print('inside 9 ')
         # df['hex_x'] = df[xcorners_str].values.tolist()
-        # print('inside 9 a')
         # df['hex_x'] = df['hex_x'].map(lambda x: [[x]])
-        # print('inside 9 b')
         # df['hex_y'] = df[ycorners_str].values.tolist()
-        # print('inside 9 c')
         # df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
-        print('inside 10 ')
         df = df.drop(xcorners_str + ycorners_str + ['tc_x_center', 'tc_y_center'], axis=1)
         return df
 
     def provide(self, region=None):
         """Provides a processed geometry dataframe to the client."""
-        print('check geom 0')
         if not os.path.exists(self.outpath) or self.reprocess:
-            print('check geom 1')
             if self.logger is not None:
                 self.logger.debug('Storing geometry data...')
-            print('check geom 2')
             self.store(region)
-            print('check geom 3')
 
         if self.dataset is None: # use cached dataset (currently this will never happen)
-            print('check geom 4')
             if self.logger is not None:
                 self.logger.debug('Retrieving geometry data...')
-            print('check geom 5')
             ds = ak.from_parquet(self.outpath)
-            print('check geom 6')
             self.dataset = self._from_parquet_to_geometry(ds, region)
-            print('check geom 7')
         
         return self.dataset
 
@@ -318,15 +298,9 @@ class GeometryData(BaseData):
 
     def store(self, region):
         """Stores the data selection in a parquet file for quicker access."""
-        print('check store 0')
         ds = self.select()
-        print('check store 1')
         if os.path.exists(self.outpath):
             os.remove(self.outpath)
-        print('check store 2')
         ds = self.filter_columns(ds)
-        print('check store 3')
         ak.to_parquet(ds, self.outpath)
-        print('check store 4')
         self.dataset = self._from_parquet_to_geometry(ds, region)
-        print('check store 5')

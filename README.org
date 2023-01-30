@@ -138,7 +138,12 @@ We use S2I's simplest configuration possible under =app.sh=. The image is create
 + the pod can access the data stored in =/eos/= (follow [[https://paas.docs.cern.ch/3._Storage/eos/][these instructions]])
 + resource limits are not exceeded; if you need more resources for the pod, follow [[https://paas.docs.cern.ch/faq/#how-to-solve-builds-failing-with-status-failed-outofmemorykilled][these instructions]] (maximum quotas listed [[https://paas.docs.cern.ch/6._Quota_and_resources/1-project-quota/][here]])
 
-A pod is currently running at https://viz2-hgcal-event-display.app.cern.ch/. To re-deploy a pod with updated content, simply build it again after pushing the latest commits into the repository (by looking at the logs one can see the commit from which the repository is cloned).
+The following pods are currently running:
+
++ test: https://viz2-hgcal-event-display.app.cern.ch/
++ deployment: https://trigger-cells-hgcal-event-display.app.cern.ch
+
+To re-deploy a pod with updated content, simply build it again after pushing the latest commits into the repository (by looking at the logs one can see the commit from which the repository is cloned).
 
 ***** Additional information
 + [[https://cloud.google.com/kubernetes-engine/docs/concepts/pod][What is a pod]]?

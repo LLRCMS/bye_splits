@@ -61,18 +61,14 @@ def get_data(particles, event=None):
     region = None
     if mode == 'ev':
         assert region is None
-    print('check0')
     ds_geom = geom_data.provide(region=region)
-    print('check1')
     vev = common.dot_dict(cfg_data['varEvents'])
     if mode=='ev':
-        print('check2')
         if event is None:
             ds_ev, rand_ev = data_particle[particles].provide_random_event()
         else:
             ds_ev = data_particle[particles].provide_event(event)
             rand_ev = -1
-        print('check3')
         ds_ev['tc'] = ds_ev['tc'].rename(columns={vev.tc['wu']: 'waferu',
                                                   vev.tc['wv']: 'waferv',
                                                   vev.tc['cu']: 'triggercellu',
@@ -81,15 +77,12 @@ def get_data(particles, event=None):
         ds_ev['tc'] = ds_ev['tc'].rename(columns={vev.tc['wu']: 'waferu',
                                                   vev.tc['wv']: 'waferv',
                                                   vev.tc['l']: 'layer'})
-        print('check4')
         # ds_ev['tc'] = ds_ev['tc'].groupby(['layer', 'waferu', 'waferv']).agg(list)
         # ds_ev['tc'] = ds_ev['tc'].groupby(['layer', 'waferu', 'waferv']).agg(list)
         # ds_ev = pd.merge(left=ds_ev['tc'], right=ds_ev['tc'], how='inner',
         #                  on=['layer', 'waferu', 'waferv'])
         ds_ev = pd.merge(left=ds_ev['tc'], right=ds_geom, how='inner',
                          on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
-        
-        print('check5')
         return {'ev': ds_ev, 'rand_ev': rand_ev}
 
     else:
@@ -108,7 +101,6 @@ widg, cds_data = ({} for _ in range(2))
 for k in (data_particle.keys() if mode=='ev' else ('Geometry',)):
     evs = def_evs[k][0] if mode == 'ev' else ''
     cds_data[k] = get_data(k, evs)[mode]
-    print(cds_data[k].memory_usage(deep=True))
     widg[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
     wopt = dict(height=40,)
     if mode=='ev':
