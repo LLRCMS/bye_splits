@@ -40,11 +40,11 @@ with open(params.viz_kw['CfgDataPath'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
 mode = 'ev'
-reprocess = True
+reprocess = False
 
 data_part_opt = dict(tag='mytag', reprocess=reprocess, debug=True, logger=log)
 data_particle = {
-    #'photons': EventDataParticle(particles='photons', **data_part_opt),
+    'photons': EventDataParticle(particles='photons', **data_part_opt),
     'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
 geom_data = GeometryData(inname='test_triggergeom.root',
                          reprocess=reprocess, logger=log)
@@ -386,7 +386,7 @@ def display():
                           sld_en,
                           #[p_xVSz, p_yVSz, p_yVSx],
                           [p_diams],
-                          [table_diams, table_mods],
+                          [table_diams],
                           [blank1],
                           [p_xy, p_xz, p_yz],
                           [blank1],
