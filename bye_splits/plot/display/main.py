@@ -155,7 +155,6 @@ def display():
     tabs = []
 
     vev = common.dot_dict(cfg_data['varEvents'])
-    prin(widg)
     for ksrc,vsrc in [(k,v['source']) for k,v in widg.items()]:
         if mode == 'ev':
             mapper_diams = bmd.LinearColorMapper(palette=mypalette,
