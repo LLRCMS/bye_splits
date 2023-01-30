@@ -222,14 +222,14 @@ class GeometryData(BaseData):
             df[xcorners_str[i]] = df.wafer_shift_x + xcorners[i]
         for i in range(len(ycorners)):
             df[ycorners_str[i]] = df.wafer_shift_y + ycorners[i]
-        print('inside 9 ')
-        df['hex_x'] = df[xcorners_str].values.tolist()
-        print('inside 9 a')
-        df['hex_x'] = df['hex_x'].map(lambda x: [[x]])
-        print('inside 9 b')
-        df['hex_y'] = df[ycorners_str].values.tolist()
-        print('inside 9 c')
-        df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
+        # print('inside 9 ')
+        # df['hex_x'] = df[xcorners_str].values.tolist()
+        # print('inside 9 a')
+        # df['hex_x'] = df['hex_x'].map(lambda x: [[x]])
+        # print('inside 9 b')
+        # df['hex_y'] = df[ycorners_str].values.tolist()
+        # print('inside 9 c')
+        # df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
         print('inside 10 ')
         df = df.drop(xcorners_str + ycorners_str + ['tc_x_center', 'tc_y_center'], axis=1)
         return df

@@ -297,14 +297,14 @@ def display():
 
         polyg_opt = dict(line_color='black', line_width=2)
         p_diams_opt = dict(xs='diamond_x', ys='diamond_y', source=vsrc, view=view_cells, **polyg_opt)
-        p_mods_opt = dict(xs='hex_x', ys='hex_y', source=vsrc, view=view_modules, **polyg_opt)
+        # p_mods_opt = dict(xs='hex_x', ys='hex_y', source=vsrc, view=view_modules, **polyg_opt)
         hover_opt = dict(hover_fill_color='black', hover_line_color='black', hover_line_width=4, hover_alpha=0.2)
 
         if mode == 'ev':
             p_diams.multi_polygons(fill_color={'field': vev.tc['en'], 'transform': mapper_diams},
                                    **hover_opt, **p_diams_opt)
-            p_mods.multi_polygons(fill_color={'field': vev.tc['en'], 'transform': mapper_mods},
-                                   **hover_opt, **p_mods_opt)
+            # p_mods.multi_polygons(fill_color={'field': vev.tc['en'], 'transform': mapper_mods},
+            #                        **hover_opt, **p_mods_opt)
 
         else:
             p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
@@ -312,7 +312,7 @@ def display():
             p_diams.circle(x='tc_x', y='tc_y', color='blue', legend_label='u,v conversion', **circ_opt)
             p_diams.circle(x='x', y='y', color='orange', legend_label='tc original', **circ_opt)
 
-            p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
+            # p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
                         
         if mode == 'ev':
             cbar_opt = dict(ticker=bmd.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
@@ -321,9 +321,10 @@ def display():
             cbar_mods = bmd.ColorBar(color_mapper=mapper_mods, title='Module Sums [mipPt]', **cbar_opt)
 
             p_diams.add_layout(cbar_diams, 'right')
-            p_mods.add_layout(cbar_mods, 'right')
+            # p_mods.add_layout(cbar_mods, 'right')
 
-            widg_opt = dict(source=vsrc, figs=(p_diams, p_mods), particles=ksrc, border=border)
+            #widg_opt = dict(source=vsrc, figs=(p_diams, p_mods), particles=ksrc, border=border)
+            widg_opt = dict(source=vsrc, figs=(p_diams,), particles=ksrc, border=border)
             widg[ksrc]['textinput'].on_change('value', partial(text_callback, **widg_opt))           
             widg[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, **widg_opt))
             widg[ksrc]['button'].on_event('button_click', partial(button_callback, pretext=widg[ksrc]['text'], **widg_opt))
@@ -372,7 +373,7 @@ def display():
                 
         ####### define layout ################################################################
         blank1 = bmd.Div(width=30, height=20, text='')
-        gh = '<a href="https://github.com/bfonta/"><img src="display/static/images/github-mark.png" width="20"></a>'
+        gh = '<a href="https://github.com/bfonta/bye_splits/tree/feature/include_module_sums"><img src="display/static/images/github-mark.png" width="20"></a>'
         li = '<a href="https://www.linkedin.com/in/bruno-alves-/"><img src="display/static/images/In-Blue-21@2x.png" width="20"></a>'
         mail = '<a href="mailto:bruno.alves@cern.ch"><img src="display/static/images/MailLogo.png" width="20"></a>'
         signature = bmd.Div(width=500, height=40, text='\u00A9'+' 2023 Bruno Alves' + (5*' ').join(('', gh, li, mail)))
@@ -384,7 +385,7 @@ def display():
                           sld_layers,
                           sld_en,
                           #[p_xVSz, p_yVSz, p_yVSx],
-                          [p_diams, p_mods],
+                          [p_diams],
                           [table_diams, table_mods],
                           [blank1],
                           [p_xy, p_xz, p_yz],
@@ -396,7 +397,7 @@ def display():
             lay = layout([first_row,
                           #[p_diams, p_uv, p_xy],
                           #[p_xVSz, p_yVSz, p_yVSx],
-                          [p_diams, p_mods],
+                          [p_diams],
                           [blank1],
                           [signature],
                           [blank1],
