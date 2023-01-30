@@ -77,21 +77,21 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
 
   // selection on trigger cells (within each event)
   std::vector<std::string> tc_v = join_vars(tc_uintv, tc_intv, tc_floatv);
-  std::string condtc = "tc_zside == 1 && tc_mipPt > " + mipThreshold;// && tc_layer%2 == 0";
+  std::string condtc = "tc_zside == 1 && tc_mipPt > " + mipThreshold + " && tc_layer <= 28";
   auto dd1 = dfilt.Define(vtmp + "_tcs", condtc);
   for(auto& v : tc_v)
 	dd1 = dd1.Define(vtmp + "_" + v, v + "[" + vtmp + "_tcs]");
 
-  // module sums-related variables
-  std::vector<std::string> tsum_intv = {"ts_layer", "ts_waferu", "ts_waferv"};
-  std::vector<std::string> tsum_floatv = {"ts_energy", "ts_mipPt", "ts_pt"};
-  std::vector<std::string> tsum_v = join_vars(tsum_intv, tsum_floatv);
+  // // module sums-related variables
+  // std::vector<std::string> tsum_intv = {"ts_layer", "ts_waferu", "ts_waferv"};
+  // std::vector<std::string> tsum_floatv = {"ts_energy", "ts_mipPt", "ts_pt"};
+  // std::vector<std::string> tsum_v = join_vars(tsum_intv, tsum_floatv);
   
-  // selection on module trigger sums (within each event)
-  std::string condtsum = "ts_zside == 1 && ts_mipPt > " + mipThreshold;
-  dd1 = dd1.Define(vtmp + "_tsum", condtsum);
-  for(auto& v : tsum_v)
-	dd1 = dd1.Define(vtmp + "_" + v, v + "[" + vtmp + "_tsum]");
+  // // selection on module trigger sums (within each event)
+  // std::string condtsum = "ts_zside == 1 && ts_mipPt > " + mipThreshold;
+  // dd1 = dd1.Define(vtmp + "_tsum", condtsum);
+  // for(auto& v : tsum_v)
+  // 	dd1 = dd1.Define(vtmp + "_" + v, v + "[" + vtmp + "_tsum]");
 
   // cluster-related variables
   std::vector<std::string> cl_uintv = {"cl3d_id"};
@@ -115,7 +115,8 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
 	.Define(matchvars[1], cond_deltaR);
 
   // convert root std::vector types to std::vector equivalents (uproot friendly)
-  std::vector<std::string> intv = join_vars(gen_intv, tc_intv, tsum_intv);
+  // std::vector<std::string> intv = join_vars(gen_intv, tc_intv, tsum_intv);
+  std::vector<std::string> intv = join_vars(gen_intv, tc_intv);
   for(auto& var : intv) {
 	dd2 = dd2.Define("good_" + var,
 					 [](const ROOT::VecOps::RVec<int> &v) {
@@ -131,7 +132,8 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
 					 },
 					 {vtmp + "_" + var});
   }
-  std::vector<std::string> floatv = join_vars(gen_floatv, tc_floatv, cl_floatv, tsum_floatv);
+  //std::vector<std::string> floatv = join_vars(gen_floatv, tc_floatv, cl_floatv, tsum_floatv);
+  std::vector<std::string> floatv = join_vars(gen_floatv, tc_floatv, cl_floatv);
   for(auto& var : floatv) {
 	dd2 = dd2.Define("good_" + var,
 					 [](const ROOT::VecOps::RVec<float> &v) {
@@ -153,7 +155,8 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
   }
   
   // define stored variables (and rename some)
-  std::vector<std::string> allvars = join_vars(gen_v, tc_v, cl_v, tsum_v);
+  // std::vector<std::string> allvars = join_vars(gen_v, tc_v, cl_v, tsum_v);
+  std::vector<std::string> allvars = join_vars(gen_v, tc_v, cl_v);
   std::vector<std::string> good_allvars = {"event"};
   good_allvars.insert(good_allvars.end(), matchvars.begin(), matchvars.end());
   for(auto& v : allvars)
