@@ -229,12 +229,12 @@ class GeometryData(BaseData):
         """Provides a processed geometry dataframe to the client."""
         if not os.path.exists(self.outpath) or self.reprocess:
             if self.logger is not None:
-                self.logger.info('Storing geometry data...')
+                self.logger.debug('Storing geometry data...')
             self.store(region)
 
         if self.dataset is None: # use cached dataset (currently this will never happen)
             if self.logger is not None:
-                self.logger.info('Retrieving geometry data...')
+                self.logger.debug('Retrieving geometry data...')
             ds = ak.from_parquet(self.outpath)
             self.dataset = self._from_parquet_to_geometry(ds, region)
         
@@ -279,7 +279,7 @@ class GeometryData(BaseData):
         with up.open(self.inpath) as f:
             tree = f[ os.path.join('hgcaltriggergeomtester', 'TreeTriggerCells') ]
             if self.logger is not None:
-                self.logger.debug(tree.show())
+                self.logger.info(tree.show())
             data = tree.arrays(self.readvars)
             sel = (data.zside==1) & (data.subdet==1)
             fields = data.fields[:]
