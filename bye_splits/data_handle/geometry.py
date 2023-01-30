@@ -227,16 +227,24 @@ class GeometryData(BaseData):
 
     def provide(self, region=None):
         """Provides a processed geometry dataframe to the client."""
+        print('check geom 0')
         if not os.path.exists(self.outpath) or self.reprocess:
+            print('check geom 1')
             if self.logger is not None:
                 self.logger.debug('Storing geometry data...')
+            print('check geom 2')
             self.store(region)
+            print('check geom 3')
 
         if self.dataset is None: # use cached dataset (currently this will never happen)
+            print('check geom 4')
             if self.logger is not None:
                 self.logger.debug('Retrieving geometry data...')
+            print('check geom 5')
             ds = ak.from_parquet(self.outpath)
+            print('check geom 6')
             self.dataset = self._from_parquet_to_geometry(ds, region)
+            print('check geom 7')
         
         return self.dataset
 
@@ -301,9 +309,15 @@ class GeometryData(BaseData):
 
     def store(self, region):
         """Stores the data selection in a parquet file for quicker access."""
+        print('check store 0')
         ds = self.select()
+        print('check store 1')
         if os.path.exists(self.outpath):
             os.remove(self.outpath)
+        print('check store 2')
         ds = self.filter_columns(ds)
+        print('check store 3')
         ak.to_parquet(ds, self.outpath)
+        print('check store 4')
         self.dataset = self._from_parquet_to_geometry(ds, region)
+        print('check store 5')
