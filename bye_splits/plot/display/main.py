@@ -181,7 +181,7 @@ def display():
            """)
 
         if mode == 'ev':
-            sld_en = bmd.Slider(start=cfg_prod['selection']['mipThreshold'], end=5,
+            sld_en = bmd.Slider(start=cfg_prod['selection']['mipThreshold'], end=8 if ksrc == 'pions' else 5,
                                 value=cfg_prod['selection']['mipThreshold'], step=0.1,
                                 title='Energy threshold [mip]', **sld_opt)
             sld_en_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
