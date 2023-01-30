@@ -103,7 +103,7 @@ widg, cds_data = ({} for _ in range(2))
 for k in (data_particle.keys() if mode=='ev' else ('Geometry',)):
     evs = def_evs[k][0] if mode == 'ev' else ''
     cds_data[k] = get_data(k, evs)[mode]
-
+    print('aaaaa', cds_data[k].columns)
     widg[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
     wopt = dict(height=40,)
     if mode=='ev':
@@ -155,7 +155,7 @@ def display():
     tabs = []
 
     vev = common.dot_dict(cfg_data['varEvents'])
-    
+    prin(widg)
     for ksrc,vsrc in [(k,v['source']) for k,v in widg.items()]:
         if mode == 'ev':
             mapper_diams = bmd.LinearColorMapper(palette=mypalette,
@@ -228,6 +228,7 @@ def display():
         cur_xmin, cur_ymin = 1e9, 1e9
 
         if mode == 'ev':
+            print('bbbbbb', vsrc.data.keys())
             zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt'])
         else:
             zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
