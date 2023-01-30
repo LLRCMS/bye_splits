@@ -57,10 +57,13 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
   std::vector<std::string> gen_v = join_vars(gen_intv, gen_floatv, gen_floatv2);
 
   // selection on generated particles (within each event)
-  std::unordered_map<std::string,std::string> pmap = {{"photons", "22"}, {"electrons", "11"}};
+  std::unordered_map<std::string,std::string> pmap = {
+	{"photons", "22"},
+	{"electrons", "11"},
+	{"pions", "211"}};
   std::string condgen = "genpart_gen != -1 && ";
   condgen += "genpart_reachedEE == " + reachedEE;
-  condgen += " && genpart_pid == " + pmap[particle];
+  condgen += " && genpart_pid == abs(" + pmap[particle] + ")";
   condgen += " && genpart_exeta > 0";
 
   df = df.Define(vtmp + "_gens", condgen);

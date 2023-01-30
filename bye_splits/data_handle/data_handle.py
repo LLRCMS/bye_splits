@@ -16,7 +16,7 @@ from data_handle.event import EventData
 
 class EventDataParticle:
     def __init__(self, particles, tag, reprocess=False, debug=False, logger=None):
-        assert particles in ('photons', 'electrons')
+        assert particles in ('photons', 'electrons', 'pions')
         self.particles = particles
         self.tag = self.particles + '_' + tag
         with open(params.viz_kw['CfgDataPath'], 'r') as afile:

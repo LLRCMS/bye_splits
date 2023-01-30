@@ -38,9 +38,9 @@ int main(int argc, char **argv) {
   //process_program_options(argc, argv);
   std::string particle = std::string(argv[1]);
 
-  // std::std::string infile = particle + "_0PU_bc_stc_hadd.root";
-  std::string infile = "module_TEST.root";
-  std::string outfile = "skim_small_electrons_" + infile;
+  std::string infile = particle + "_0PU_bc_stc_hadd.root";
+  //std::string infile = "module_TEST.root";
+  std::string outfile = "skim_small_" + infile;
   skim(root_folder + "/" + root_tree, dir + infile, dir + outfile, particle);
   return 0;
 }

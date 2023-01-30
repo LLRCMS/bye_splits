@@ -1,6 +1,7 @@
 defaultEvents:
     photons: [4681, 4677]
     electrons: [92013, 92027]
+    pions: [5538, 5724]
 
 geometry:
     waferSize: 16.64408
