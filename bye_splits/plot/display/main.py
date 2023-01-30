@@ -40,7 +40,7 @@ with open(params.viz_kw['CfgDataPath'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
 mode = 'ev'
-reprocess = True
+reprocess = False
 
 data_part_opt = dict(tag='mytag', reprocess=reprocess, debug=True, logger=log)
 data_particle = {
@@ -228,7 +228,6 @@ def display():
         cur_xmin, cur_ymin = 1e9, 1e9
 
         if mode == 'ev':
-            breakpoint()
             zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt'])
         else:
             zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
@@ -343,7 +342,7 @@ def display():
             table_mods = bmd.DataTable(columns=cols_mods, view=view_cells, **table_opt)
 
             ####### (x,y) plots ################################################################
-            coord_opt = dict(width=int(0.6*width), height=int(0.6*width),
+            coord_opt = dict(width=int(0.66*width), height=int(0.65*width),
                              tools='save,reset', toolbar_location='right',
                              output_backend='webgl')
             coord_widg = (bmd.BoxZoomTool(match_aspect=True),)
@@ -369,7 +368,10 @@ def display():
                 
         ####### define layout ################################################################
         blank1 = bmd.Div(width=30, height=20, text='')
-        signature = bmd.Div(width=500, height=40, text='\u00A9'+' Bruno Alves (bruno.alves@cern.ch)')
+        gh = '<a href="https://github.com/bfonta/"><img src="display/static/images/github-mark.png" width="20"></a>'
+        li = '<a href="https://www.linkedin.com/in/bruno-alves-/"><img src="display/static/images/In-Blue-21@2x.png" width="20"></a>'
+        mail = '<a href="mailto:bruno.alves@cern.ch"><img src="display/static/images/MailLogo.png" width="20"></a>'
+        signature = bmd.Div(width=500, height=40, text='\u00A9'+' 2023 Bruno Alves' + (5*' ').join(('', gh, li, mail)))
 
         if mode == 'ev':
             first_row = [widg[ksrc]['dropdown'], widg[ksrc]['textinput'], blank1,
