@@ -22,7 +22,7 @@ To make the size of the files more manageable, a skimming step was implemented i
 # check if you have it already with 'cmake --version'. If not:
 source /usr/share/Modules/init/bash
 module use /opt/exp_soft/vo.llr.in2p3.fr/modulefiles_el7/
-module load cmake #or pick a version from 'mudule avail'
+module load cmake #or pick a version from 'module avail'
 # 1) Download the 0.7.0 '.zip' release
 # 2) Unzip it
 unzip yaml-cpp-yaml-cpp-0.7.0.zip
