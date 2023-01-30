@@ -18,6 +18,11 @@ The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=,
 To make the size of the files more manageable, a skimming step was implemented in =C++=. It depends on the =yaml-cpp= package ([[https://github.com/jbeder/yaml-cpp][source]],  [[https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.7.0][release used]]: version =0.7.0=). The instructions on the =README= page of the project are a bit cryptic. Below follows a step-by-step guide:
 
 #+BEGIN_SRC shell
+# 0) Install cmake (required for compiling yaml from source)
+# check if you have it already with 'cmake --version'. If not:
+source /usr/share/Modules/init/bash
+module use /opt/exp_soft/vo.llr.in2p3.fr/modulefiles_el7/
+module load cmake #or pick a version from 'mudule avail'
 # 1) Download the 0.7.0 '.zip' release
 # 2) Unzip it
 unzip yaml-cpp-yaml-cpp-0.7.0.zip
