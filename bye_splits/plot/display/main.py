@@ -40,7 +40,7 @@ with open(params.viz_kw['CfgDataPath'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
 mode = 'ev'
-reprocess = False
+reprocess = True
 
 data_part_opt = dict(tag='mytag', reprocess=reprocess, debug=True, logger=log)
 data_particle = {
@@ -109,8 +109,6 @@ for k in (data_particle.keys() if mode=='ev' else ('Geometry',)):
     evs = def_evs[k][0] if mode == 'ev' else ''
     cds_data[k] = get_data(k, evs)[mode]
     print(cds_data[k].memory_usage(deep=True))
-    breakpoint()
-    
     widg[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
     wopt = dict(height=40,)
     if mode=='ev':
