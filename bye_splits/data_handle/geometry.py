@@ -50,13 +50,6 @@ class GeometryData(BaseData):
         self.cellDistX = self.waferWidth/8.
         self.cellDistY = self.cellDistX * self.t30
 
-    def filter_columns(self, d):
-        """Filter some columns to reduce memory usage"""
-        #cols_to_remove = ['x', 'y', 'z', 'color']
-        cols_to_remove = ['color']
-        cols = [x for x in d.fields if x not in cols_to_remove]
-        return d[cols]
-
     def cell_location(self, df):
         """
         Filter TC location in wafer based on the orientation: up-right, up-left and bottom.
@@ -86,32 +79,21 @@ class GeometryData(BaseData):
         df.loc[:, 'tc_y'] = np.where(df['cloc']=='B', df['tc_y']+self.cellDistY/2, df['tc_y'])
         return df
 
-    def region_selection(self, df, region=None):
-        """Select a specific geometry region. Used mostly for debugging."""
-        if region is not None:
-            regions = ('inside', 'periphery', 'wafer')
-            assert region in regions
-            if region == 'inside':
-                df = df[((df[self.wu]==3) & (df[self.wv]==3)) |
-                        ((df[self.wu]==3) & (df[self.wv]==4)) |
-                        ((df[self.wu]==4) & (df[self.wv]==3)) |
-                        ((df[self.wu]==4) & (df[self.wv]==4))]
-     
-            elif region == 'periphery':
-                df = df[((df[self.wu]==-6) & (df[self.wv]==3)) |
-                        ((df[self.wu]==-6) & (df[self.wv]==4)) |
-                        ((df[self.wu]==-7) & (df[self.wv]==3)) |
-                        ((df[self.wu]==-8) & (df[self.wv]==2)) |
-                        ((df[self.wu]==-8) & (df[self.wv]==1)) |
-                        ((df[self.wu]==-7) & (df[self.wv]==2))
-                        ]
+    def filter_columns(self, d):
+        """Filter some columns to reduce memory usage"""
+        cols_to_remove = ['color']
+        cols = [x for x in d.fields if x not in cols_to_remove]
+        return d[cols]
 
-            elif region == 'wafer':
-                df = df[((df[self.wu]==3) & (df[self.wv]==3))]
-
-        # df = df[df.layer<9]
-        # df = df[df.waferpart==0]
-        return df
+    def _from_parquet_to_geometry(self, ds, region):
+        """
+        Steps required for going from parquet format to full pandas geometry dataframe
+        In principle all these steps could be done without using pandas,
+        but the latter improves clarity.
+        """
+        ds = ak.to_dataframe(ds)
+        ds = self.region_selection(ds, region)
+        return self.prepare_for_display(ds)
 
     def prepare_for_display(self, df, library='bokeh'):
         """Prepares dataframe to be displayed by certain libraries."""
@@ -248,18 +230,42 @@ class GeometryData(BaseData):
         if not os.path.exists(self.outpath) or self.reprocess:
             if self.logger is not None:
                 self.logger.info('Storing geometry data...')
-            self.store()
+            self.store(region)
 
-        if self.dataset is None: #use cached dataset
+        if self.dataset is None: # use cached dataset (currently this will never happen)
             if self.logger is not None:
                 self.logger.info('Retrieving geometry data...')
             ds = ak.from_parquet(self.outpath)
-            ds = self.filter_columns(ds)
-            ds = ak.to_dataframe(ds)
-            ds = self.region_selection(ds, region)
-            self.dataset = self.prepare_for_display(ds)
+            self.dataset = self._from_parquet_to_geometry(ds, region)
         
         return self.dataset
+
+    def region_selection(self, df, region=None):
+        """Select a specific geometry region. Used mostly for debugging."""
+        if region is not None:
+            regions = ('inside', 'periphery', 'wafer')
+            assert region in regions
+            if region == 'inside':
+                df = df[((df[self.wu]==3) & (df[self.wv]==3)) |
+                        ((df[self.wu]==3) & (df[self.wv]==4)) |
+                        ((df[self.wu]==4) & (df[self.wv]==3)) |
+                        ((df[self.wu]==4) & (df[self.wv]==4))]
+     
+            elif region == 'periphery':
+                df = df[((df[self.wu]==-6) & (df[self.wv]==3)) |
+                        ((df[self.wu]==-6) & (df[self.wv]==4)) |
+                        ((df[self.wu]==-7) & (df[self.wv]==3)) |
+                        ((df[self.wu]==-8) & (df[self.wv]==2)) |
+                        ((df[self.wu]==-8) & (df[self.wv]==1)) |
+                        ((df[self.wu]==-7) & (df[self.wv]==2))
+                        ]
+
+            elif region == 'wafer':
+                df = df[((df[self.wu]==3) & (df[self.wv]==3))]
+
+        # df = df[df.layer<9]
+        # df = df[df.waferpart==0]
+        return df
 
     def rotate(self, angle, x, y, cx, cy):
         """Counter-clockwise rotation of 'angle' [radians]."""
@@ -293,10 +299,11 @@ class GeometryData(BaseData):
 
         return data
 
-    def store(self):
+    def store(self, region):
         """Stores the data selection in a parquet file for quicker access."""
         ds = self.select()
         if os.path.exists(self.outpath):
             os.remove(self.outpath)
+        ds = self.filter_columns(ds)
         ak.to_parquet(ds, self.outpath)
-        self.dataset = ak.to_dataframe(ds)
+        self.dataset = self._from_parquet_to_geometry(ds, region)

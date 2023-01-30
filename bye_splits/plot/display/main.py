@@ -40,14 +40,14 @@ with open(params.viz_kw['CfgDataPath'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
 mode = 'ev'
-reprocess = False
+reprocess = True
 
 data_part_opt = dict(tag='mytag', reprocess=reprocess, debug=True, logger=log)
 data_particle = {
     'photons': EventDataParticle(particles='photons', **data_part_opt),
     'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
 geom_data = GeometryData(inname='test_triggergeom.root',
-                         reprocess=False, logger=log)
+                         reprocess=reprocess, logger=log)
 
 def common_props(p):
     p.output_backend = 'svg'
@@ -62,7 +62,6 @@ def get_data(particles, event=None):
     if mode == 'ev':
         assert region is None
     ds_geom = geom_data.provide(region=region)
-
     vev = common.dot_dict(cfg_data['varEvents'])
     if mode=='ev':
         if event is None:
@@ -78,11 +77,10 @@ def get_data(particles, event=None):
         ds_ev['tc'] = ds_ev['tc'].rename(columns={vev.tc['wu']: 'waferu',
                                                   vev.tc['wv']: 'waferv',
                                                   vev.tc['l']: 'layer'})
-        #ds_ev['tc'] = ds_ev['tc'].groupby(['layer', 'waferu', 'waferv']).agg(list)
+        # ds_ev['tc'] = ds_ev['tc'].groupby(['layer', 'waferu', 'waferv']).agg(list)
         # ds_ev['tc'] = ds_ev['tc'].groupby(['layer', 'waferu', 'waferv']).agg(list)
         # ds_ev = pd.merge(left=ds_ev['tc'], right=ds_ev['tc'], how='inner',
         #                  on=['layer', 'waferu', 'waferv'])
-
         ds_ev = pd.merge(left=ds_ev['tc'], right=ds_geom, how='inner',
                          on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
         return {'ev': ds_ev, 'geom': ds_geom, 'rand_ev': rand_ev}
@@ -103,7 +101,6 @@ widg, cds_data = ({} for _ in range(2))
 for k in (data_particle.keys() if mode=='ev' else ('Geometry',)):
     evs = def_evs[k][0] if mode == 'ev' else ''
     cds_data[k] = get_data(k, evs)[mode]
-    print('aaaaa', cds_data[k].columns)
     widg[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
     wopt = dict(height=40,)
     if mode=='ev':
@@ -227,7 +224,6 @@ def display():
         cur_xmin, cur_ymin = 1e9, 1e9
 
         if mode == 'ev':
-            print('bbbbbb', vsrc.data.keys())
             zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt'])
         else:
             zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
