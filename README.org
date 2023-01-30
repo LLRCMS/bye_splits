@@ -1,8 +1,8 @@
-#+OPTIONS: toc:2
-
 #+CAPTION: license
 #+NAME:   fig:license
 [[https://img.shields.io/github/license/bfonta/bye_splits.svg]]
+
+{:toc}
 
 This repository reproduces the CMS HGCAL L1 Stage2 reconstruction chain in Python for quick testing. It can generate an event visualization app. It was originally used for understanding and fixing the observed cluster splitting.
 
