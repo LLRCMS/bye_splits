@@ -2,7 +2,10 @@
 #+NAME:   fig:license
 [[https://img.shields.io/github/license/bfonta/bye_splits.svg]]
 
-*** Table of Contents :TOC:
+*** Table of Contents
++ [[https://github.com/bfonta/bye_splits/tree/feature/include_module_sums#installation--setup][Installation & Setup]]
++ [[https://github.com/bfonta/bye_splits/tree/feature/include_module_sums#event-visualization][Event Visualization]]
++ [[https://github.com/bfonta/bye_splits/tree/feature/include_module_sums#merging-plotly-and-bokeh-with-flask][Merging plotly and bokeh with flask]]
 
 *** Installation & Setup
 **** Data production
