@@ -12,9 +12,12 @@
 
 #include "yaml-cpp/yaml.h"
 
+#include <boost/program_options.hpp>
+namespace po = boost::program_options;
+
 using namespace std;
 
-void skim(string, string, string, string);
+void skim(string, string, string, string, int);
 
 template <class U>
 auto internal_join_vars(vector<U>& dest, const vector<U>& vec) -> void {
