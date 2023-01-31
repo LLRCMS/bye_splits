@@ -24,10 +24,10 @@ CCFLAGS  := $(CXXFLAGS)
 
 ROOT_LIBS := $(shell root-config --cflags --ldflags --libs --glibs --auxlibs --auxcflags)
 ROOT_LIBS_EXTRA := -lMinuit -lrt -lCore -lROOTDataFrame
+BOOSTFLAGS := -lboost_program_options
 ROOTFLAGS := $(ROOT_LIBS) -L $(ROOTSYS)/lib $(ROOT_LIBS_EXTRA)
 YAMLFLAGS := -L $(BASEDIR)/yaml-cpp-yaml-cpp-0.7.0/build/ -lyaml-cpp
-######BOOSTFLAGS := -lboost_program_options
-EXTRAFLAGS := $(ROOTFLAGS) $(YAMLFLAGS)
+EXTRAFLAGS := $(ROOTFLAGS) $(YAMLFLAGS) $(BOOSTFLAGS)
 
 SRCS := $(BUILDIR)/$(basename /$(EXEC)).cc \
 	$(wildcard $(SRCDIR)/*.cc)
