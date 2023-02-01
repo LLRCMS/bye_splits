@@ -9,13 +9,19 @@
 
 *** Installation & Setup
 **** Data production
-This framework relies on photon-, electron- and pion-gun samples produced via CRAB. The most up to date versions are currently stored under:
+This framework relies on photon-, electron- and pion-gun samples produced via CRAB. The most up to date versions are currently stored under (accessible to LLR users):
 
+***** Original samples, produced via =crab=
 | Photons PU(0)   | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoublePhoton_FlatPt-1To100/GammaGun_Pt1_100_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221025_153226/0000/~        |
 | Electrons (PU0) | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoubleElectron_FlatPt-1To100/ElectronGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_102633/0000/~ |
 | Pions (PU0)     | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/SinglePion_PT0to200/SinglePion_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_103211/0000~              |
 
-The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users and under =/eos/user/b/bfontana/FPGAs/new_algos/=, accessible to all lxplus and LLR users. The latter is used since it is well interfaced with CERN services.
+***** Merged and skimmed files
+The files above were merged and stored under =/eos/user/b/bfontana/FPGAs/new_algos/=, accessible to all lxplus and LLR users. In the naming scheme, =bc= refers to "Best Choice" and =stc= to "Super Trigger Cells". Currently some of the files below are not available; get in touch if you need something specific.
+
+| Full files            | ~<particle>_<pile-up>_bc_stc_hadd.root~   |
+| Skimmed files         | ~skim_<particle>_<pile-up>_bc_stc_hadd.root~ |
+| Reduced skimmed files | ~skim_small_<particle>_<pile-up>_bc_stc_hadd.root~ |
 
 **** Skimming: install =yaml-cpp= dependency
 To make the size of the files more manageable, a skimming step was implemented in =C++=. It depends on the =yaml-cpp= package ([[https://github.com/jbeder/yaml-cpp][source]],  [[https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.7.0][release used]]: version =0.7.0=). The instructions on the =README= page of the project are a bit cryptic. Below follows a step-by-step guide:
