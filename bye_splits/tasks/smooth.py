@@ -70,11 +70,11 @@ def smoothAlongPhi(arr, kernel,
         area = (1 + 2.0 * (1 - 0.5**nBinsSide)) # one element per Rz bin
     elif kernel=='flat_top':
         area = 5 - 2**(2-nBinsSide) # 1 + 1 + 1 + 2*(Sum[1/(2^i), {i, 1, nBinsSide - 1}])
-        
+
     if seedsNormByArea:
-        R1 = minROverZ + bin1 * (maxROverZ - minROverZ) / nbinsRz
+        R1 = minROverZ + np.arange(nbinsRz) * (maxROverZ - minROverZ) / nbinsRz
         R2 = R1 + ((maxROverZ - minROverZ) / nbinsRz)
-        area = area * ((np.pi * (R2**2 - R1**2)) / nbinsPhi);
+        area *= ((np.pi * (R2**2 - R1**2)) / nbinsPhi);
     else:
         #compute quantities for non-normalised-by-area histoMax
         #The 0.1 factor in bin1_10pct is an attempt to keep the same rough scale for seeds.
