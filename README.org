@@ -60,7 +60,7 @@ To run the skimming step, you will need to compile the =C++= files stored under 
 Run the following, specifying the particle type:
 
 #+BEGIN_SRC shell
-./produce.exe electrons
+./produce.exe --particles photons --nevents 500
 #+END_SRC
 
 The above skims the input files, applying:
