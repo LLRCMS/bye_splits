@@ -159,18 +159,17 @@ def cluster(pars, **kw):
             if kw['ForEnergy']:
                 dfout.event = dfout.event.astype(int)
                 coef = 'coef_'+str(kw['CoeffA'][0]).replace('.','p')
-                #outenergy = common.fill_path(kw['EnergyOut'], **pars)
+                outenergy = common.fill_path(kw['EnergyOut'], **pars)
                 genlev = 'data/'+kw['File']+'.hdf5'
 
                 # THIS MUST BE CHECKED (with __ as ___ is throwing an error)
-                #EnOut = pd.HDFStore(outenergy, mode='a')
+                EnOut = pd.HDFStore(outenergy, mode='a')
                 GenFile = pd.HDFStore(genlev, mode='r')
 
                 en_df = dfout.join(GenFile[kw['FesAlgos'][0]], on='event', how='inner')
 
-                sub_df = en_df[['event','etanew','phinew','en','genpart_exphi','genpart_exeta','genpart_energy']].drop_duplicates()
+                sub_df = en_df[['event','etanew','phinew','en','genpart_exphi','genpart_exeta','genpart_energy', 'Ncells']].drop_duplicates()
 
-                #EnOut.put(coef,en_df)
                 EnOut.put(coef,sub_df)
                 EnOut.close()
 
