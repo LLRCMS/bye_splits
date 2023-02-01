@@ -73,9 +73,10 @@ po::variables_map process_program_options(int argc, char **argv)
   return args;
 }
 
-//Run with ./produce.exe photons
+//Run with ./produce.exe --particles photons
 int main(int argc, char **argv) {
-  std::string dir = "/eos/user/b/bfontana/FPGAs/new_algos/";
+  std::string in_dir = "/eos/user/b/bfontana/FPGAs/new_algos/";
+  std::string out_dir = "/eos/user/i/iehle/data/PU0/";
   std::string tree_name = "FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple";
 
   po::variables_map args = process_program_options(argc, argv);
@@ -89,6 +90,6 @@ int main(int argc, char **argv) {
   std::string infile = particles + "_0PU_bc_stc_hadd.root";
   std::string events_str = nevents > 0 ? std::to_string(nevents) + "events_" : "";
   std::string outfile = "skim_" + events_str + infile;
-  skim(tree_name, dir + infile, dir + outfile, particles, nevents);
+  skim(tree_name, in_dir + infile, out_dir + outfile, particles, nevents);
   return 0;
 }
