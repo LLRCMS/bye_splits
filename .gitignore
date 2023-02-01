@@ -18,3 +18,7 @@
 *.deps*
 *data/*
 yaml-cpp-yaml-cpp-0.7.0*
+bye_splits/__init__.py
+bye_splits/.DS_Store
+bye_splits/debug_architecture.py
+bye_splits/plot/.DS_Store

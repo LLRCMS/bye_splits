@@ -1,1 +1,5 @@
-bokeh serve bye_splits/plot/display/ --address 0.0.0.0 --port 8080 --allow-websocket-origin=viz2-hgcal-event-display.app.cern.ch
+#! /bin/bash
+
+python bye_splits/scripts/cl_app.py
+
+#--allow-websocket-origin=bye-splits-app-hgcal-cl-size-studies.app.cern.ch

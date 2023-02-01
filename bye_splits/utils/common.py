@@ -12,6 +12,7 @@ from subprocess import Popen, PIPE
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
+import bye_splits
 from bye_splits import utils
 from utils import params
 
@@ -62,6 +63,9 @@ def fill_path(base_path, ext='hdf5', **kw):
 
     path = 'OutPath' if ext == 'html' else 'BasePath'
     return Path(params.base_kw[path]) / base_path
+
+'''class DictHelp:
+    def __init__(self, )'''
 
 class SupressSettingWithCopyWarning:
     """
@@ -139,6 +143,32 @@ def tc_base_selection(df, region, pos_endcap, range_rz):
     df, subdetCond = get_detector_region_mask(df, region)
     return df, subdetCond
 
+def transform(nested_list):
+    regular_list=[]
+    for ele in nested_list:
+        if type(ele) is list:
+            regular_list.append(ele)
+        else:
+            regular_list.append([ele])
+    return regular_list
+
+def create_algo_trees(template_dict):
+    algo_trees = {}
+    for fe in params.base_kw['FesAlgos']:
+        inner_trees = {}
+        for key, val in template_dict.items():
+            inner_trees[key] = val.format(fe=fe)
+        algo_trees[fe] = inner_trees
+    return algo_trees
+
+def create_fill_names(files,trees):
+    output_file_names = {}
+    for key in files.keys():
+        if isinstance(files[key], str):
+            files[key] = [files[key]]
+        output_file_names[key] = ['gen_cl3d_tc_{}_{}_with_pt'.format(params.base_kw['FesAlgos'][0],re.split('.root|/',file)[-2]) for file in files[key]]
+    return output_file_names
+
 def dict_per_file(pars,file):
     # This will need to be changed eventually
     addit = re.split('gen_cl3d_tc_|_ThresholdDummy',file)[1]
@@ -196,7 +226,6 @@ def dict_per_file(pars,file):
     file_pars['energy']['ClusterIn'] = '{}_{}'.format(pars.cluster_kw['ClusterOutValidation'],addit)
     file_pars['energy']['EnergyIn'] = '{}_{}'.format(pars.cluster_kw['EnergyOut'],addit)
     file_pars['energy']['EnergyOut'] = '{}_{}'.format(pars.energy_kw['EnergyOut'],addit)
-    file_pars['energy']['EnergyPlot'] = '{}_{}'.format(pars.energy_kw['EnergyPlot'],addit)
     file_pars['energy']['File'] = file
 
     return file_pars

@@ -10,6 +10,7 @@ import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
+import bye_splits
 from bye_splits.utils import common
 
 import numpy as np
@@ -30,8 +31,13 @@ MinROverZ = 0.076
 MaxROverZ = 0.58
 MinPhi = -np.pi
 MaxPhi = +np.pi
-DataFolder = 'data/new_algos'
-assert DataFolder in ('data/new_algos', 'data/tc_shift_studies')
+local = False
+if local:   
+    base_dir = "/grid_mnt/vol_home/llr/cms/ehle/git/bye_splits_final/"
+else:
+    base_dir = "/eos/user/i/iehle/"
+DataFolder = 'data/PU0'
+assert DataFolder in ('data/new_algos', 'data/tc_shift_studies', 'data/PU0', 'data/PU200')
 
 base_kw = {
     'NbinsRz': NbinsRz,
@@ -48,14 +54,36 @@ base_kw = {
 
     'DataFolder': Path(DataFolder),
     'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
-    'BasePath': Path(__file__).parents[2] / DataFolder,
-    'OutPath': Path(__file__).parents[2] / 'out',
+    'BasePath': "{}{}".format(base_dir, DataFolder),
+    'OutPath': "{}out".format(base_dir),
 
     'RzBinEdges': np.linspace( MinROverZ, MaxROverZ, num=NbinsRz+1 ),
     'PhiBinEdges': np.linspace( MinPhi, MaxPhi, num=NbinsPhi+1 ),
 
     'Placeholder': np.nan,
 }
+threshold=0.05
+delta_r_coefs = (0.0, threshold, 50)
+def create_coef_dict():
+    coefs = [(coef,0)*52 for coef in np.linspace(delta_r_coefs[0], delta_r_coefs[1], delta_r_coefs[2])]
+    coef_dict = {}
+    for i,coef in enumerate(coefs):
+        coef_key = 'coef_'+str(i)
+        coef_dict[coef_key] = coef
+
+    return coef_dict
+
+ntuple_templates = {'photon': 'Floatingpoint{fe}Genclustersntuple/HGCalTriggerNtuple','pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+
+# ASK LOUIS/BRUNO ABOUT ALGO (also: bc_stc = best choice super trigger cell)
+pion_base_path = "/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple_"
+files = {'photon': '/data_CMS/cms/alves/L1HGCAL/photon_0PU_truncation_hadd.root', 'pion': ["{}{}.root".format(pion_base_path, i+1) for i in range(3)]}
+
+gen_trees = {'photon': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple', 'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
+
+coef_dict = create_coef_dict()
+
+algo_trees = common.create_algo_trees(ntuple_templates)
 
 def set_dictionary(adict):
     adict.update(base_kw)
@@ -65,68 +93,6 @@ if len(base_kw['FesAlgos'])!=1:
     raise ValueError('The event number in the cluster task'
                      ' assumes there is only on algo.\n'
                      'The script must be adapted.')
-
-# Make dictionary of coefficients
-threshold = 0.05
-delta_r_coefs = (0.0,threshold,50)
-
-coefs = [(coef,0)*52 for coef in np.linspace(delta_r_coefs[0], delta_r_coefs[1], delta_r_coefs[2])]
-coef_dict = {}
-for i,coef in enumerate(coefs):
-    coef_key = 'coef_'+str(i)
-    coef_dict[coef_key] = coef
-
-ntuple_templates = {'photon': 'Floatingpoint{fe}Genclustersntuple/HGCalTriggerNtuple','pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
-algo_trees = {}
-for fe in base_kw['FesAlgos']:
-    inner_trees = {}
-    for key, val in ntuple_templates.items():
-        inner_trees[key] = val.format(fe=fe)
-    algo_trees[fe] = inner_trees
-
-def transform(nested_list):
-    regular_list=[]
-    for ele in nested_list:
-        if type(ele) is list:
-            regular_list.append(ele)
-        else:
-            regular_list.append([ele])
-    return regular_list
-
-
-def create_out_names(files,trees):
-    output_file_names = {}
-    for key in files.keys():
-        if isinstance(files[key], str):
-            files[key] = [files[key]]
-        tree = trees[key]
-        output_file_names[key] = ['gen_cl3d_tc_{}_{}_with_pt'.format(base_kw['FesAlgos'][0],re.split('.root|/',file)[-2]) for file in files[key]]
-    return output_file_names
-
-files = {'photon': '/data_CMS/cms/alves/L1HGCAL/photon_0PU_truncation_hadd.root', 'pion': glob('/data_CMS_upgrade/sauvan/HGCAL/2210_Ehle_clustering-studies/SinglePion_PT0to200/PionGun_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_clustering-study_v3-29-1/221018_121053/ntuple*.root')}
-gen_trees = {'photon': 'FloatingpointThresholdDummyHistomaxnoareath20Genclustersntuple/HGCalTriggerNtuple', 'pion':'hgcalTriggerNtuplizer/HGCalTriggerNtuple'}
-
-pile_up = True
-get_pu_files = False
-if pile_up:
-    pu_samples = ['DoubleElectron_FlatPt-1To100', 'DoublePhoton_FlatPt-1To100', 'SinglePion_PT0to200']
-    if get_pu_files:
-        #Fill files dictionary with path to files on /dpm...
-        files = {'electron': None, 'photon': None, 'pion': None}
-        common.point_to_root_file(pu_samples, files)
-        outfile = 'dpm_file_paths.pkl'
-        with open(outfile, 'wb') as f:
-            pickle.dump(files, f)
-    else:
-        infile = 'dpm_file_paths.pkl'
-        with open(infile, 'rb') as f:
-            files = pickle.load(f)
-
-    gen_trees = {'electron': 'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple',
-                 'photon':   'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple',
-                 'pion':     'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple'}
-
-    algo_trees = {'Mixedbcstcrealsig4DummyHistomaxxydr015Genmatch': gen_trees}
 
 match_kw = set_dictionary(
     { 'Files': files,
@@ -144,7 +110,7 @@ match_kw = set_dictionary(
 
 # fill task
 fill_kw = set_dictionary(
-    {'FillInFiles' : create_out_names(files, match_kw['GenTrees']),
+    {'FillInFiles' : common.create_fill_names(files, match_kw['GenTrees']),
      'FillIn'      : None, # To be chosen during the fill process
      'FillOut'     : 'fill',
      'FillOutComp' : 'fill_comp',
@@ -157,7 +123,7 @@ opt_kw = set_dictionary(
       'KernelSize': 10,
       'WindowSize': 3,
       'InFile': None,
-      'OptIn': 'triggergeom_condensed', #Needs to be adjusted because this will change for each starting file
+      'OptIn': 'triggergeom_condensed',
       'OptEnResOut': 'opt_enres',
       'OptPosResOut': 'opt_posres',
       'OptCSVOut': 'stats',
@@ -222,7 +188,6 @@ energy_kw = set_dictionary(
       'Coeffs': delta_r_coefs, #tuple containing (coeff_start, coeff_end, num_coeffs)
       'EnergyIn': cluster_kw['EnergyOut'],
       'EnergyOut': 'energy_out',
-      'EnergyPlot': 'plots/energy_plot',
       'BestMatch': True,
       'MatchFile': False,
       'MakePlot': True}

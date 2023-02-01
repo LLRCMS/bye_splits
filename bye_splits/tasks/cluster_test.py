@@ -25,7 +25,6 @@ def cluster(pars, **kw):
     #outclusteringvalidation = common.fill_path(kw['ClusterOutValidation'], **pars)
 
     with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC:
-        # Note that the 498 events in storeInSeeds and storeInTC are a subset of the gen_cl3d_tc events
         for falgo in kw['FesAlgos']:
             seed_keys = [x for x in storeInSeeds.keys() if falgo in x  and '_group_new' in x ]
             tc_keys  = [x for x in storeInTC.keys() if falgo in x and '_tc' in x]
@@ -147,9 +146,9 @@ def cluster(pars, **kw):
                     raise ValueError(m)
 
                 cl3d['event'] = event_number.group(1)
-                cl3d_cols = ['en', 'xnew', 'ynew', 'z', 'Rz',
+                cl3d_cols = ['en', 'pt', 'xnew', 'ynew', 'z', 'Rz',
                              'etanew', 'phinew', 'Ncells']
-                #storeOut[key] = cl3d[cl3d_cols]
+
                 if key1 == tc_keys[0] and key2 == seed_keys[0]:
                     dfout = cl3d[cl3d_cols+['event']]
                 else:
@@ -157,6 +156,8 @@ def cluster(pars, **kw):
 
                 bar.next()
             bar.finish()
+
+            breakpoint()
 
             if kw['ForEnergy']:
                 dfout.event = dfout.event.astype(int)
@@ -170,7 +171,9 @@ def cluster(pars, **kw):
 
                 en_df = dfout.join(GenFile[kw['FesAlgos'][0]], on='event', how='inner')
 
-                sub_df = en_df[['event','etanew','phinew','en','cl3d_pt','genpart_exphi','genpart_exeta','genpart_energy','genpart_pt']].drop_duplicates()
+                # cl3d_pt IS NOT WHAT YOU THINK IT IS, HENCE ALL OF THE ISSUES
+
+                sub_df = en_df[['event','etanew','phinew','en','cl3d_pt','genpart_exphi','genpart_exeta','genpart_energy','genpart_pt', 'Ncells']].drop_duplicates()
 
                 EnOut.put(coef,sub_df)
                 EnOut.close()

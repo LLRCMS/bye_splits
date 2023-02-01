@@ -1,5 +1,8 @@
+#!/usr/bin/env python
+
 from dash import Dash, html, dcc
 import dash
+
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
 
@@ -46,8 +49,10 @@ app.layout = dbc.Container([
 ], fluid=True)
 
 if __name__ == '__main__':
-    import socket
+    #import socket
+    #host, port = socket.gethostbyname(socket.gethostname()), 8052
+    #host, port = 'llruicms01.in2p3.fr', 8052
 
-    host, port = socket.gethostbyname(socket.gethostname()), 8052
+    host, port = '0.0.0.0', 8080
 
-    app.run_server(port=port, host=host,debug=True)
+    app.run_server(port=port, host=host, debug=True)
