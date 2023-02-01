@@ -19,8 +19,8 @@ from utils import params
 from data_handle.base import BaseData
 
 class EventData(BaseData):
-    def __init__(self, inname='', tag='v0', default_events=[], reprocess=False, logger=None):
-        super().__init__(inname, tag, reprocess, logger)
+    def __init__(self, inname='', tag='v0', default_events=[], reprocess=False, logger=None, is_tc=True):
+        super().__init__(inname, tag, reprocess, logger, is_tc)
         
         with open(params.viz_kw['CfgDataPath'], 'r') as afile:
             cfg_data = yaml.safe_load(afile)

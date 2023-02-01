@@ -39,8 +39,9 @@ with open(params.viz_kw['CfgProdPath'], 'r') as afile:
 with open(params.viz_kw['CfgDataPath'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
-mode = 'ev'
-reprocess = False
+mode = 'geom'
+reprocess = True
+is_tc = False
 
 data_part_opt = dict(tag='mytag', reprocess=reprocess, debug=True, logger=log)
 data_particle = {
@@ -48,7 +49,7 @@ data_particle = {
     'electrons': EventDataParticle(particles='electrons', **data_part_opt),
     'pions': EventDataParticle(particles='pions', **data_part_opt)}
 geom_data = GeometryData(inname='test_triggergeom.root',
-                         reprocess=reprocess, logger=log)
+                         reprocess=reprocess, logger=log, is_tc=is_tc)
 
 def common_props(p):
     p.output_backend = 'svg'
@@ -206,7 +207,7 @@ def display():
         view_cells = bmd.CDSView(filter=all_filters)
         # modules are duplicated for cells lying in the same wafer
         # we want to avoid drawing the same module multiple times
-        view_modules = (~cds_data[ksrc].duplicated(subset=['layer', 'waferu', 'waferv'])).tolist()
+        #view_modules = (~cds_data[ksrc].duplicated(subset=['layer', 'waferu', 'waferv'])).tolist()
         #view_modules = bmd.CDSView(filter=filt_layers & bmd.BooleanFilter(view_modules))
         view_modules = bmd.CDSView(filter=all_filters)
 
@@ -224,17 +225,18 @@ def display():
         cur_xmax, cur_ymax = -1e9, -1e9
         cur_xmin, cur_ymin = 1e9, 1e9
 
-        if mode == 'ev':
-            zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt'])
-        else:
-            zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
-        for elem in zip(*zip_obj):
-            if mode == 'ev' and elem[2] < cfg_prod['selection']['mipThreshold']: #cut replicates the default `view_en`
-                continue
-            if max(elem[0][0][0]) > cur_xmax: cur_xmax = max(elem[0][0][0])
-            if min(elem[0][0][0]) < cur_xmin: cur_xmin = min(elem[0][0][0])
-            if max(elem[1][0][0]) > cur_ymax: cur_ymax = max(elem[1][0][0])
-            if min(elem[1][0][0]) < cur_ymin: cur_ymin = min(elem[1][0][0])
+        if is_tc:
+            if mode == 'ev':
+                zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt'])
+            else:
+                zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
+            for elem in zip(*zip_obj):
+                if mode == 'ev' and elem[2] < cfg_prod['selection']['mipThreshold']: #cut replicates the default `view_en`
+                    continue
+                if max(elem[0][0][0]) > cur_xmax: cur_xmax = max(elem[0][0][0])
+                if min(elem[0][0][0]) < cur_xmin: cur_xmin = min(elem[0][0][0])
+                if max(elem[1][0][0]) > cur_ymax: cur_ymax = max(elem[1][0][0])
+                if min(elem[1][0][0]) < cur_ymin: cur_ymin = min(elem[1][0][0])
                     
         # force matching ratio to avoid distortions
         distx, disty = cur_xmax-cur_xmin, cur_ymax-cur_ymin
@@ -255,8 +257,8 @@ def display():
                        toolbar_location='right', output_backend='webgl')
         border = 18
         p_diams = figure(
-            x_range=bmd.Range1d(cur_xmin-border, cur_xmax+border),
-            y_range=bmd.Range1d(cur_ymin-border, cur_ymax+border),
+            #x_range=bmd.Range1d(cur_xmin-border, cur_xmax+border),
+            #y_range=bmd.Range1d(cur_ymin-border, cur_ymax+border),
             **fig_opt)
         p_mods = figure(
             x_range=p_diams.x_range, y_range=p_diams.y_range,
@@ -300,9 +302,9 @@ def display():
             #                        **hover_opt, **p_mods_opt)
 
         else:
-            p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
+            #p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
             circ_opt = dict(source=vsrc, view=view_cells, size=5)
-            p_diams.circle(x='tc_x', y='tc_y', color='blue', legend_label='u,v conversion', **circ_opt)
+            #p_diams.circle(x='tc_x', y='tc_y', color='blue', legend_label='u,v conversion', **circ_opt)
             p_diams.circle(x='x', y='y', color='orange', legend_label='tc original', **circ_opt)
 
             # p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
