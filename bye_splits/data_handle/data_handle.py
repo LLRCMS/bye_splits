@@ -13,7 +13,7 @@ import yaml
 from utils import params
 from data_handle.geometry import GeometryData
 from data_handle.event import EventData
-
+        
 class EventDataParticle:
     def __init__(self, particles, tag, reprocess=False, debug=False, logger=None):
         assert particles in ('photons', 'electrons', 'pions')
@@ -21,14 +21,12 @@ class EventDataParticle:
         self.tag = self.particles + '_' + tag
         with open(params.viz_kw['CfgDataPath'], 'r') as afile:
             self.config = yaml.safe_load(afile)
+        
+        suffix = 'skim' + ('_small' if self.debug else '')
+        path = '_'.join((suffix, self.particles, '0PU_bc_stc_hadd.root'))         
 
-        data_suffix = 'skim' + ('_small' if debug else '')
-        in_name = '_'.join((data_suffix, self.particles,
-                            '0PU_bc_stc_hadd.root'
-                            #'skim_small_electron_module_TEST.root'
-                            ))
         default_events = self.config['defaultEvents'][self.particles]
-        self.data = EventData(in_name, self.tag + '_debug' * debug,
+        self.data = EventData(path, self.tag + '_debug' * debug,
                               default_events, reprocess=reprocess, logger=logger)
 
     def provide_event(self, event, merge=False):

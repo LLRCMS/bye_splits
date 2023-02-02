@@ -24,8 +24,11 @@ class GeometryData(BaseData):
     Uses the orientation #1 of bottom row of slide 4 in
     https://indico.cern.ch/event/1111846/contributions/4675223/attachments/2372915/4052852/PartialsRotation.pdf
     """
-    def __init__(self, inname='', reprocess=False, logger=None, is_tc=True):
+    def __init__(self, inname, reprocess=False, logger=None, is_tc=True):        
         super().__init__(inname, 'geom', reprocess, logger, is_tc)
+        self.indata.tree = 'TreeTriggerCells' if self.is_tc else 'TreeCellsBH'
+        self.indata.dir = 'hgcaltriggergeomtester'
+
         self.dataset = None
         self.dname = 'tc'
         with open(params.viz_kw['CfgDataPath'], 'r') as afile:
@@ -241,7 +244,7 @@ class GeometryData(BaseData):
             libraries = ('bokeh', )
             if library not in libraries:
                 raise NotImplementedError()
-            df = self._display_cells(df, library)
+            #df = self._display_cells(df, library)
         return df
 
     def provide(self, region=None):
@@ -304,9 +307,8 @@ class GeometryData(BaseData):
 
     def select(self):
         """Performs data selection for performance."""
-        with up.open(self.inpath) as f:
-            tree = 'TreeTriggerCells' if self.is_tc else 'TreeCellsBH'
-            tree = f[ os.path.join('hgcaltriggergeomtester', tree) ]
+        with up.open(self.indata.path) as f:
+            tree = f[self.indata.tree_path]
             if self.logger is not None:
                 self.logger.info(tree.show())
             data = tree.arrays(self.readvars)

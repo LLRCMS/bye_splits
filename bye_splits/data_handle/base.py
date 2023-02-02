@@ -14,9 +14,47 @@ import logging
 
 from utils import params, common
 
+class InputData:
+    """Storage class for input strings required to access ROOT files and trees."""
+    def __init__(self):
+        self._path = None
+        self._dir  = None
+        self._tree = None
+
+    @property
+    def path(self):
+        return self._path
+
+    @path.setter
+    def path(self, path):
+        self._path = os.path.join(str(params.viz_kw['DataPath']), path)
+         
+    @property
+    def adir(self):
+        return self._adir
+
+    @adir.setter
+    def adir(self, adir):
+        self._adir = adir
+
+    @property
+    def tree(self):
+        return self._tree
+
+    @tree.setter
+    def path(self, tree):
+        self._tree = tree
+
+    @property
+    def tree_path(self):
+        return self._dir + '/' + self._tree
+        
 class BaseData(abc.ABC):
+    """Base data management class."""
     def __init__(self, inname, tag, reprocess, logger, is_tc):
-        self.inpath = os.path.join(str(params.viz_kw['DataPath']), inname)
+        self.indata = InputData()
+        self.indata.path = inname
+
         self.tag = tag
         self.reprocess = reprocess
         self.logger = logger

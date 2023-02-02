@@ -19,16 +19,21 @@ from utils import params
 from data_handle.base import BaseData
 
 class EventData(BaseData):
-    def __init__(self, inname='', tag='v0', default_events=[], reprocess=False, logger=None, is_tc=True):
+    def __init__(self, inname, tag='v0', default_events=[], reprocess=False, logger=None, is_tc=True):
         super().__init__(inname, tag, reprocess, logger, is_tc)
-        
+
         with open(params.viz_kw['CfgDataPath'], 'r') as afile:
-            cfg_data = yaml.safe_load(afile)
-            self.var = cfg_data['varEvents']
+            self.var = yaml.safe_load(afile)['varEvents']
+
         self.cache = None
         self.events = default_events
         self.cache_events(self.events)
         self.ev_numbers = self._get_event_numbers()
+
+        with open(params.viz_kw['CfgProdPath'], 'r') as afile:
+            _cfg = yaml.safe_load(afile)
+        self.indata.dir  = _cfg['io']['dir']
+        self.indata.tree = _cfg['io']['tree']
 
     def cache_events(self, events):
         """Read dataset from parquet to cache"""
@@ -91,13 +96,8 @@ class EventData(BaseData):
         return self.provide_event(event, merge), event
         
     def select(self):
-        with open(params.viz_kw['CfgProdPath'], 'r') as afile:
-            cfg_prod = yaml.safe_load(afile)
-            adir = cfg_prod['io']['dir']
-            atree = cfg_prod['io']['tree']
-
-        with up.open(str(self.inpath), array_cache='550 MB', num_workers=8) as f:
-            tree = f[adir + '/' + atree]
+        with up.open(self.indata.path, array_cache='550 MB', num_workers=8) as f:
+            tree = f[self.indata.tree_path]
             allvars = set([y for x in self.var.values() for y in x.values()])
             data = tree.arrays(filter_name='/' + '|'.join(allvars) + '/',
                                library='ak',
