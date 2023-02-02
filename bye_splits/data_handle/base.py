@@ -42,7 +42,7 @@ class InputData:
         return self._tree
 
     @tree.setter
-    def path(self, tree):
+    def tree(self, tree):
         self._tree = tree
 
     @property
