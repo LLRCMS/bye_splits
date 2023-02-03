@@ -72,9 +72,9 @@ def smoothAlongPhi(arr, kernel,
         area = 5 - 2**(2-nBinsSide) # 1 + 1 + 1 + 2*(Sum[1/(2^i), {i, 1, nBinsSide - 1}])
 
     if seedsNormByArea:
-        R1 = minROverZ + bin1 * (maxROverZ - minROverZ) / nbinsRz
+        R1 = minROverZ + np.arange(nbinsRz) * (maxROverZ - minROverZ) / nbinsRz
         R2 = R1 + ((maxROverZ - minROverZ) / nbinsRz)
-        area = area * ((np.pi * (R2**2 - R1**2)) / nbinsPhi);
+        area *= ((np.pi * (R2**2 - R1**2)) / nbinsPhi);
     else:
         #compute quantities for non-normalised-by-area histoMax
         #The 0.1 factor in bin1_10pct is an attempt to keep the same rough scale for seeds.
@@ -129,6 +129,7 @@ def smooth(pars, **kwargs):
     insmooth = common.fill_path(kwargs['SmoothIn'], **pars)
     outsmooth = common.fill_path(kwargs['SmoothOut'], **pars)
     with h5py.File(insmooth,  mode='r') as storeIn, h5py.File(outsmooth, mode='w') as storeOut :
+
         for falgo in kwargs['FesAlgos']:
             keys_old = [x for x in storeIn.keys()
                         if falgo in x and '_group_old' in x]

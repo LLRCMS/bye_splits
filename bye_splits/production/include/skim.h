@@ -1,3 +1,9 @@
+#ifndef _SKIM_H_
+#define _SKIM_H_
+
+#include <math.h> // includes M_PI
+#include <cmath> 
+#include <cassert> // includes assert
 #include <vector>
 #include <unordered_map>
 
@@ -6,9 +12,30 @@
 
 #include "yaml-cpp/yaml.h"
 
-using namespace std;
- //using str = std::string;
- //template <typename T> using vec = std::vector<T>;
- //template <typename K, typename T> using umap = std::unordered_map<K, T>;
+#include <boost/program_options.hpp>
+namespace po = boost::program_options;
 
-void skim(string, string, string, string);
+using namespace std;
+
+void skim(string, string, string, string, int);
+
+template <class U>
+auto internal_join_vars(vector<U>& dest, const vector<U>& vec) -> void {
+  dest.insert(dest.end(), vec.begin(), vec.end());
+}
+template <class U, class ... RestArgs>
+auto internal_join_vars(vector<U>& dest, const vector<U>& vec, RestArgs... args) -> void
+{
+  dest.insert(dest.end(), vec.begin(), vec.end());
+  internal_join_vars(dest, args...);
+}  
+// required for compatibility issues between uproot and RDataFrame
+template <class ... Ts>
+auto join_vars(const vector<string>& val, Ts... args) -> vector<string>
+{
+  vector<string> tmp;
+  internal_join_vars<std::string>(tmp, val, args...);
+  return tmp;
+}
+
+#endif /* _SKIM_H_ */

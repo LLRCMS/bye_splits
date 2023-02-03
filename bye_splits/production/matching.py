@@ -17,8 +17,6 @@ import uproot # uproot4
 import prod_params
 from utils import params
 
-from multiprocessing import Pool
-
 def deltar(df):
     df['deta']=df['cl3d_eta']-df['genpart_exeta']
     df['dphi']=np.abs(df['cl3d_phi']-df['genpart_exphi'])
@@ -51,28 +49,6 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
         print('Input file: {}'.format(filename))
         with uproot.open(filename + ':' + gen_tree) as data:
 
-            '''max_memsize_gen = data.num_entries_for('4 GB', branches_gen)
-            max_memsize_tc = max_memsize_gen
-
-            memsize_gen_step = data.num_entries_for('128 MB', branches_gen)
-            memsize_tc_step = data.num_entries_for('64 MB', branches_tc)
-
-            memsize_gen = data.num_entries_for(memsize_gen_step, branches_gen)
-            memsize_tc = data.num_entries_for(memsize_tc_step, branches_tc)
-
-            gen_batches = [batch for batch in data.iterate(branches_gen, step_size=memsize_gen_step, library='pd')]
-            tc_batches = [batch for batch in data.iterate(branches_tc, step_size=memsize_tc_step, library='pd')]
-
-
-            # Just testing parameters
-            agents = 5
-            chunksize = 3
-            with Pool(processes=agents) as pool:
-                pool.starmap(fill_batches, (gen_batches, branches_gen), chunksize)
-                breakpoint()
-                pool.starmap(fill_bathces, (tc_batches, branches_tc), chunksize)
-                breakpoint()'''
-
             memsize_gen = '128 MB'
             memsize_tc = '64 MB'
             for ib,batch in enumerate(data.iterate(branches_gen, step_size=memsize_gen,
@@ -86,7 +62,6 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
 
             for ib,batch in enumerate(data.iterate(branches_tc, step_size=memsize_tc,
                                                    library='pd')):
-                #batch = batch[ ~batch['good_tc_layer'].isin(params.disconnectedTriggerLayers) ]
                 batch = batch[ ~batch['tc_layer'].isin(params.disconnectedTriggerLayers) ]
                 #convert all the trigger cell hits in each event to a list
                 batch = batch.groupby(by=['event']).aggregate(lambda x: list(x))
@@ -117,13 +92,11 @@ def create_dataframes(files, algo_trees, gen_tree, reachedEE, **options):
     return (df_gen, df_algos, df_tc)
 
 def preprocessing():
-    #files = prod_params.files
-    files = ['/data_CMS/cms/ehle/L1HGCAL/photon_200PU_bc_stc_hadd.root']
+    files = prod_params.files
     gen, algo, tc = create_dataframes(files,
                                       prod_params.algo_trees, prod_params.gen_tree,
                                       prod_params.reachedEE)
 
-    #breakpoint()
     algo_clean = {}
 
     for algo_name,df_algo in algo.items():
@@ -149,7 +122,7 @@ def preprocessing():
 
         #keep matched clusters only
         if prod_params.bestmatch_only:
-            sel=algo_pos_merged['best_match']==False
+            sel=algo_pos_merged['best_match']==True
             algo_pos_merged=algo_pos_merged[sel]
 
         algo_clean[algo_name] = algo_pos_merged.sort_values('event')

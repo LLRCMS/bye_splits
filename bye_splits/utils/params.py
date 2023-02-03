@@ -3,27 +3,14 @@
 _all_ = [ ]
 
 import os
-from os import path as op
 from pathlib import Path
 import sys
-
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
-import bye_splits
+
 from bye_splits.utils import common
-
 import numpy as np
-from glob import glob
-import functools
-import operator
-import re
-
-import warnings
-import argparse
-from argparse import ArgumentParser, RawTextHelpFormatter
-from subprocess import Popen, PIPE
-import pickle
 
 NbinsRz = 42
 NbinsPhi = 216

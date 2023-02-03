@@ -8,24 +8,25 @@ import sys
 parent_dir = os.path.abspath(__file__ + 2 * '/..')
 sys.path.insert(0, parent_dir)
 
+import yaml
+
+from utils import params
 from data_handle.geometry import GeometryData
 from data_handle.event import EventData
 
-def handle(mode, particle=None):
-    modes = ('geom', 'event')
-    datasets = {'photons'  : {'in': 'skim_photons_0PU_bc_stc_hadd.root',
-                              'out': 'out_photons_0PU_bc_stc_hadd.hdf5'},
-                'electrons': {'in': 'skim_electrons_0PU_bc_stc_hadd.root',
-                              'out': 'out_electrons_0PU_bc_stc_hadd.hdf5'},
-                }
-    if mode == modes[0]:
-        obj = GeometryData(inname='test_triggergeom.root', outname='geom.hdf5')
-    elif mode == modes[1]:
-        if particle is None:
-            obj = EventData()
-        else:
-            obj = EventData(inname=datasets[particle]['in'], outname=datasets[particle]['out'],
-                            tag=particle)
-    else:
-        raise ValueError('Mode {} not supported. Pick one of the following: {}'.format(mode, modes))
-    return obj
+class EventDataParticle:
+    def __init__(self, particles, tag, reprocess=False, debug=False, logger=None):
+        assert particles in ('photons', 'electrons')
+        self.particles = particles
+        self.tag = self.particles + '_' + tag
+        with open(params.viz_kw['CfgDataPath'], 'r') as afile:
+            self.config = yaml.safe_load(afile)
+
+        data_suffix = 'skim' + ('_small' if debug else '')
+        in_name = '_'.join((data_suffix, self.particles, '0PU_bc_stc_hadd.root'))
+        default_events = self.config['defaultEvents'][self.particles]
+        self.data = EventData(in_name, self.tag + '_debug' * debug,
+                              default_events, reprocess=reprocess, logger=logger)
+
+    def provide_event(self, event):
+        return self.data.provide_event(event)

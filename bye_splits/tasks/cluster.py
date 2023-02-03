@@ -21,13 +21,11 @@ def cluster(pars, **kw):
     inclusteringseeds = common.fill_path(kw['ClusterInSeeds'], **pars)
     inclusteringtc = common.fill_path(kw['ClusterInTC'], **pars)
     outclusteringvalidation = common.fill_path(kw['ClusterOutValidation'], **pars)
-
     with h5py.File(inclusteringseeds, mode='r') as storeInSeeds, h5py.File(inclusteringtc, mode='r') as storeInTC, pd.HDFStore(outclusteringvalidation, mode='w') as storeOut:
-        # Note that the 498 events in storeInSeeds and storeInTC are a subset of the gen_cl3d_tc events
+
         for falgo in kw['FesAlgos']:
             seed_keys = [x for x in storeInSeeds.keys() if falgo in x  and '_group_new' in x ]
             tc_keys  = [x for x in storeInTC.keys() if falgo in x and '_tc' in x]
-
             assert(len(seed_keys) == len(tc_keys))
 
             radiusCoeffB = kw['CoeffB']
@@ -35,9 +33,9 @@ def cluster(pars, **kw):
             # each key is an event
             for key1, key2 in zip(tc_keys, seed_keys):
                 tc = storeInTC[key1]
-
                 tc_cols = list(tc.attrs['columns'])
 
+                # check columns via `tc.attrs['columns']`
                 radiusCoeffA = np.array( [kw['CoeffA'][int(xi)-1]
                                           for xi in tc[:, common.get_column_idx(tc_cols, 'tc_layer')]] )
                 minDist = ( radiusCoeffA +
@@ -102,7 +100,7 @@ def cluster(pars, **kw):
                 df['cl3d_pos_z'] = df.tc_z * df.tc_mipPt
                 df['cl3d_pos_x_new'] = df.tc_x_new * df.tc_mipPt
                 df['cl3d_pos_y_new'] = df.tc_y_new * df.tc_mipPt
-                #df['num_cells'] = tc.shape[0]
+
 
 
                 cl3d_cols = [#'cl3d_pos_x', 'cl3d_pos_y',

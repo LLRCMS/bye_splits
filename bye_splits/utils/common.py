@@ -64,9 +64,6 @@ def fill_path(base_path, ext='hdf5', **kw):
     path = 'OutPath' if ext == 'html' else 'BasePath'
     return Path(params.base_kw[path]) / base_path
 
-'''class DictHelp:
-    def __init__(self, )'''
-
 class SupressSettingWithCopyWarning:
     """
     Temporarily supress pandas SettingWithCopyWarning.

@@ -207,8 +207,8 @@ fi
 
 ### Functions
 function run_parallel() {
-	#comm="parallel -j -1 python bye_splits/iterative_optimization.py --ipar {} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
   comm="python bye_splits/iterative_optimization.py --ipar ${ITER_PARS} --sel ${SELECTION} -n ${NEVENTS} --reg ${REGION} "
+  
   comm+="--cluster_algo ${CLUSTER_ALGO} --seed_window ${SEED_WINDOW} --smooth_kernel ${SMOOTH_KERNEL} "
 	if [ ${DO_FILLING} -eq 0 ]; then
 		echo "Do not run the filling step."

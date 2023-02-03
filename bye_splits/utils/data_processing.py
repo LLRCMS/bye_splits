@@ -78,7 +78,6 @@ class DataProcessing:
 
             # `np.diff` catches all `data` indexes where the sorted bin changes
             data = np.split( data, np.where(np.diff(data[:,sort_index])<0)[0]+1 )
-
             assert len(data) == len(rz_slices)
 
             # data correct sorting check

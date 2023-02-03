@@ -133,7 +133,6 @@ def seed(pars, debug=False, **kwargs):
                           .format(len(res[0]),res[0],res[1],res[2]))
 
                 storeOut[key] = res
-
                 storeOut[key].attrs['columns'] = ['seedEn',
                                                   'seedX', 'seedY',
                                                   # 'seedXnew', 'seedYnew'

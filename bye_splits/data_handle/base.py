@@ -10,23 +10,26 @@ sys.path.insert(0, parent_dir)
 
 import abc
 import awkward as ak
+import logging
 
 from utils import params, common
 
 class BaseData(abc.ABC):
-    def __init__(self, inname, outname, tag):
-        self.inpath = Path('/data_CMS/cms/ehle/L1HGCAL/') / inname
-        self.outpath = Path('/data_CMS/cms/ehle/L1HGCAL/') / outname
+    def __init__(self, inname, tag, reprocess, logger):
+        self.inpath = os.path.join(str(params.viz_kw['DataPath']), inname)
         self.tag = tag
-        self.dname = 'tc'
+        self.reprocess = reprocess
+        self.logger = logger
+        
+        self.outpath = os.path.join(str(params.viz_kw['LocalPath']), self.tag + '.parquet')
         self.var = common.dot_dict({})
         self.newvar = common.dot_dict({})
-
-    @property
-    def variables(self):
-        return self.var
 
     @abc.abstractmethod
     def select(self):
         raise NotImplementedError()
     
+    @abc.abstractmethod
+    def store(self):
+        raise NotImplementedError()
+

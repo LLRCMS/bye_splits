@@ -90,8 +90,6 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 m = 'Selection {} is not supported.'.format(pars['sel'])
                 raise ValueError(m)
 
-
-
             if debug:
                 _events_all = list(df.index.unique())
             else:
@@ -176,8 +174,6 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
 
             simAlgoPlots[fe] = (split_3d, split_tc)
 
-    # split_3d still contains the 485 event subset of the gen_cl3d_tc events
-    # split_tc contains 24508 events that are also a subset of the gen_cl3d_tc events
     ### Event Processing ######################################################
     outfill = common.fill_path(kwargs['FillOut'], **pars)
 
@@ -185,13 +181,13 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
 
         for i,(_k,(df_3d,df_tc)) in enumerate(simAlgoPlots.items()):
             for ev in df_tc['event'].unique().astype('int'):
-
                 branches  = ['cl3d_layer_pt', 'event',
                              'genpart_reachedEE', 'enres']
                 ev_tc = df_tc[ df_tc.event == ev ]
                 ev_3d = df_3d[ df_3d.event == ev ]
                 if debug:
                     print(ev_3d.filter(items=branches))
+
                 _simCols_tc = ['tc_phi_bin_old', 'tc_phi_bin_new',
                                'Rz_bin', 'tc_layer',
                                'tc_x', 'tc_y',
@@ -210,7 +206,6 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 with common.SupressSettingWithCopyWarning():
                     ev_3d['cl3d_Roverz'] = common.calcRzFromEta(ev_3d.loc[:,'cl3d_eta'])
                     ev_3d['gen_Roverz']  = common.calcRzFromEta(ev_3d.loc[:,'genpart_exeta'])
-
 
                 cl3d_pos_rz  = ev_3d['cl3d_Roverz'].unique()
                 cl3d_pos_phi = ev_3d['cl3d_phi'].unique()
@@ -268,7 +263,6 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['columns'] = cols_to_keep
                 store[str(_k) + '_' + str(ev) + '_tc'].attrs['doc'] = 'Trigger Cells Info'
 
-
                 if ev == df_tc['event'].unique().astype('int')[0]:
                     group_tot_old = group_old[:]
                     group_tot_new = group_new[:]
@@ -278,8 +272,6 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
                     group_tot_new = pd.concat((group_tot_new,
                                                group_new[:]), axis=0)
 
-
-    # we still have the 485 event subset of gen_cl3d_tc
     return group_tot_old, group_tot_new
 
 if __name__ == "__main__":
