@@ -11,7 +11,7 @@ def add_parameters(parser, meta=False):
     if not meta:
         parser.add_argument('--ipar', help='iterative algorithm tunable parameter',
                             default=0.5, type=float)
-    parser.add_argument('--sel', default='splits_only', type=str,
+    parser.add_argument('--sel', default='below_eta_2.7', type=str,
                         help='Selection used to select cluster under study.')
     parser.add_argument('--reg', choices=('Si', 'ECAL', 'HCAL', 'MaxShower', 'ExcludeMaxShower'),
                         default='Si', type=str,

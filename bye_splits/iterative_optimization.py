@@ -483,7 +483,7 @@ if __name__ == "__main__":
             key = params.opt_kw['FesAlgos'][0] + '_data'
 
             storeEnRes [key] = df_enres
-            storePosRes[key] = df_posres'''
+            storePosRes[key] = df_posres
 
             if FLAGS.plot:
                 this_file = os.path.basename(__file__).split('.')[0]
@@ -496,6 +496,6 @@ if __name__ == "__main__":
                                              nevents=1,
                                              min_rz=params.opt_kw['MinROverZ'],
                                              max_rz=params.opt_kw['MaxROverZ'],
-                                             **params.opt_kw)
+                                             **params.opt_kw)'''
 
     print('Finished for iterative parameter {}.'.format(FLAGS.ipar), flush=True)

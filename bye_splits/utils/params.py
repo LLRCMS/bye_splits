@@ -31,12 +31,13 @@ MinROverZ = 0.076
 MaxROverZ = 0.58
 MinPhi = -np.pi
 MaxPhi = +np.pi
+PileUp = "PU0"
 local = False
 if local:   
     base_dir = "/grid_mnt/vol_home/llr/cms/ehle/git/bye_splits_final/"
 else:
     base_dir = "/eos/user/i/iehle/"
-DataFolder = 'data/PU0'
+DataFolder = 'data/{}'.format(PileUp)
 assert DataFolder in ('data/new_algos', 'data/tc_shift_studies', 'data/PU0', 'data/PU200')
 
 base_kw = {
