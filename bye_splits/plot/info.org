@@ -1,0 +1,3 @@
+Each full wafer has 48 trigger cells, drawn in three diferent ways, depending on their location: up-right, up-left or bottom. Each full wafer is also characterised by an "orientation", which corresponds to a different UV coordinate system. Below you can see the map for orientations 0 (bottom) and 6 (top). Other orientations can be inferred from [[https://indico.cern.ch/event/1111846/#1-review-of-full-wafer-rotatio][these slides]].
+
+[[./CellUVMap_compressed.jpg]]

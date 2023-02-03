@@ -1,0 +1,35 @@
+defaultEvents:
+    photons: [4681, 4677]
+    electrons: [92243, 92244]
+    pions: [5613]
+
+geometry:
+    waferSize: 16.64408
+    sensorSeparation: 0.1
+
+varEvents:
+    event: 'event'
+    wu: 'good_tc_waferu'
+    wv: 'good_tc_waferv'
+    l:  'good_tc_layer'
+    cv: 'good_tc_cellu'
+    cu: 'good_tc_cellv'
+    en: 'good_tc_mipPt'
+    cluster: 'good_tc_cluster_id'
+
+varGeometry:
+    wu: 'waferu'
+    wv: 'waferv'
+    l: 'layer'
+    cu: 'triggercellu'
+    cv: 'triggercellv'
+    x: 'x'
+    y: 'y'
+    z: 'z'
+    side: 'zside'
+    subd: 'subdet'
+    wvs: 'waferv_shift'
+    c: 'color'
+    orient: 'waferorient'
+    part: 'waferpart'
+

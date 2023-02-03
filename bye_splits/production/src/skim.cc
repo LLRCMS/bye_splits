@@ -19,7 +19,7 @@ ROOT::VecOps::RVec<float> calcDeltaR(ROOT::VecOps::RVec<float> geta, ROOT::VecOp
   }
 
   return deltaR;
-  }
+}
 
 ROOT::RDF::RResultPtr<long long unsigned> addProgressBar(ROOT::RDF::RNode df) {
   auto c = df.Count();
@@ -47,11 +47,11 @@ void skim(string tn, string inf, string outf, string particle, int nevents) {
   string vtmp = "tmp_good";
   
   if(nevents==-1) { //RDataFrame.Range() does not work with multithreading
-  ROOT::EnableImplicitMT();
+	ROOT::EnableImplicitMT();
 	cout << "Multithreaded..." << endl;
   }
   ROOT::RDataFrame dataframe(tn, inf);
-
+  
   // gen-related variables
   vector<string> gen_intv = {"genpart_pid"};
   vector<string> gen_floatv = {"genpart_exphi", "genpart_exeta", "genpart_energy"};
@@ -70,10 +70,10 @@ void skim(string tn, string inf, string outf, string particle, int nevents) {
 
   auto df = dataframe.Define(vtmp + "_gens", condgen);
   for(auto& v : gen_v) { df = df.Define(vtmp + "_" + v, v + "[" + vtmp + "_gens]"); }
-  
+
   //remove events with zero generated particles
   auto dfilt = df.Filter(vtmp + "_genpart_pid.size()!=0");
-  
+
   // trigger cells-related variables
   vector<string> tc_uintv = {"tc_cluster_id"};
   vector<string> tc_intv = {"tc_layer", "tc_cellu", "tc_cellv", "tc_waferu", "tc_waferv"};
@@ -158,14 +158,14 @@ void skim(string tn, string inf, string outf, string particle, int nevents) {
 					 },
 					 {vtmp + "_" + var});
   }
-
+  
   // define stored variables (and rename some)
   // vector<string> allvars = join_vars(gen_v, tc_v, cl_v, tsum_v);
   vector<string> allvars = join_vars(gen_v, tc_v, cl_v);
   vector<string> good_allvars = {"event"};
   good_allvars.insert(good_allvars.end(), matchvars.begin(), matchvars.end());
   for(auto& v : allvars)
-    good_allvars.push_back("good_" + v);
+	good_allvars.push_back("good_" + v);
 
   // store skimmed file
   if(nevents>0) {

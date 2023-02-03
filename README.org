@@ -45,21 +45,21 @@ The above should print the contents stored in =bye_splits/tests/params.yaml=.
 Occasionally the following error message is printed: ~relocation R_X86_64_32 against symbol `_ZTVN4YAML9ExceptionE' can not be used when making a PIE object; recompile with -fPIE~. This is currently not understood but removing the =yaml-cpp-yaml-cpp-0.7.0= folder (=rm -rf=) and running the above from scratch solves the issue.
 
 **** Skimming: run
-To run the skimming step, you will need to compile the =C++= files stored under =bye_splits/production=.
+To run the skimming step, you will need to compile the =C++= files stored under =bye_splits/production=. Run =make= from the top repository directory.
 
-An additional matching step might be required:
-
-#+BEGIN_SRC shell
-python bye_splits/production/matching.py
-#+END_SRC
-
-Finally, run the following, specifying the particle type:
+Run the following, specifying the particle type:
 
 #+BEGIN_SRC shell
-make
 ./produce.exe electrons
 #+END_SRC
 
+The above skims the input files, applying:
++ \Delta R matching between the generated particle and the clusters (currently works only for one generated particle, and throws an assertion error otherwise)
++ a trigger cell energy threshold cut
++ unconverted photon cut
++ positive endcap cut (reduces the amount of data processed by a factor of 2)
++ type conversion for =uproot= usage at later steps
+  
 **** Reconstruction Chain
 The chain is implemented in Python. I recommend creating a separate =conda= environment for running the code.
 
@@ -71,13 +71,13 @@ conda install -c bokeh bokeh
 
 Run ~conda activate <EnvName>~ to enter the environment and ~conda deactivate~ to exit it.
 
-You must start from the output of the skimming step above. To replicate the study of TC shifting run the following:
+To replicate the study of TC shifting run the following:
 
 #+BEGIN_SRC shell
 bash bye_splits/run_iterative_optimization.sh
 #+END_SRC
 
-where one can use the =-h= flag to visualize available options.
+where one can use the =-h= flag to visualize available options. To use the steps separately in your own script use the functions defined under =bye_splits/tasks/=, just as done in the ~iterative_optimization.py~ script.
 
 For plotting results as a function of the optimization trigger cell parameter:
 
@@ -90,19 +90,22 @@ The above will create =html= files with interactive outputs.
 *** Event Visualization
 The repository creates two web apps that can be visualized in a browser. The code is stored under =bye_splits/plot=.
 
+**** Setup
 Please install the following from within the =conda= environment you [[conda_install][should have already created]]:
 
 #+BEGIN_SRC shell
 conda install -c conda-forge pyarrow
 #if the above fails: python -m pip install pyarrow
+python3 -m pip install --upgrade pip setuptools #to avoid annoying "Setuptools is replacing distutils." warning
 #+END_SRC
 
-**** Visualization in a local browser
+**** Setup in local browser
 Since browser usage directly in the server will necessarily be slow, we can:
+***** 1)
+Use LLR's intranet at ~llruicms01.in2p3.fr:<port>/display~
 
-1) Use LLR's intranet at =http://llruicms01.in2p3.fr:<port>=
-
-2) Forward it to our local machines via =ssh=. To establish a connection between the local machine and the remote =llruicms01= server, passing by the gate, use:
+***** 2)
+Forward it to our local machines via =ssh=. To establish a connection between the local machine and the remote =llruicms01= server, passing by the gate, use:
 
 #+BEGIN_SRC shell
 ssh -L <port>:llruicms01.in2p3.fr:<port> -N <llr_username>@llrgate01.in2p3.fr
@@ -111,17 +114,17 @@ ssh -L <port>:llruicms01.in2p3.fr:<port> -N <llr_username>@llrgate01.in2p3.fr
 
 The two ports do not have to be the same, but it avoids possible confusion. Leave the terminal open and running (it will not produce any output).
 
+**** Visualization in local browser
+In a new terminal window go to the =llruicms01= mahcines and launch one of the apps, for instance:
 
-In a new terminal window go to =llruicms01= and launch one of the apps, for instance:
 
 #+BEGIN_SRC shell
-bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port> --allow-websocket-origin=llruicms01.in2p3.fr:<port>
-# if forwarding via ssh:  --allow-websocket-origin=localhost:<port>
+bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port>  --allow-websocket-origin=localhost:<port>
+# if visualizing directly at LLR: --allow-websocket-origin=llruicms01.in2p3.fr:<port>
 #+END_SRC
 
-
 This uses the server-creation capabilities of =bokeh=, a =python= package for interactive visualization ([[https://docs.bokeh.org/en/latest/index.html][docs]]). Note the port number must match. For further customisation of =bokeh serve= see [[https://docs.bokeh.org/en/latest/docs/reference/command/subcommands/serve.html][the serve documentation]].
-The above command should give access to the visualization under =http://localhost:8080/display=.
+The above command should give access to the visualization under =http://localhost:8080/display=. For debugging, just run =python bye_splits/plot/display/main.py=  and see that no errors are raised.
 
 **** Visualization with OpenShift OKD4
 
@@ -129,14 +132,18 @@ We use the [[https://docs.openshift.com/container-platform/3.11/creating_images/
 
 We will use S2I's simplest configuration possible under =app.sh=. The image is created alongside the packages specified in =requirements.txt=. The two latter definitions are documented [[https://github.com/kubesphere/s2i-python-container/blob/master/2.7/README.md#source-repository-layout][here]].
 
-We are currently running a pod at https://viz-hgcal-event-display.app.cern.ch/. The port being served by =bokeh= in =app.sh= must match the one the pod is listening to, specified at configuration time before deployment in the [[https://paas.cern.ch/][OpenShift management console]] at CERN. The [[https://paas.docs.cern.ch/5._Exposing_The_Application/2-network-visibility/][network visibility]] was also updated to allow access from outside the CERN network.
+We are currently running a pod at https://viz2-hgcal-event-display.app.cern.ch/. The port being served by =bokeh= in =app.sh= must match the one the pod is listening to, specified at configuration time before deployment in the [[https://paas.cern.ch/][OpenShift management console]] at CERN. The [[https://paas.docs.cern.ch/5._Exposing_The_Application/2-network-visibility/][network visibility]] was also updated to allow access from outside the CERN network.
 
 ***** Additional information
 + [[https://cloud.google.com/kubernetes-engine/docs/concepts/pod][What is a pod]]?
 + [[https://paas.docs.cern.ch/3._Storage/eos/][How to mount =/eos= at CERN so that it is accessible by a pod?]]
 
 
-
 *** Merging =plotly= and =bokeh= with =flask=
+**** Introduction
 Flask is a python micro web framework to simplify web development. It is considered "micro" because it’s lightweight and only provides essential components.
-Given that =plotly='s dashboard framework, =dash=, runs on top of =flask=, and that =bokeh= can produce html components programatically which can be embedded in a =flask= app, it should be possible to develop a =flask= web app mixing these two plotting packages. Having a common web framework, potentially extensible with additional packages, simplifies future integration.
+Given that =plotly='s dashboard framework, =dash=, runs on top of =flask=, and that =bokeh= can produce html components programatically (which can be embedded in a =flask= app), it should be possible to develop a =flask=-powered web app mixing these two plotting packages. Having a common web framework also simplifies future integration.
+**** Flask embedding
+The embedding of bokeh and plotly plots within flask is currently demonstrated in ~plot/join/app.py~. Two servers run: one from =flask= and the other from =bokeh=, so special care is required to ensure the browser where the app is being served listens to both ports. Listening to =flask='s port only will cause the html ~plot/join/templates/embed.html~ to be rendered without bokeh plots.
+***** Note
+Running a server is required when more advanced callbacks are needed. Currently only =bokeh= has a server of its own; =plotly= simply creates an html block with all the required information. If not-so-simple callbacks are required for =plotly= plots, another port will have to be listened to.

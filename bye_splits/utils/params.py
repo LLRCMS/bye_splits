@@ -40,7 +40,7 @@ base_kw = {
     'LayerEdges': [0,42],
     'IsHCAL': False,
 
-    'DataFolder': Path(DataFolder),
+    'DataFolder': Path(LocalDataFolder),
     'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
     'BasePath': "{}{}".format(base_dir, DataFolder),
     'OutPath': "{}out".format(base_dir),

@@ -1,9 +1,9 @@
-
 # coding: utf-8
 
 _all_ = [ ]
 
 import os
+import pathlib
 from pathlib import Path
 import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
@@ -13,36 +13,15 @@ from functools import partial
 import argparse
 import numpy as np
 import pandas as pd
-import uproot as up
-import awkward as ak
+pd.options.mode.chained_assignment = None # disable annoying SettingCopyWarning
+import yaml
+import logging
+log = logging.getLogger(__name__)
 
-#from bokeh.io import output_file, save
-#output_file('tmp.html')
 from bokeh.plotting import figure, curdoc
 from bokeh.util.hex import axial_to_cartesian
-from bokeh.models import (
-    Div,
-    Tabs,
-    BoxZoomTool,
-    Range1d,
-    ColumnDataSource,
-    HoverTool,
-    TextInput,
-    TabPanel,
-    Tabs,
-    Slider,
-    CustomJS,
-    CustomJSFilter,
-    CDSView,
-    WheelZoomTool,
-    BasicTicker,
-    ColorBar, 
-    LogColorMapper,
-    LogTicker,
-    LinearColorMapper,
-    BasicTicker,
-    PrintfTickFormatter,
-    )
+from bokeh import models as bmd
+from bokeh import events as bev
 from bokeh.palettes import viridis as _palette
 mypalette = _palette(50)
 from bokeh.layouts import layout
@@ -52,140 +31,114 @@ settings.ico_path = 'none'
 import utils
 from utils import params, common, parsing
 import data_handle
-from data_handle.data_handle import handle
-data_vars = {'ev': handle('event').variables,
-             'geom': handle('geom').variables,
-             }
-mode = 'geom'
+from data_handle.data_handle import EventDataParticle
+from data_handle.geometry import GeometryData
 
-def common_props(p, xlim=None, ylim=None):
+with open(params.viz_kw['CfgProdPath'], 'r') as afile:
+    cfg_prod = yaml.safe_load(afile)
+with open(params.viz_kw['CfgDataPath'], 'r') as afile:
+    cfg_data = yaml.safe_load(afile)
+
+data_part_opt = dict(tag='mytag', reprocess=False, debug=True, logger=log)
+data_particle = {
+    'photons': EventDataParticle(particles='photons', **data_part_opt),
+    'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
+geom_data = GeometryData(inname='test_triggergeom.root',
+                         reprocess=False, logger=log)
+mode = 'ev'
+
+def common_props(p):
     p.output_backend = 'svg'
     p.toolbar.logo = None
-    p.grid.visible = False
-    p.outline_line_color = None
-    p.xaxis.visible = False
-    p.yaxis.visible = False
-    if xlim is not None:
-        p.x_range = Range1d(xlim[0], xlim[1])
-    if ylim is not None:
-        p.y_range = Range1d(ylim[0], ylim[1])
-        
-def convert_cells_to_xy(df, avars):
-    c30, s30, t30 = np.sqrt(3)/2, 1/2, 1/np.sqrt(3)
-    d = 1.#1./c30
-    d4, d8 = d/4., d/8.
-    conversion = {
-        'UL': (lambda wu,wv,cv: 2*wu - wv + d4 * cv,
-               lambda wv,cu,cv: ((d/c30)+d*t30)*wv + d8/c30 * (2*(cu-1)-cv)),
-        'UR': (lambda wu,wv,cv: 2*wu - wv + d + d4 * (cv-4),
-               lambda wv,cu,cv: ((d/c30)+d*t30)*wv + t30*d + d8/c30 * (2*(cu-4)-(cv-4))),
-        'B':  (lambda wu,wv,cv: 2*wu - wv + d4 * cv,
-               lambda wv,cu,cv: ((d/c30)+d*t30)*wv + t30 * d4 * (2*cu-cv))
-    } #up-right, up-left and bottom
+    # p.grid.visible = False
+    # p.outline_line_color = None
+    # p.xaxis.visible = False
+    # p.yaxis.visible = False
 
-    masks = {'UL': (((df[avars['cu']]>=1) & (df[avars['cu']]<=4) & (df[avars['cv']]==0)) |
-                    ((df[avars['cu']]>=2) & (df[avars['cu']]<=5) & (df[avars['cv']]==1)) |
-                    ((df[avars['cu']]>=3) & (df[avars['cu']]<=6) & (df[avars['cv']]==2)) |
-                    ((df[avars['cu']]>=4) & (df[avars['cu']]<=7) & (df[avars['cv']]==3))),
-             'UR': (df[avars['cu']]>=4) & (df[avars['cu']]<=7) & (df[avars['cv']]>=4) & (df[avars['cv']]<=7),
-             'B':  (df[avars['cv']]>=df[avars['cu']]) & (df[avars['cu']]<=3),
-             }
-     
-    x0, x1, x2, x3 = ({} for _ in range(4))
-    y0, y1, y2, y3 = ({} for _ in range(4))
-    xaxis, yaxis = ({} for _ in range(2))
+def get_data(event, particles):
+    region = None
+    if mode == event:
+        assert region is None
+    ds_geom = geom_data.provide(region=region)
 
-    for key,val in masks.items():
-        x0.update({key: conversion[key][0](df[avars['wu']][masks[key]],
-                                           df[avars['wv']][masks[key]],
-                                           df[avars['cv']][masks[key]])})
-        x1.update({key: x0[key][:] + d4})
-        if key in ('UL', 'UR'):
-            x2.update({key: x1[key][:]})
-            x3.update({key: x0[key][:]})
-        else:
-            x2.update({key: x1[key][:] + d4})
-            x3.update({key: x1[key][:]})
-     
-        y0.update({key: conversion[key][1](df[avars['wv']][masks[key]],
-                                           df[avars['cu']][masks[key]],
-                                           df[avars['cv']][masks[key]])})
-        if key in ('UR', 'B'):
-            y1.update({key: y0[key][:] - t30*d4})
-        else:
-            y1.update({key: y0[key][:] + t30*d4})
-        if key in ('B'):
-            y2.update({key: y0[key][:]})
-        else:
-            y2.update({key: y1[key][:] + d4/c30})
-        if key in ('UL', 'UR'):
-            y3.update({key: y0[key][:] + d4/c30})
-        else:
-            y3.update({key: y0[key][:] + t30*d4})
+    if mode=='ev':
+        ds_ev = data_particle[particles].provide_event(event)
+        ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
+                              'good_tc_cellu':'triggercellu', 'good_tc_cellv':'triggercellv',
+                              'good_tc_layer':'layer'},
+                    inplace=True)
+        ds_ev = pd.merge(left=ds_ev, right=ds_geom, how='inner',
+                         on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
+        return {'ev': ds_ev, 'geom': ds_geom}
 
-        xaxis.update({key: pd.concat([x0[key],x1[key],x2[key],x3[key]], axis=1)})
-        yaxis.update({key: pd.concat([y0[key],y1[key],y2[key],y3[key]], axis=1)})
-        xaxis[key]['new'] = xaxis[key].values.tolist()
-        yaxis[key]['new'] = yaxis[key].values.tolist()
-        xaxis[key] = xaxis[key]['new']
-        yaxis[key] = yaxis[key]['new']
+    else:
+        return {'geom': ds_geom}
 
-    tc_polyg_x = pd.concat(xaxis.values())
-    tc_polyg_y = pd.concat(yaxis.values())
-    tc_polyg_x = tc_polyg_x.groupby(tc_polyg_x.index).agg(lambda k: [k])
-    tc_polyg_y = tc_polyg_y.groupby(tc_polyg_y.index).agg(lambda k: [k])
+if mode=='ev':
+    def_evs = cfg_data['defaultEvents']
+    def_ev_text = {}
+    for k in def_evs:
+        drop_text = [(str(q),str(q)) for q in def_evs[k]]
+        def_ev_text[k] = drop_text
 
-    res = pd.concat([tc_polyg_x, tc_polyg_y], axis=1)
-    res.columns = ['tc_polyg_x', 'tc_polyg_y']
-    df.rename(columns = {avars['l']: 'layer'}, inplace=True)
-    return df.join(res)
+elements, cds_data = ({} for _ in range(2))
+for k in (('photons', 'electrons') if mode=='ev' else ('Geometry',)):
+    evs = def_evs[k][0] if mode == 'ev' else ''
+    cds_data[k] = get_data(evs, k)[mode]
+    elements[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
+    if mode=='ev':
+        elements[k].update({'textinput': bmd.TextInput(placeholder=str(def_evs[k][0]), height=40,
+                                                       sizing_mode='stretch_width'),
+                            'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
+                                                    menu=def_ev_text[k], height=40)})
 
-def get_data(event, particle):
-    #event = 179855 if particle == 'photons' else 92004        
-    ds_ev = handle('event', particle).provide_event(event, True)
-    ds_ev = convert_cells_to_xy(ds_ev, data_vars['ev'])
-    ds_geom = handle('geom').provide(True)
-    ds_geom = convert_cells_to_xy(ds_geom, data_vars['geom'])
-    ds_geom = ds_geom[((ds_geom[geom_vars['wu']]==4) & (ds_geom[geom_vars['wv']]==4))]
-                       # (ds_geom[geom_vars['wu']]==5) & (ds_geom[geom_vars['wv']]==4) |
-                       # (ds_geom[geom_vars['wu']]==5) & (ds_geom[geom_vars['wv']]==5))]
-    return {'ev': ds_ev, 'geom': ds_geom}
+def range_callback(fig, source, xvar, yvar):
+    """18 (centimeters) makes sures entire modules are always within the area shown"""
+    fig.x_range.start = min(source.data[xvar]-18)
+    fig.x_range.end = max(source.data[xvar]+18)
+    fig.y_range.start = min(source.data[yvar]-18)
+    fig.y_range.end = max(source.data[yvar]+18)
 
-sources = {'photons'   : ColumnDataSource(data=get_data(179855, 'photons')[mode]),
-           'electrons' : ColumnDataSource(data=get_data(92004,  'electrons')[mode]),
-           }
-elements = {'photons'   : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
-            'electrons' : {'textinput': TextInput(title='Event', value='', sizing_mode='stretch_width')},
-            }
+def text_callback(attr, old, new, source, figs, particles):
+    print('text callback ', particles, new)
+    if not new.isdecimal():
+        print('Wrong format!')
+    else:
+        source.data = get_data(int(new), particles)[mode]
+    for fig in figs:
+        range_callback(fig, source, 'tc_x', 'tc_y')
 
-assert sources.keys() == elements.keys()
+def dropdown_callback(event, source, figs, particles):
+    print('dropdown callback', particles, int(event.__dict__['item']))
+    source.data = get_data(int(event.__dict__['item']), particles)[mode]
+    for fig in figs:
+        range_callback(fig, source, 'tc_x', 'tc_y')
 
 def display():
-    variables = data_vars[mode]
-    def text_callback(attr, old, new, source, particle):
-        print('running ', particle, new)
-        assert new.isdecimal()
-        source.data = get_data(new, particle)[mode]
-
     doc = curdoc()
-    doc.title = 'TC Visualization'
+    doc.title = 'HGCal Visualization'
     
-    width, height   = 1250, 1000
-    width2, height2 = 400, 300
+    width, height   = 600, 600
+    width2, height2 = 300, 200
     tabs = []
+
+    vev = cfg_data['varEvents']
     
-    for ksrc,vsrc in sources.items():
+    for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
+
         if mode == 'ev':
-            mapper = LinearColorMapper(palette=mypalette,
-                                       low=vsrc.data[variables['en']].min(), high=vsrc.data[variables['en']].min())
+            mapper_diams = bmd.LinearColorMapper(palette=mypalette,
+                                                 low=vsrc.data[vev['en']].min(), high=vsrc.data[vev['en']].max())
+            mapper_mods = bmd.LinearColorMapper(palette=mypalette,
+                                                low=vsrc.data[vev['en']].min(), high=vsrc.data[vev['en']].max())  #CHANGE!!!!!!
 
-        slider = Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
-                        value=vsrc.data['layer'].min(), step=2, title='Layer',
-                        bar_color='red', width=800, background='white')
-        slider_callback = CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
-        slider.js_on_change('value', slider_callback) #value_throttled
-
-        view = CDSView(filter=CustomJSFilter(args=dict(slider=slider), code="""
+        sld_opt = dict(bar_color='red', width=width, background='white')
+        sld_layers = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
+                                value=vsrc.data['layer'].min(), step=2, title='Layer', **sld_opt)
+        sld_layers_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
+        sld_layers.js_on_change('value', sld_layers_cb) #value_throttled
+        
+        filt_layers = bmd.CustomJSFilter(args=dict(slider=sld_layers), code="""
            var indices = new Array(source.get_length());
            var sval = slider.value;
     
@@ -194,58 +147,158 @@ def display():
                indices[i] = subset[i] == sval;
            }
            return indices;
-           """))
+           """)
+
+        if mode == 'ev':
+            sld_en = bmd.Slider(start=0, end=5, #cfg_prod['mipThreshold']
+                                value=cfg_prod['mipThreshold'], step=0.1,
+                                title='Energy threshold [mip]', **sld_opt)
+            sld_en_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
+            sld_en.js_on_change('value', sld_en_cb) #value_throttled
+
+            filt_en = bmd.CustomJSFilter(args=dict(slider=sld_en), code="""
+               var indices = new Array(source.get_length());
+               var sval = slider.value;
+        
+               const subset = source.data['good_tc_mipPt'];
+               for (var i=0; i < source.get_length(); i++) {
+                   indices[i] = subset[i] >= sval;
+               }
+               return indices;
+               """)
+
+        if mode == 'ev':
+            all_filters = filt_layers & filt_en
+        else:
+            all_filters = filt_layers
+
+        view_cells = bmd.CDSView(filter=all_filters)
+        # modules are duplicated for cells lying in the same wafer
+        # we want to avoid drawing the same module multiple times
+        view_modules = (~cds_data[ksrc].duplicated(subset=['layer', 'waferu', 'waferv'])).tolist()
+        #view_modules = bmd.CDSView(filter=filt_layers & bmd.BooleanFilter(view_modules))
+        view_modules = bmd.CDSView(filter=all_filters)
 
         ####### (u,v) plots ################################################################
         # p_uv = figure(width=width, height=height,
         #               tools='save,reset', toolbar_location='right')
-        # p_uv.add_tools(WheelZoomTool(),
-        #                BoxZoomTool(match_aspect=True))
+        # p_uv.add_tools(bmd.WheelZoomTool(),
+        #                bmd.BoxZoomTool(match_aspect=True))
         # common_props(p_uv, xlim=(-20,20), ylim=(-20,20))
         # p_uv.hex_tile(q=variables['tcwu'], r=variables['tcwv'], source=vsrc, view=view,
         #               size=1, fill_color='color', line_color='black', line_width=1, alpha=1.)    
-        # p_uv.add_tools(HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),]))
+        # p_uv.add_tools(bmd.HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),]))
 
-        ####### cell plots ################################################################
-        polyg_opt = dict(line_color='black', line_width=1)
-        lim = 22
-        p_cells = figure(width=width, height=height,
-                         x_range=Range1d(-lim, lim),
-                         y_range=Range1d(-lim, lim),
-                         tools='save,reset', toolbar_location='right',
-                         output_backend='webgl')
+        # find dataset minima and maxima
+        cur_xmax, cur_ymax = -1e9, -1e9
+        cur_xmin, cur_ymin = 1e9, 1e9
+
         if mode == 'ev':
-            hover_key = 'Energy (wu,wv,cu,cv)'
-            hover_val = '@'+variables['en'] + ' (@'+variables['wu']+',@'+variables['wv']+',@'+variables['cv']+',@'+variables['cv']+')'
+            zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt'])
         else:
-            hover_key = '(wu,wv,cu,cv)'
-            hover_val = '(@'+variables['wu']+',@'+variables['wv']+',@'+variables['cv']+',@'+variables['cv']+')'
+            zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
+        for elem in zip(*zip_obj):
+            if mode == 'ev' and elem[2] < cfg_prod['mipThreshold']: #cut replicates the default `view_en`
+                continue
+            if max(elem[0][0][0]) > cur_xmax: cur_xmax = max(elem[0][0][0])
+            if min(elem[0][0][0]) < cur_xmin: cur_xmin = min(elem[0][0][0])
+            if max(elem[1][0][0]) > cur_ymax: cur_ymax = max(elem[1][0][0])
+            if min(elem[1][0][0]) < cur_ymin: cur_ymin = min(elem[1][0][0])
+                    
+        # force matching ratio to avoid distortions
+        distx, disty = cur_xmax-cur_xmin, cur_ymax-cur_ymin
+        if distx > disty:
+            cur_ymax += abs(distx-disty)/2
+            cur_ymin = cur_ymax - distx
+        else:
+            cur_xmin -= abs(distx-disty)/2
+            cur_xmax = cur_xmin + disty
+        cur_xmax += (cur_xmax-cur_xmin)*0.05
+        cur_xmin -= (cur_xmax-cur_xmin)*0.05
+        cur_ymax += (cur_ymax-cur_ymin)*0.05
+        cur_ymin -= (cur_ymax-cur_ymin)*0.05
 
-        p_cells.add_tools(BoxZoomTool(match_aspect=True),
-                          WheelZoomTool(),
-                          HoverTool(tooltips=[(hover_key, hover_val),]))
-        common_props(p_cells, xlim=(-lim, lim), ylim=(-lim, lim))
-        p_cells_opt = dict(xs='tc_polyg_x', ys='tc_polyg_y',
-                           source=vsrc, view=view, **polyg_opt)
+        fig_opt = dict(width=width, height=height,
+                       x_axis_label='X [cm]', y_axis_label='Y [cm]',
+                       tools='save,reset,undo',
+                       toolbar_location='right', output_backend='webgl'
+                       )
+        p_diams = figure(
+            x_range=bmd.Range1d(cur_xmin, cur_xmax), y_range=bmd.Range1d(cur_ymin, cur_ymax),
+            **fig_opt)
+        p_mods = figure(
+            #x_range=p_diams.x_range, y_range=p_diams.y_range,
+            x_range=bmd.Range1d(-200, 200), y_range=bmd.Range1d(-200, 200),
+            **fig_opt)
+
+        if mode == 'ev':
+            hover_key_cells = 'Energy (cu,cv / wu,wv)'
+            hover_val_cells = '@good_tc_mipPt (@triggercellu,@triggercellv / @waferu,@waferv)'
+            hover_key_mods = 'Energy (wu,wv)'
+            hover_val_mods = '@good_tc_mipPt (@waferu,@waferv)'
+        else:
+            hover_key_cells = 'cu,cv / wu,wv'
+            hover_val_cells = '@triggercellu,@triggercellv / @waferu,@waferv'
+            hover_key_mods = 'wu,wv'
+            #hover_val_mods = '@waferu{custom},@waferv{custom}'
+            hover_val_mods = '@waferu,@waferv'
+
+        hover_code = """
+        var wcoord = special_vars.{};
+        return wcoord[0];
+        """
         
+        tool_list = (bmd.BoxZoomTool(match_aspect=True),)
+        p_diams.add_tools(bmd.HoverTool(tooltips=[(hover_key_cells, hover_val_cells),],), *tool_list)
+        # p_mods.add_tools(bmd.HoverTool(tooltips=[(hover_key_mods, hover_val_mods),],), *tool_list)
+        #                                # formatters={'@waferu': bmd.CustomJSHover(code=hover_code.format('waferu')),
+        #                                #             '@waferv': bmd.CustomJSHover(code=hover_code.format('waferv'))}
+
+        p_mods.add_tools(*tool_list)
+        common_props(p_diams)
+        common_props(p_mods)
+
+        polyg_opt = dict(line_color='black', line_width=2)
+        p_diams_opt = dict(xs='diamond_x', ys='diamond_y', source=vsrc, view=view_cells, **polyg_opt)
+        p_mods_opt = dict(xs='hex_x', ys='hex_y', source=vsrc, view=view_modules, **polyg_opt)
+        hover_opt = dict(hover_fill_color='black', hover_line_color='black', hover_line_width=4, hover_alpha=0.2)
+
         if mode == 'ev':
-            p_cells.multi_polygons(fill_color={'field': variables['en'], 'transform': mapper},
-                                   **p_cells_opt)
+            p_diams.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper_diams},
+                                   **hover_opt, **p_diams_opt)
+            p_mods.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper_mods}, #CHANGE WHEN MODULE SUMS ARE AVAILABLE
+                                   **hover_opt, **p_mods_opt)
+
         else:
-            p_cells.multi_polygons(color='green', **p_cells_opt)
+            p_diams.multi_polygons(color='green', **hover_opt, **p_diams_opt)
+            p_diams.circle(x='tc_x', y='tc_y', source=vsrc, view=view_cells, size=5, color='blue', legend_label='u,v conversion')
+            p_diams.circle(x='x', y='y', source=vsrc, view=view_cells, size=5, color='orange', legend_label='tc original')
+
+            p_mods.multi_polygons(color='green', **hover_opt, **p_mods_opt)
                         
         if mode == 'ev':
-            color_bar = ColorBar(color_mapper=mapper,
-                                ticker= BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
-                                formatter=PrintfTickFormatter(format="%d"))
-            p_cells.add_layout(color_bar, 'right')
+            cbar_opt = dict(ticker=bmd.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
+                            formatter=bmd.PrintfTickFormatter(format="%d"))
+            cbar_diams = bmd.ColorBar(color_mapper=mapper_diams, title='TC energy [mipPt]', **cbar_opt)
+            cbar_mods = bmd.ColorBar(color_mapper=mapper_mods, title='Module Sums [mipPt]', **cbar_opt)
+
+            p_diams.add_layout(cbar_diams, 'right')
+            p_mods.add_layout(cbar_mods, 'right')
+            # p_diams.x_range.callback = bmd.CustomJS(args=dict(xrange=myplot.x_range), code="""
+            # xrange.set({"start": 10, "end": 20})
+            # """)
+
+            elements[ksrc]['textinput'].on_change('value', partial(text_callback, source=vsrc,
+                                                                   figs=(p_diams, p_mods), particles=ksrc))           
+            elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, source=vsrc,
+                                                                           figs=(p_diams,p_mods), particles=ksrc))
 
         ####### (x,y) plots ################################################################
         # p_xy = figure(width=width, height=height,
         #             tools='save,reset', toolbar_location='right',
         #             output_backend='webgl')
-        # p_xy.add_tools(WheelZoomTool(), BoxZoomTool(match_aspect=True))
-        # p_xy.add_tools(HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),],))       
+        # p_xy.add_tools(bmd.WheelZoomTool(), bmd.BoxZoomTool(match_aspect=True))
+        # p_xy.add_tools(bmd.HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),],))       
         # common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
         # p_xy.rect(x=variables['tcwu'], y=variables['tcwv'], source=vsrc, view=view,
         #           width=1., height=1., width_units='data', height_units='data',
@@ -253,41 +306,52 @@ def display():
 
         # ####### x vs. z plots ################################################################
         # p_xVSz = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_xVSz.add_tools(BoxZoomTool(match_aspect=True))
+        # p_xVSz.add_tools(bmd.BoxZoomTool(match_aspect=True))
         # p_xVSz.scatter(x=variables['z'], y=variables['x'], source=vsrc)
         # common_props(p_xVSz)
         
         # ####### y vs. z plots ################################################################
         # p_yVSz = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_yVSz.add_tools(BoxZoomTool(match_aspect=True))
+        # p_yVSz.add_tools(bmd.BoxZoomTool(match_aspect=True))
         # p_yVSz.scatter(x=variables['z'], y=variables['y'], source=vsrc)
         # common_props(p_yVSz)
         
         # ####### y vs. x plots ################################################################
         # p_yVSx = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_yVSx.add_tools(BoxZoomTool(match_aspect=True))
+        # p_yVSx.add_tools(bmd.BoxZoomTool(match_aspect=True))
         # p_yVSx.scatter(x=variables['x'], y=variables['y'], source=vsrc)
         # common_props(p_yVSx)
         
-        ####### text input ###################################################################
-        elements[ksrc]['textinput'].on_change('value', partial(text_callback, particle=ksrc, source=vsrc))
-
         ####### define layout ################################################################
-        blank1 = Div(width=1000, height=100, text='')
-        blank2 = Div(width=70, height=100, text='')
+        blank1 = bmd.Div(width=1000, height=100, text='')
+        blank2 = bmd.Div(width=70, height=100, text='')
 
-        lay = layout([[elements[ksrc]['textinput'], blank2, slider],
-                      #[p_cells, p_uv, p_xy],
-                      #[p_xVSz, p_yVSz, p_yVSx],
-                      [p_cells],
-                      [blank1],
-                      ])
-        tab = TabPanel(child=lay, title=ksrc)
+        if mode == 'ev':
+            first_row = [elements[ksrc]['dropdown'], elements[ksrc]['textinput']]
+            lay = layout([first_row,
+                        sld_layers,
+                        sld_en,
+                        #[p_diams, p_uv, p_xy],
+                        #[p_xVSz, p_yVSz, p_yVSx],
+                        [p_diams, p_mods],
+                        [blank1],
+                        ])
+        else:
+            first_row = [sld_layers]            
+            lay = layout([first_row,
+                          #[p_diams, p_uv, p_xy],
+                          #[p_xVSz, p_yVSz, p_yVSx],
+                          [p_diams, p_mods],
+                          [blank1],
+                        ])
+            
+        tab = bmd.TabPanel(child=lay, title=ksrc)
         tabs.append(tab)
         # end for loop
 
-    doc.add_root(Tabs(tabs=tabs))
+    doc.add_root(bmd.Tabs(tabs=tabs))
     
 parser = argparse.ArgumentParser(description='')
 FLAGS = parser.parse_args()
+logging.basicConfig()
 display()
