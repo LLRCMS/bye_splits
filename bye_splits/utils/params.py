@@ -19,6 +19,23 @@ MaxPhi = +np.pi
 LocalDataFolder = 'data/new_algos'
 EOSDataFolder = '/eos/user/b/bfontana/FPGAs/new_algos/'
 
+disconnectedTriggerLayers = [
+    2,
+    4,
+    6,
+    8,
+    10,
+    12,
+    14,
+    16,
+    18,
+    20,
+    22,
+    24,
+    26,
+    28
+]
+
 viz_kw = {
     'DataPath': Path(EOSDataFolder),
     'OutPath': Path(EOSDataFolder),
@@ -41,7 +58,7 @@ base_kw = {
     'IsHCAL': False,
 
     'DataFolder': Path(LocalDataFolder),
-    'FesAlgos': ['ThresholdDummyHistomaxnoareath20'],
+    'FesAlgo': 'ThresholdDummyHistomaxnoareath20',
     'BasePath': Path(__file__).parents[2] / LocalDataFolder,
     'OutPath': Path(__file__).parents[2] / 'out',
 
@@ -52,11 +69,6 @@ def set_dictionary(adict):
     adict.update(base_kw)
     return adict
     
-if len(base_kw['FesAlgos'])!=1:
-    raise ValueError('The event number in the cluster task'
-                     ' assumes there is only on algo.\n'
-                     'The script must be adapted.')
-
 # fill task
 fill_kw = set_dictionary(
     {'FillIn'      : 'summ_photon_truncation',
@@ -64,20 +76,6 @@ fill_kw = set_dictionary(
      'FillOutComp' : 'fill_comp',
      'FillOutPlot' : 'fill_plot' }
      )
-
-# optimization task
-opt_kw = set_dictionary(
-    { 'Epochs': 99999,
-      'KernelSize': 10,
-      'WindowSize': 3,
-      'OptIn': 'triggergeom_condensed',
-      'OptEnResOut': 'opt_enres',
-      'OptPosResOut': 'opt_posres',
-      'OptCSVOut': 'stats',
-      'FillOutPlot': fill_kw['FillOutPlot'],
-      'Pretrained': False,
-    }
-)
 
 # smooth task
 smooth_kw = set_dictionary(
@@ -124,19 +122,16 @@ validation_kw = set_dictionary(
       'FillOut': fill_kw['FillOut'] }
 )
 
-disconnectedTriggerLayers = [
-    2,
-    4,
-    6,
-    8,
-    10,
-    12,
-    14,
-    16,
-    18,
-    20,
-    22,
-    24,
-    26,
-    28
-]
+# optimization task
+opt_kw = set_dictionary(
+    { 'Epochs': 99999,
+      'KernelSize': 10,
+      'WindowSize': 3,
+      'OptIn': 'triggergeom_condensed',
+      'OptEnResOut': 'opt_enres',
+      'OptPosResOut': 'opt_posres',
+      'OptCSVOut': 'stats',
+      'FillOutPlot': fill_kw['FillOutPlot'],
+      'Pretrained': False,
+    }
+)

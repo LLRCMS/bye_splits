@@ -38,8 +38,7 @@ def fill_path(base_path, ext='hdf5', **kw):
         if s in kw:
             base_path += '_' + prefix + '_' + str(kw[s]).replace('.','p')
 
-    strings = {'ipar'          : 'PAR',
-               'sel'           : 'SEL',
+    strings = {'sel'           : 'SEL',
                'reg'           : 'REG',
                'seed_window'   : 'SW',
                'smooth_kernel' : 'SK',
@@ -111,18 +110,3 @@ def print_histogram(arr):
             else:
                 print('X', end='|')
         print()
-
-def tc_base_selection(df, region, pos_endcap, range_rz):
-    if pos_endcap:
-        df = df[ df.zside == 1 ] #only look at positive endcap
-        df = df.drop(['zside'], axis=1)
-
-    df['R'] = np.sqrt(df.x*df.x + df.y*df.y)
-    df['Rz'] = df.R / abs(df.z)
-
-    #the following cut removes almost no event at all
-    df = df[ ((df['Rz'] < range_rz[1]) &
-              (df['Rz'] > range_rz[0])) ]
-
-    df, subdetCond = get_detector_region_mask(df, region)
-    return df, subdetCond

@@ -70,23 +70,13 @@ This framework relies on photon-, electron- and pion-gun samples produced via CR
 The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users and under =/eos/user/b/bfontana/FPGAs/new_algos/=, accessible to all lxplus and LLR users. The latter is used since it is well interfaced with CERN services.
 
 *** Reconstruction Chain
-The chain is implemented in Python.
-To replicate the study of TC shifting run the following:
+The reconstruction chain is implemented in Python. To run it:
 
 #+BEGIN_SRC shell
-bash bye_splits/run_iterative_optimization.sh
+python bye_splits/run_chain.py
 #+END_SRC
 
-where one can use the =-h= flag to visualize available options. To use the steps separately in your own script use the functions defined under =bye_splits/tasks/=, just as done in the ~iterative_optimization.py~ script.
-
-For plotting results as a function of the optimization trigger cell parameter:
-
-#+BEGIN_SRC shell
-python plot/meta_algorithm.py
-#+END_SRC
-
-The above will create =html= files with interactive outputs.
-
+where =-h/--help= can be used to inspect all options. You can adapt the above to your needs, exploiting the separate tasks defined under =bye_splits/tasks/=. A plotting step for validation is included.
 
 *** Event Visualization
 The repository creates two web apps that can be visualized in a browser. The code is stored under =bye_splits/plot=.
@@ -117,7 +107,6 @@ The two ports do not have to be the same, but it avoids possible confusion. Leav
 
 **** Visualization in local browser
 In a new terminal window go to the =llruicms01= mahcines and launch one of the apps, for instance:
-
 
 #+BEGIN_SRC shell
 bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port>  --allow-websocket-origin=localhost:<port>

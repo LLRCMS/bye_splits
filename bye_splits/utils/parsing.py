@@ -7,13 +7,11 @@ import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
-def add_parameters(parser, meta=False):
-    if not meta:
-        parser.add_argument('--ipar', help='iterative algorithm tunable parameter',
-                            default=0.5, type=float)
-    parser.add_argument('--sel', default='splits_only', type=str,
+def add_parameters(parser):
+    parser.add_argument('--sel', default='all', type=str,
                         help='Selection used to select cluster under study.')
-    parser.add_argument('--reg', choices=('Si', 'ECAL', 'HCAL', 'MaxShower', 'ExcludeMaxShower'),
+    parser.add_argument('--reg',
+                        choices=('Si', 'ECAL', 'HCAL', 'MaxShower', 'ExcludeMaxShower'),
                         default='Si', type=str,
                         help='Z region in the detector for the trigger cell geometry.')
     seed_help = ( 'Size of the window used for seeding in the phi ' +
