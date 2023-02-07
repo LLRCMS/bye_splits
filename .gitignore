@@ -1,0 +1,30 @@
+# Ignore VS Code files
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+# Directories
+*__pychache__/
+yaml-cpp-yaml-cpp-0.7.0/
+data/
+out/
+
+# Exec etc files
+*.exe
+*.DS_Store
+*.pyc
+*.o
+*.d
+conda_byesplits.sh
+
+# Test scripts
+dict_testing.py
