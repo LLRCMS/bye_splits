@@ -15,7 +15,7 @@ import re
 import numpy as np
 import pandas as pd
 import h5py
-import itertools
+import uproot as up
 
 def cluster(pars, **kw):
     inclusteringseeds = common.fill_path(kw['ClusterInSeeds'], **pars)
@@ -158,21 +158,17 @@ def cluster(pars, **kw):
                 dfout.event = dfout.event.astype(int)
                 coef = 'coef_'+str(kw['CoeffA'][0]).replace('.','p')
                 outenergy = common.fill_path(kw['EnergyOut'], **pars)
-                genlev = 'data/'+kw['File']+'.hdf5'
 
-                # THIS MUST BE CHECKED (with __ as ___ is throwing an error)
-                EnOut = pd.HDFStore(outenergy, mode='a')
-                GenFile = pd.HDFStore(genlev, mode='r')
+                with pd.HDFStore(outenergy, mode='a') as EnOut, up.open(kw['File']) as GenFile:
+                    gen_df = GenFile[kw['FesAlgos'][0]]
 
-                en_df = dfout.join(GenFile[kw['FesAlgos'][0]], on='event', how='inner')
+                    en_df = dfout.join(gen_df, on='event', how='inner')
 
-                sub_df = en_df[['event','etanew','phinew','en','genpart_exphi','genpart_exeta','genpart_energy', 'Ncells']].drop_duplicates()
+                    sub_df = en_df[['event','etanew','phinew','en','genpart_exphi','genpart_exeta','genpart_energy', 'Ncells']].drop_duplicates()
 
-                EnOut.put(coef,sub_df)
-                EnOut.close()
+                    EnOut[coef] = sub_df
 
-            print('[clustering step with param={}] There were {} events without seeds.'
-                  .format(pars['ipar'], empty_seeds))
+            print('[clustering step with param={}] There were {} events without seeds.'.format(pars['ipar'], empty_seeds))
 
     outclustering = common.fill_path(kw['ClusterOutPlot'], **pars)
     with pd.HDFStore(outclustering, mode='w') as sout:

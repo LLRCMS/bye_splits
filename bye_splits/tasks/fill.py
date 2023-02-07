@@ -14,6 +14,7 @@ import random; random.seed(18)
 import numpy as np
 import pandas as pd
 import h5py
+import uproot as up
 
 def fill(pars, nevents, tc_map, debug=False, **kwargs):
     """
@@ -21,15 +22,23 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
     """
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
     for fe in kwargs['FesAlgos']:
-        infill = common.fill_path(kwargs['FillIn'])
+        infill = common.fill_path(kwargs['FillIn'], ext='root')
         simAlgoFiles[fe] = [ infill ]
 
     for fe,files in simAlgoFiles.items():
         name = fe
         dfs = []
         for afile in files:
-            with pd.HDFStore(afile, mode='r') as store:
-                dfs.append(store[name])
+            if str(afile).endswith('.hdf5'):
+                with pd.HDFStore(afile, mode='r') as store:
+                    dfs.append(store[name])
+            elif str(afile).endswith('.root'):
+                with up.open(afile) as store:
+                    tree = store[name]
+                    branches = tree.keys()
+                    gen, tc = tree.arrays(branches, library='pd')
+                    df = gen.reset_index(level=1).drop('subentry',axis=1).join(tc.drop('event', axis=1))
+                    dfs.append(df)
         simAlgoDFs[fe] = pd.concat(dfs)
 
     simAlgoNames = sorted(simAlgoDFs.keys())
@@ -47,8 +56,6 @@ def fill(pars, nevents, tc_map, debug=False, **kwargs):
 
         for i,fe in enumerate(kwargs['FesAlgos']):
             df = simAlgoDFs[fe]
-
-
 
             if not pars['sel'].startswith('below_eta_'):
                 df = df[ (df['genpart_exeta']>1.7) & (df['genpart_exeta']<2.8) ]
