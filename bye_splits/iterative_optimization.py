@@ -12,7 +12,7 @@ import tasks
 import utils
 from utils import params, common, parsing
 
-from plot.trigger_cells_occupancy import plot_trigger_cells_occupancy
+#from plot.trigger_cells_occupancy import plot_trigger_cells_occupancy
 
 import csv
 import argparse

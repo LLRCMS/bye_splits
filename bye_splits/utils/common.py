@@ -22,7 +22,7 @@ from ordered_set import OrderedSet
 from progress.bar import IncrementalBar
 
 import re
-from copy import deepcopy
+from copy import copy, deepcopy
 
 def binConv(vals, dist, amin):
     """
@@ -149,83 +149,69 @@ def transform(nested_list):
             regular_list.append([ele])
     return regular_list
 
-def create_algo_trees(template_dict):
-    algo_trees = {}
-    for fe in params.base_kw['FesAlgos']:
-        inner_trees = {}
-        for key, val in template_dict.items():
-            inner_trees[key] = val.format(fe=fe)
-        algo_trees[fe] = inner_trees
-    return algo_trees
+class FileDict:
+    def __init__(self, pars, file):
+        self.pars = pars
+        self.file = file
+        self.init_pars = {'opt': copy(pars.opt_kw),
+                          'fill': copy(pars.fill_kw),
+                          'smooth': copy(pars.smooth_kw),
+                          'seed': copy(pars.seed_kw),
+                          'cluster': copy(pars.cluster_kw),
+                          'validation': copy(pars.validation_kw),
+                          'energy': copy(pars.energy_kw)}
+        self.addit = os.path.basename(self.file).replace(".root", "")
+        self.file_addit = lambda x: f"{x}_{self.addit}"
 
-def create_fill_names(files,trees):
-    output_file_names = {}
-    for key in files.keys():
-        if isinstance(files[key], str):
-            files[key] = [files[key]]
-        output_file_names[key] = ['gen_cl3d_tc_{}_{}_with_pt'.format(params.base_kw['FesAlgos'][0],re.split('.root|/',file)[-2]) for file in files[key]]
-    return output_file_names
+    def get_opt_pars(self):
+        opt_kw = deepcopy(self.init_pars['opt'])
+        opt_kw['InFile'] = f"{self.file}.hdf5"
+        for key in opt_kw.keys():
+            if key != 'InFile' and key not in params.base_kw:
+                opt_kw[key] = self.file_addit(self.pars.opt_kw[key])
+        return opt_kw
 
-def dict_per_file(pars,file):
-    # This will need to be changed eventually
-    addit = re.split('gen_cl3d_tc_|_ThresholdDummy',file)[1]
+    def get_fill_pars(self):
+        fill_kw = deepcopy(self.init_pars['fill'])
+        fill_kw['FillIn'] = self.file.replace('.root', '')
+        for key in fill_kw.keys():
+            if key != 'FillIn' and key not in params.base_kw:
+                fill_kw[key] = self.file_addit(self.pars.fill_kw[key])
+        return fill_kw
 
-    file_pars = {'opt': deepcopy(pars.opt_kw),
-                 'fill': deepcopy(pars.fill_kw),
-                 'smooth': deepcopy(pars.smooth_kw),
-                 'seed': deepcopy(pars.seed_kw),
-                 'cluster': deepcopy(pars.cluster_kw),
-                 'validation': deepcopy(pars.validation_kw),
-                 'energy': deepcopy(pars.energy_kw)}
+    def get_smooth_pars(self):
+        smooth_kw = deepcopy(self.init_pars['smooth'])
+        for key in smooth_kw.keys():
+            smooth_kw[key] = self.file_addit(self.pars.smooth_kw[key])
+        return smooth_kw
 
-    # Optimization pars
-    file_pars['opt']['InFile'] = '{}.hdf5'.format(file)
-    file_pars['opt']['OptIn'] = '{}_{}'.format(pars.opt_kw['OptIn'],addit)
-    file_pars['opt']['OptEnResOut'] = '{}_{}'.format(pars.opt_kw['OptEnResOut'],addit)
-    file_pars['opt']['OptPosResOut'] = '{}_{}'.format(pars.opt_kw['OptPosResOut'],addit)
-    file_pars['opt']['OptCSVOut'] = '{}_{}'.format(pars.opt_kw['OptCSVOut'],addit)
-    pars.set_dictionary(file_pars['opt'])
+    def get_seed_pars(self):
+        seed_kw = deepcopy(self.init_pars['seed'])
+        for key in seed_kw.keys():
+            seed_kw[key] = self.file_addit(self.pars.seed_kw[key])
+        return seed_kw
+    
+    def get_cluster_pars(self):
+        cluster_kw = deepcopy(self.init_pars['cluster'])
+        cluster_kw['File'] = self.file
+        for key in cluster_kw.keys():
+            if key != 'File' and key not in params.base_kw:
+                cluster_kw[key] = self.file_addit(self.pars.cluster_kw[key])
+        return cluster_kw
 
-    # Fill pars
-    file_pars['fill']['FillIn'] = file
-    file_pars['fill']['FillOutPlot'] = '{}_{}'.format(pars.fill_kw['FillOutPlot'],addit)
-    file_pars['fill']['FillOutComp'] = '{}_{}'.format(pars.fill_kw['FillOutComp'],addit)
-    file_pars['fill']['FillOut'] = '{}_{}'.format(pars.fill_kw['FillOut'],addit)
-    pars.set_dictionary(file_pars['fill'])
+    def get_validation_pars(self):
+        validation_kw = deepcopy(self.init_pars['validation'])
+        for key in validation_kw.keys():
+            validation_kw[key] = self.file_addit(self.pars.validation_kw[key])
+        return validation_kw
 
-    # Smooth pars
-    file_pars['smooth']['SmoothIn'] = '{}_{}'.format(pars.fill_kw['FillOut'],addit)
-    file_pars['smooth']['SmoothOut'] = '{}_{}'.format(pars.smooth_kw['SmoothOut'],addit)
-    pars.set_dictionary(file_pars['smooth'])
-
-    # Seed pars
-    file_pars['seed']['SeedIn'] = '{}_{}'.format(pars.smooth_kw['SmoothOut'],addit)
-    file_pars['seed']['SeedOut'] = '{}_{}'.format(pars.seed_kw['SeedOut'],addit)
-    pars.set_dictionary(file_pars['seed'])
-
-    # Cluster pars
-    file_pars['cluster']['ClusterInTC'] = '{}_{}'.format(pars.fill_kw['FillOut'],addit)
-    file_pars['cluster']['ClusterInSeeds'] = '{}_{}'.format(pars.seed_kw['SeedOut'],addit)
-    file_pars['cluster']['ClusterOutPlot'] = '{}_{}'.format(pars.cluster_kw['ClusterOutPlot'],addit)
-    file_pars['cluster']['ClusterOutValidation'] = '{}_{}'.format(pars.cluster_kw['ClusterOutValidation'],addit)
-    file_pars['cluster']['EnergyOut'] = '{}_{}'.format(pars.cluster_kw['EnergyOut'],addit)
-    file_pars['cluster']['GenPart'] = '{}_{}'.format(file,addit)
-    file_pars['cluster']['File'] = file
-    pars.set_dictionary(file_pars['cluster'])
-
-    # Validation pars
-    file_pars['validation']['ClusterOutValidation'] = '{}_{}'.format(pars.cluster_kw['ClusterOutValidation'],addit)
-    file_pars['validation']['FillOutComp'] = '{}_{}'.format(pars.fill_kw['FillOutComp'],addit)
-    file_pars['validation']['FillOut'] = '{}_{}'.format(pars.fill_kw['FillOut'],addit)
-    pars.set_dictionary(file_pars['validation'])
-
-    # Energy pars
-    file_pars['energy']['ClusterIn'] = '{}_{}'.format(pars.cluster_kw['ClusterOutValidation'],addit)
-    file_pars['energy']['EnergyIn'] = '{}_{}'.format(pars.cluster_kw['EnergyOut'],addit)
-    file_pars['energy']['EnergyOut'] = '{}_{}'.format(pars.energy_kw['EnergyOut'],addit)
-    file_pars['energy']['File'] = file
-
-    return file_pars
+    def get_energy_pars(self):
+        energy_kw = deepcopy(self.init_pars['energy'])
+        energy_kw['File'] = self.file
+        for key in energy_kw.keys():
+            if key != 'File' and key not in params.base_kw:
+                energy_kw[key] = self.file_addit(self.pars.energy_kw[key])
+        return energy_kw
 
 def point_to_root_file(sample_list, dict):
     # Initialize paths
