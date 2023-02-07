@@ -14,6 +14,7 @@
 
 # Directories
 *__pychache__/
+*.deps/
 yaml-cpp-yaml-cpp-0.7.0/
 data/
 out/
