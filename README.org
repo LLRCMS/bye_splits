@@ -4,20 +4,20 @@
 
 This repository reproduces the CMS HGCAL L1 Stage2 reconstruction chain in Python for quick testing. It can generate an event visualization app. It was originally used for understanding and fixing the observed cluster splitting.
 
-*** Installation & Setup
-**** Data production
-This framework relies on photon-, electron- and pion-gun samples produced via CRAB. The most up to date versions are currently stored under:
+*** Installation
+#+BEGIN_SRC shell
+# setup conda environment
+create -n <EnvName> python=3 pandas uproot pytables h5py
+conda activate <EnvName>
 
-| Photons PU(0)   | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoublePhoton_FlatPt-1To100/GammaGun_Pt1_100_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221025_153226/0000/~        |
-| Electrons (PU0) | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoubleElectron_FlatPt-1To100/ElectronGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_102633/0000/~ |
-| Pions (PU0)     | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/SinglePion_PT0to200/SinglePion_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_103211/0000~              |
-| Photons (PU200) | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoublePhoton_FlatPt-1To100/GammaGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_143035/0000/~ |
-| Electrons (PU200) | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoubleElectron_FlatPt-1To100/ElectronGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_102633/0000/~ |
+# setup a ssh key if not yet done and clone the repository
+git clone git@github.com:bfonta/bye_splits.git
+# enforce git hooks locally (required for development)
+git config core.hooksPath .githooks
+#+END_SRC
 
-The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/= and =/data_CMS/cms/ehle/L1HGCAL/= for PU0 and PU200 respectively. Both cases are accessible to LLR users and the PU0 are also under =/eos/user/b/bfontana/FPGAs/new_algos/=, accessible to all lxplus and LLR users. The latter is preferred for PU0 since it is well interfaced with CERN services.
 
-If you wish to merge your own files you can do so using ~/bye_splits/production/generate_hadd.sh~ by replacing the variables ~$photon_base_path~ and ~$electron_base_path~ with the directories containing the root files you wish to merge.
-
+*** Data production
 **** Skimming: install =yaml-cpp= dependency
 To make the size of the files more manageable, a skimming step was implemented in =C++=. It depends on the =yaml-cpp= package ([[https://github.com/jbeder/yaml-cpp][source]],  [[https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.7.0][release used]]: version =0.7.0=). The instructions on the =README= page of the project are a bit cryptic. Below follows a step-by-step guide:
 
@@ -60,17 +60,17 @@ The above skims the input files, applying:
 + positive endcap cut (reduces the amount of data processed by a factor of 2)
 + type conversion for =uproot= usage at later steps
   
-**** Reconstruction Chain
-The chain is implemented in Python. I recommend creating a separate =conda= environment for running the code.
+**** Data sources
+This framework relies on photon-, electron- and pion-gun samples produced via CRAB. The most up to date versions are currently stored under:
 
-#+NAME:conda_install
-#+BEGIN_SRC shell
-create -n <EnvName> python=3.9 pandas uproot pytables h5py
-conda install -c bokeh bokeh
-#+END_SRC
+| Photons PU(0)   | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoublePhoton_FlatPt-1To100/GammaGun_Pt1_100_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221025_153226/0000/~        |
+| Electrons (PU0) | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoubleElectron_FlatPt-1To100/ElectronGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_102633/0000/~ |
+| Pions (PU0)     | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/SinglePion_PT0to200/SinglePion_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_103211/0000~              |
 
-Run ~conda activate <EnvName>~ to enter the environment and ~conda deactivate~ to exit it.
+The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users and under =/eos/user/b/bfontana/FPGAs/new_algos/=, accessible to all lxplus and LLR users. The latter is used since it is well interfaced with CERN services.
 
+*** Reconstruction Chain
+The chain is implemented in Python.
 To replicate the study of TC shifting run the following:
 
 #+BEGIN_SRC shell
@@ -86,6 +86,7 @@ python plot/meta_algorithm.py
 #+END_SRC
 
 The above will create =html= files with interactive outputs.
+
 
 *** Event Visualization
 The repository creates two web apps that can be visualized in a browser. The code is stored under =bye_splits/plot=.
