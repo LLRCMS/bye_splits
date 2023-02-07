@@ -52,8 +52,7 @@ class GeometryData(BaseData):
 
     def filter_columns(self, d):
         """Filter some columns to reduce memory usage"""
-        #cols_to_remove = ['x', 'y', 'z', 'color']
-        cols_to_remove = ['z', 'color']
+        cols_to_remove = ['x', 'y', 'color']
         cols = [x for x in d.fields if x not in cols_to_remove]
         return d[cols]
 
@@ -115,7 +114,7 @@ class GeometryData(BaseData):
 
     def prepare_for_display(self, df, library='bokeh'):
         """Prepares dataframe to be displayed by certain libraries."""
-        libraries = ('bokeh', )
+        libraries = ('bokeh','plotly',  )
         assert library in libraries
         
         df['wafer_shift_x'] = (-2*df[self.wu] + df[self.wv])*(self.waferWidth+self.sensorSeparation)/2
@@ -212,20 +211,25 @@ class GeometryData(BaseData):
             xaxis.update({
                 kloc: pd.concat([x0[kloc],x1[kloc],x2[kloc],x3[kloc]],
                                    axis=1, keys=keys)})
-            yaxis.update(
-                {kloc: pd.concat([y0[kloc],y1[kloc],y2[kloc],y3[kloc]],
+            yaxis.update({
+                kloc: pd.concat([y0[kloc],y1[kloc],y2[kloc],y3[kloc]],
                                     axis=1, keys=keys)})
             
-            xaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
-                                     for sublst in xaxis[kloc].values.tolist()]
-            yaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
-                                     for sublst in yaxis[kloc].values.tolist()]
+            if library == 'bokeh':
+                xaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
+                                         for sublst in xaxis[kloc].values.tolist()]
+                yaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
+                                         for sublst in yaxis[kloc].values.tolist()]
+            else:
+                xaxis[kloc]['new'] = xaxis[kloc].round(3)[keys].values.tolist()
+                yaxis[kloc]['new'] = yaxis[kloc].round(3)[keys].values.tolist()
+
             xaxis[kloc] = xaxis[kloc].drop(keys, axis=1)
             yaxis[kloc] = yaxis[kloc].drop(keys, axis=1)
 
         df['diamond_x'] = pd.concat(xaxis.values())
         df['diamond_y'] = pd.concat(yaxis.values())
-            
+         
         # define module corners' coordinates
         xcorners_str = ['corner1x','corner2x','corner3x','corner4x','corner5x','corner6x']
         assert len(xcorners_str) == len(xcorners)
@@ -237,13 +241,15 @@ class GeometryData(BaseData):
             df[ycorners_str[i]] = df.wafer_shift_y + ycorners[i]
 
         df['hex_x'] = df[xcorners_str].values.tolist()
-        df['hex_x'] = df['hex_x'].map(lambda x: [[x]])
         df['hex_y'] = df[ycorners_str].values.tolist()
-        df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
+        if library == 'bokeh':
+            df['hex_x'] = df['hex_x'].map(lambda x: [[x]])
+            df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
+        
         df = df.drop(xcorners_str + ycorners_str + ['tc_x_center', 'tc_y_center'], axis=1)
         return df
 
-    def provide(self, region=None):
+    def provide(self, library, region=None):
         """Provides a processed geometry dataframe to the client."""
         if not os.path.exists(self.outpath) or self.reprocess:
             if self.logger is not None:
@@ -257,7 +263,7 @@ class GeometryData(BaseData):
             ds = self.filter_columns(ds)
             ds = ak.to_dataframe(ds)
             ds = self.region_selection(ds, region)
-            self.dataset = self.prepare_for_display(ds)
+            self.dataset = self.prepare_for_display(ds, library)
         
         return self.dataset
 

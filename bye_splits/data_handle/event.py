@@ -10,6 +10,7 @@ sys.path.insert(0, parent_dir)
 
 import yaml
 import uproot as up
+import numpy as np
 import pandas as pd
 import awkward as ak
 
@@ -27,6 +28,7 @@ class EventData(BaseData):
         self.cache = None
         self.events = default_events
         self.cache_events(self.events)
+        self.event_numbers = self.get_event_numbers()
 
     def cache_events(self, events):
         """Read dataset from parquet to cache"""
@@ -50,6 +52,11 @@ class EventData(BaseData):
             self.cache = pd.concat([self.cache, ds], axis=0)
         #self.cache = self.cache.persist() only for dask dataframes
 
+    def get_event_numbers(self):
+        """Read event numbers from parquet file"""
+        ds = ak.from_parquet(self.outpath)
+        return ds.event
+
     def provide(self):
         print('Providing event {} data...'.format(self.tag))
         if not os.path.exists(self.outpath):
@@ -65,6 +72,9 @@ class EventData(BaseData):
         ret = ret.apply(pd.Series.explode).reset_index(drop=True)
         return ret
     
+    def provide_event_numbers(self):
+        return np.random.choice(self.event_numbers)
+
     def select(self):
         adir = 'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple'
         atree = 'HGCalTriggerNtuple'

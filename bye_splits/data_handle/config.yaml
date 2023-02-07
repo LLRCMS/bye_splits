@@ -1,6 +1,7 @@
 defaultEvents:
     photons: [4681, 4677]
     electrons: [92243, 92244]
+    pions: [5613]
 
 geometry:
     waferSize: 16.64408
@@ -14,6 +15,7 @@ varEvents:
     cv: 'good_tc_cellu'
     cu: 'good_tc_cellv'
     en: 'good_tc_mipPt'
+    cluster: 'good_tc_cluster_id'
 
 varGeometry:
     wu: 'waferu'
