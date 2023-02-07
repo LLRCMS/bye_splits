@@ -21,7 +21,7 @@ MaxPhi = +np.pi
 PileUp = "PU0"
 local = False
 if local:   
-    base_dir = "/grid_mnt/vol_home/llr/cms/ehle/git/bye_splits_final/"
+    base_dir = "/grid_mnt/vol_home/llr/cms/ehle/Repos/bye_splits_final/"
 else:
     base_dir = "/eos/user/i/iehle/"
 DataFolder = 'data/{}'.format(PileUp)
