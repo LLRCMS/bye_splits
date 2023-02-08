@@ -25,6 +25,7 @@ out/
 *.pyc
 *.o
 *.d
+settings.json
 conda_byesplits.sh
 
 # Test scripts
