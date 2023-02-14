@@ -4,3 +4,6 @@
 /bye_splits/plot/        @mchiusi
 /bye_splits/production/  @mchiusi
 /bye_splits/utils/       @mchiusi
+
+/bye_splits/production/ @isehle
+/bye_splits/tasks/ @isehle
