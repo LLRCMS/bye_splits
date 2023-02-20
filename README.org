@@ -148,3 +148,13 @@ Given that =plotly='s dashboard framework, =dash=, runs on top of =flask=, and t
 The embedding of bokeh and plotly plots within flask is currently demonstrated in ~plot/join/app.py~. Two servers run: one from =flask= and the other from =bokeh=, so special care is required to ensure the browser where the app is being served listens to both ports. Listening to =flask='s port only will cause the html ~plot/join/templates/embed.html~ to be rendered without bokeh plots.
 ***** Note
 Running a server is required when more advanced callbacks are needed. Currently only =bokeh= has a server of its own; =plotly= simply creates an html block with all the required information. If not-so-simple callbacks are required for =plotly= plots, another port will have to be listened to.
+
+*** Producing =tikz= standalone pictures
+For the purpose of illustration, =tikz= standalone script have been included under ~docs/tikz/~. To run them (taking ~docs/tikz/flowchart.tex~ as an example):
+
+#+BEGIN_SRC shell
+cd docs/tikz/
+pdflatex -shell-escape flowchart.tex
+#+END_SRC
+
+The above should produce the ~flowchart.svg~ file. The code depends on ~latex~ and ~pdf2svg~.
