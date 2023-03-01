@@ -144,4 +144,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Clustering standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    cluster(vars(FLAGS), **params.cluster_kw)
+
+    cluster_d = params.read_task_params('cluster')
+    cluster(vars(FLAGS), **cluster_d)

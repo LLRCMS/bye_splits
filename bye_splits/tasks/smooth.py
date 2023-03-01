@@ -133,7 +133,7 @@ def smooth(pars, **kw):
         for key in keys:
             en_opts = dict(nbinsRz=kw['NbinsRz'], nbinsPhi=kw['NbinsPhi'], fillWith=0.)
             xy_opts = dict(nbinsRz=kw['NbinsRz'], nbinsPhi=kw['NbinsPhi'],
-                           fillWith=kw['Placeholder'])
+                           fillWith=np.nan)
             energies = createHisto(sin[key][:,[0,1,2]], **en_opts)
             wght_x   = createHisto(sin[key][:,[0,1,3]], **xy_opts)
             wght_y   = createHisto(sin[key][:,[0,1,4]], **xy_opts)
@@ -161,4 +161,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Smoothing standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    smooth(vars(FLAGS), **params.smooth_kw)
+
+    smooth_d = params.read_task_params('smooth')
+    smooth(vars(FLAGS), **smooth_d)

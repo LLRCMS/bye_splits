@@ -9,6 +9,7 @@ sys.path.insert(0, parent_dir)
 
 import bye_splits
 from bye_splits.utils import common
+from bye_splits.data_handle import data_handle
 
 import random; random.seed(18)
 import numpy as np
@@ -26,7 +27,7 @@ def fill(pars, df_gen, df_cl, df_tc, **kw):
     outfillcomp = common.fill_path(kw['FillOutComp'], **pars)
     with pd.HDFStore(outfillplot, mode='w') as store, pd.HDFStore(outfillcomp, mode='w') as storeComp:
 
-        df1 = df1[(df1.gen_eta>1.7) & (df1.gen_eta<2.8)]
+        df1 = df1[(df1.gen_eta>kw['EtaMin']) & (df1.gen_eta<kw['EtaMax'])]
         assert(df1[df1.cl3d_eta<0].shape[0] == 0)
         
         with common.SupressSettingWithCopyWarning():
@@ -48,15 +49,16 @@ def fill(pars, df_gen, df_cl, df_tc, **kw):
             # all of its clusters are kept (this eases comparison with CMSSW)
             evgrp = df1.groupby(['event'], sort=False)
             multiplicity = evgrp.size()
-            bad_res = (evgrp.apply(lambda grp: np.any(grp['enres'] < -0.35))).values
+            bad_res = (evgrp.apply(lambda grp: np.any(grp['enres'] < kw['EnResSplits']))).values
             bad_res_mask = np.repeat(bad_res, multiplicity.values)
             df1 = df1[bad_res_mask]
   
         elif pars['sel'] == 'no_splits':
-            df1 = df1[(df1.gen_eta > 2.) & (df1.gen_eta < 2.6)]
+            df1 = df1[(df1.gen_eta > kw['EtaMinStrict']) &
+                      (df1.gen_eta < kw['EtaMaxStrict'])]
             evgrp = df1.groupby(['event'], sort=False)
             multiplicity = evgrp.size()
-            good_res = (evgrp.apply(lambda grp: np.all(grp['enres'] > -0.2))).values
+            good_res = (evgrp.apply(lambda grp: np.all(grp['enres'] > kw['EnResNoSplits']))).values
             good_res_mask = np.repeat(good_res, multiplicity.values)
             df1 = df1[good_res_mask]
 
@@ -76,8 +78,13 @@ def fill(pars, df_gen, df_cl, df_tc, **kw):
         df_tc['Rz'] = df_tc.R / abs(df_tc.tc_z)
         
         # pandas 'cut' returns np.nan when value lies outside the binning
-        df_tc['Rz_bin'] = pd.cut(df_tc.Rz, bins=kw['RzBinEdges'], labels=False)
-        df_tc['tc_phi_bin'] = pd.cut(df_tc.tc_phi, bins=kw['PhiBinEdges'], labels=False)
+        
+        rzedges = np.linspace(kw['MinROverZ'], kw['MaxROverZ'],
+                              num=kw['NbinsRz']+1)
+        phiedges = np.linspace(kw['MinPhi'], kw['MaxPhi'],
+                               num=kw['NbinsPhi']+1)
+        df_tc['Rz_bin'] = pd.cut(df_tc.Rz, bins=rzedges, labels=False)
+        df_tc['tc_phi_bin'] = pd.cut(df_tc.tc_phi, bins=phiedges, labels=False)
         nansel = (pd.isna(df_tc.Rz_bin)) & (pd.isna(df_tc.tc_phi_bin))
         df_tc = df_tc[~nansel]
   
@@ -166,8 +173,7 @@ if __name__ == "__main__":
     FLAGS = parser.parse_args()
     assert (FLAGS.sel in ('splits_only', 'no_splits', 'all') or
             FLAGS.sel.startswith('above_eta_'))
-    
-    events = [4681, 4776, 4752, 4781, 4772, 4773, 4802,
-              4804, 4801, 4829, 4818, 4803, 4828]
-    df_gen, df_cl, df_tc = get_data_reco_chain_start(events=events)
-    fill(vars(FLAGS), df_gen, df_cl, df_tc, **params.fill_kw)
+
+    df_gen, df_cl, df_tc = data_handle.get_data_reco_chain_start(nevents=100)
+    fill_d = params.read_task_params('fill')
+    fill(vars(FLAGS), df_gen, df_cl, df_tc, **fill_d)

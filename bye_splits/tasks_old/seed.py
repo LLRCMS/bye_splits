@@ -105,8 +105,8 @@ def seed(pars, debug=False, **kwargs):
                 # Note: the first check avoids an error when an event has no seeds
                 if res[0].shape[0]!=0 and np.isnan(res[1])[0] and np.isnan(res[2])[0]:
                     if pars['smooth_kernel'] != 'flat_top':
-                        mes = 'Seeds with {} values should appear only with flat_top smoothing.'
-                        raise ValueError(mes.format(kwargs['Placeholder']))
+                        mes = 'Seeds with NaN values should appear only with flat_top smoothing.'
+                        raise ValueError(mes)
                     elif len(res[1]) > 1:
                         mes = 'Only one cluster is expected in this scenario.'
                         raise ValueError(mes)

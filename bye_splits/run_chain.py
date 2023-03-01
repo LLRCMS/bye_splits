@@ -28,25 +28,30 @@ def run_chain(pars):
     print('There are {} events in the input.'.format(df_gen.shape[0]))
 
     if not pars.no_fill:
-        tasks.fill.fill(pars, df_gen, df_cl, df_tc, **params.fill_kw)
+        fill_d = params.read_task_params('fill')
+        tasks.fill.fill(pars, df_gen, df_cl, df_tc, **fill_d)
         
     if not pars.no_smooth:
-        tasks.smooth.smooth(pars, **params.smooth_kw)
+        smooth_d = params.read_task_params('smooth')
+        tasks.smooth.smooth(pars, **smooth_d)
             
     if not pars.no_seed:
-        tasks.seed.seed(pars, **params.seed_kw)
+        seed_d = params.read_task_params('seed')
+        tasks.seed.seed(pars, **seed_d)
 
     nparameters = 1
     for _ in range(nparameters): # clustering optimization studies
         if not pars.no_cluster:
-            nevents_end = tasks.cluster.cluster(pars, **params.cluster_kw)
+            cluster_d = params.read_task_params('cluster')
+            nevents_end = tasks.cluster.cluster(pars, **cluster_d)
             print('There are {} events in the output.'.format(nevents_end))
 
         if not pars.no_validation:
             # compare CMSSW with local reconstruction
-            tasks.validation.validation(pars, **params.validation_kw)
+            valid_d = params.read_task_params('valid')
+            tasks.validation.validation(pars, **valid_d)
         
-            stats_out = tasks.validation.stats_collector(pars, mode='resolution', **params.validation_kw)
+            stats_out = tasks.validation.stats_collector(pars, mode='resolution', **valid_d)
             if df_out is not None:
                 df_out = stats_out
             else:

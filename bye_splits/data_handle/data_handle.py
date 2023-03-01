@@ -54,10 +54,10 @@ class EventDataParticle:
         assert particles in ('photons', 'electrons', 'pions')
         self.particles = particles
         self.tag = self.particles + '_' + tag
-        with open(params.viz_kw['CfgDataPath'], 'r') as afile:
+        with open(params.CfgPaths['data'], 'r') as afile:
             self.config = yaml.safe_load(afile)
 
-        with open(params.viz_kw['CfgProdPath'], 'r') as afile:
+        with open(params.CfgPaths['prod'], 'r') as afile:
             cfgprod = yaml.safe_load(afile)
 
         # suffix = 'skim_TEST_RECO_CHAIN' + ('_small' if debug else '')

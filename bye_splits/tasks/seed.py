@@ -14,7 +14,7 @@ import re
 import numpy as np
 import h5py
 
-def validation(mipPts, event, infile, outfile, nbinsRz, nbinsPhi):
+def validation(mipPts, event, infile, outfile, nbinsrz, nbinsphi):
     """Compares all values of 2d histogram between local and CMSSW versions."""
     with open(infile, 'w') as flocal, open(outfile, 'r') as fremote:
         lines = fremote.readlines()
@@ -30,8 +30,8 @@ def validation(mipPts, event, infile, outfile, nbinsRz, nbinsPhi):
             if abs(val_remote-val_local)>0.0001:
                 print('Diff found! Bin1={}\t Bin2={}\tRemote={}\tLocal={}'.format(bin1, bin2, val_remote, val_local))
                 
-        for bin1 in range(nbinsRz):
-            for bin2 in range(nbinsPhi):
+        for bin1 in range(nbinsrz):
+            for bin2 in range(nbinsphi):
                 flocal.write('{}\t{}\t{}\n'.format(bin1, bin2, np.around(mipPts[bin1,bin2], 6)))
             
 def seed(pars, debug=False, **kw):
@@ -82,8 +82,8 @@ def seed(pars, debug=False, **kw):
             # Note: the first check avoids an error when an event has no seeds
             if res[0].shape[0]!=0 and np.isnan(res[1])[0] and np.isnan(res[2])[0]:
                 if pars['smooth_kernel'] != 'flat_top':
-                    mes = 'Seeds with {} values should appear only with flat_top smoothing.'
-                    raise ValueError(mes.format(kw['Placeholder']))
+                    mes = 'Seeds with NaN values should appear only with flat_top smoothing.'
+                    raise ValueError(mes)
                 elif len(res[1]) > 1:
                     mes = 'Only one cluster is expected in this scenario.'
                     raise ValueError(mes)
@@ -113,4 +113,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Seeding standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    seed(vars(FLAGS), **params.seed_kw)
+
+    seed_d = params.read_task_params('seed')
+    seed(vars(FLAGS), **seed_d)

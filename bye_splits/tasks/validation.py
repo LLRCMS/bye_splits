@@ -211,3 +211,15 @@ def stats_collector(pars, mode='resolution', debug=True, **kw):
                                 'cmsswrat2': locrat2})
 
         return ret
+
+if __name__ == "__main__":
+    import argparse
+    from bye_splits.utils import params, parsing
+
+    parser = argparse.ArgumentParser(description='Validation standalone step.')
+    parsing.add_parameters(parser)
+    FLAGS = parser.parse_args()
+
+    valid_d = params.read_task_params('valid')
+    validation(vars(FLAGS), **valid_d)
+    stats_collector(vars(FLAGS), mode='resolution', **valid_d)

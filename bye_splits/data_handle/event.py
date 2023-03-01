@@ -23,7 +23,7 @@ class EventData(BaseData):
                  reprocess=False, logger=None, is_tc=True, set_default_events=False):
         super().__init__(inname, tag, reprocess, logger, is_tc)
 
-        with open(params.viz_kw['CfgDataPath'], 'r') as afile:
+        with open(params.CfgPaths['data'], 'r') as afile:
             self.var = yaml.safe_load(afile)['varEvents']
 
         self.cache = None

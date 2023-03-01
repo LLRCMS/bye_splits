@@ -139,7 +139,7 @@ def smooth(pars, **kwargs):
             for kold,knew in zip(keys_old,keys_new):
                 en_opts = dict(nbinsRz=kwargs['NbinsRz'], nbinsPhi=kwargs['NbinsPhi'], fillWith=0.)
                 xy_opts = dict(nbinsRz=kwargs['NbinsRz'], nbinsPhi=kwargs['NbinsPhi'],
-                               fillWith=kwargs['Placeholder'])
+                               fillWith=np.nan)
                 energies_old = createHistogram(storeIn[kold][:,[0,1,2]], **en_opts)
                 energies_new = createHistogram(storeIn[knew][:,[0,1,2]], **en_opts)
                 wght_x_old   = createHistogram(storeIn[kold][:,[0,1,3]], **xy_opts)

@@ -66,14 +66,14 @@ def plot_trigger_cells_occupancy(pars,
 
     SHIFTH, SHIFTV = 3*binDistPhi, binDistRz
 
-    tcDataPath = Path(kw['BasePath']) / 'test_triggergeom.root'
+    tcDataPath = os.path.join(params.LocalStorage, 'test_triggergeom.root')
     tcFile = up.open(tcDataPath)
 
     tcFolder = 'hgcaltriggergeomtester'
     tcTreeName = 'TreeTriggerCells'
     tcTree = tcFile[ os.path.join(tcFolder, tcTreeName) ]
 
-    simDataPath = Path(kw['BasePath']) / 'summ_photon_truncation.hdf5'
+    simDataPath = os.path.join(params.LocalStorage, 'summ_photon_truncation.hdf5')
     simAlgoDFs, simAlgoFiles, simAlgoPlots = ({} for _ in range(3))
 
     for fe in kw['FesAlgos']:
