@@ -34,9 +34,9 @@ import data_handle
 from data_handle.data_handle import EventDataParticle
 from data_handle.geometry import GeometryData
 
-with open(params.viz_kw['CfgProdPath'], 'r') as afile:
+with open(params.CfgPaths['prod'], 'r') as afile:
     cfg_prod = yaml.safe_load(afile)
-with open(params.viz_kw['CfgDataPath'], 'r') as afile:
+with open(params.CfgPaths['data'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
 data_part_opt = dict(tag='mytag', reprocess=True, debug=True, logger=log)
