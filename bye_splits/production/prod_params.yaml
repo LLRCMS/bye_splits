@@ -1,6 +1,9 @@
 io:
-    dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+    dir: hgcalTriggerNtuplizer
     tree: HGCalTriggerNtuple
+    photons: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG_Thresh0.root
+    electrons: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG.root
+    pions: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG.root
 
 selection:
     disconnectedTriggerLayers: [2,4,6,8,10,12,14,16,18,20,22,24,26,28]
@@ -8,5 +11,5 @@ selection:
     deltarThreshold: 0.05
     mipThreshold: 0.5
 
-###    dir: hgcalTriggerNtuplizer
-###    tree: HGCalTriggerNtuple
+# dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+# tree: HGCalTriggerNtuple

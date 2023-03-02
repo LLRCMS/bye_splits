@@ -34,15 +34,16 @@ import data_handle
 from data_handle.data_handle import EventDataParticle
 from data_handle.geometry import GeometryData
 
-with open(params.viz_kw['CfgProdPath'], 'r') as afile:
+with open(params.CfgPaths['prod'], 'r') as afile:
     cfg_prod = yaml.safe_load(afile)
-with open(params.viz_kw['CfgDataPath'], 'r') as afile:
+with open(params.CfgPaths['data'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
-data_part_opt = dict(tag='mytag', reprocess=False, debug=True, logger=log)
+data_part_opt = dict(tag='mytag', reprocess=True, debug=True, logger=log)
 data_particle = {
     'photons': EventDataParticle(particles='photons', **data_part_opt),
-    'electrons': EventDataParticle(particles='electrons', **data_part_opt)}
+    #'electrons': EventDataParticle(particles='electrons', **data_part_opt)
+}
 geom_data = GeometryData(inname='test_triggergeom.root',
                          reprocess=False, logger=log)
 mode = 'ev'
@@ -62,13 +63,23 @@ def get_data(event, particles):
     ds_geom = geom_data.provide(region=region)
 
     if mode=='ev':
+        tc_keep = {'good_tc_waferu'     : 'waferu',
+                   'good_tc_waferv'     : 'waferv',
+                   'good_tc_cellu'      : 'triggercellu',
+                   'good_tc_cellv'      : 'triggercellv',
+                   'good_tc_layer'      : 'layer',
+                   'good_tc_pt'         : 'tc_pt',
+                   'good_tc_mipPt'      : 'tc_mipPt',
+                   'good_tc_cluster_id' : 'tc_cluster_id'}
+
         ds_ev = data_particle[particles].provide_event(event)
-        ds_ev.rename(columns={'good_tc_waferu':'waferu', 'good_tc_waferv':'waferv',
-                              'good_tc_cellu':'triggercellu', 'good_tc_cellv':'triggercellv',
-                              'good_tc_layer':'layer'},
-                    inplace=True)
+        ds_ev = ds_ev['tc']
+        ds_ev = ds_ev.rename(columns=tc_keep)
+        ds_ev = ds_ev[tc_keep.values()]
+
         ds_ev = pd.merge(left=ds_ev, right=ds_geom, how='inner',
-                         on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
+                         on=['layer', 'waferu', 'waferv',
+                             'triggercellu', 'triggercellv'])
         return {'ev': ds_ev, 'geom': ds_geom}
 
     else:
@@ -82,7 +93,7 @@ if mode=='ev':
         def_ev_text[k] = drop_text
 
 elements, cds_data = ({} for _ in range(2))
-for k in (('photons', 'electrons') if mode=='ev' else ('Geometry',)):
+for k in (data_particle.keys() if mode=='ev' else ('Geometry',)):
     evs = def_evs[k][0] if mode == 'ev' else ''
     cds_data[k] = get_data(evs, k)[mode]
     elements[k] = {'source': bmd.ColumnDataSource(data=cds_data[k])}
@@ -122,19 +133,21 @@ def display():
     width2, height2 = 300, 200
     tabs = []
 
-    vev = cfg_data['varEvents']
+    ven, vl = 'tc_mipPt', 'layer'
     
     for ksrc,vsrc in [(k,v['source']) for k,v in elements.items()]:
 
         if mode == 'ev':
             mapper_diams = bmd.LinearColorMapper(palette=mypalette,
-                                                 low=vsrc.data[vev['en']].min(), high=vsrc.data[vev['en']].max())
+                                                 low=vsrc.data[ven].min(),
+                                                 high=vsrc.data[ven].max())
             mapper_mods = bmd.LinearColorMapper(palette=mypalette,
-                                                low=vsrc.data[vev['en']].min(), high=vsrc.data[vev['en']].max())  #CHANGE!!!!!!
+                                                low=vsrc.data[ven].min(),
+                                                high=vsrc.data[ven].max())  #CHANGE!!!!!!
 
         sld_opt = dict(bar_color='red', width=width, background='white')
-        sld_layers = bmd.Slider(start=vsrc.data['layer'].min(), end=vsrc.data['layer'].max(),
-                                value=vsrc.data['layer'].min(), step=2, title='Layer', **sld_opt)
+        sld_layers = bmd.Slider(start=vsrc.data[vl].min(), end=vsrc.data[vl].max(),
+                                value=vsrc.data[vl].min(), step=2, title='Layer', **sld_opt)
         sld_layers_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
         sld_layers.js_on_change('value', sld_layers_cb) #value_throttled
         
@@ -150,8 +163,8 @@ def display():
            """)
 
         if mode == 'ev':
-            sld_en = bmd.Slider(start=0, end=5, #cfg_prod['mipThreshold']
-                                value=cfg_prod['mipThreshold'], step=0.1,
+            sld_en = bmd.Slider(start=0, end=5, step=0.1,
+                                value=cfg_prod['selection']['mipThreshold'], 
                                 title='Energy threshold [mip]', **sld_opt)
             sld_en_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
             sld_en.js_on_change('value', sld_en_cb) #value_throttled
@@ -160,7 +173,7 @@ def display():
                var indices = new Array(source.get_length());
                var sval = slider.value;
         
-               const subset = source.data['good_tc_mipPt'];
+               const subset = source.data['tc_mipPt'];
                for (var i=0; i < source.get_length(); i++) {
                    indices[i] = subset[i] >= sval;
                }
@@ -175,7 +188,7 @@ def display():
         view_cells = bmd.CDSView(filter=all_filters)
         # modules are duplicated for cells lying in the same wafer
         # we want to avoid drawing the same module multiple times
-        view_modules = (~cds_data[ksrc].duplicated(subset=['layer', 'waferu', 'waferv'])).tolist()
+        view_modules = (~cds_data[ksrc].duplicated(subset=[vl, 'waferu', 'waferv'])).tolist()
         #view_modules = bmd.CDSView(filter=filt_layers & bmd.BooleanFilter(view_modules))
         view_modules = bmd.CDSView(filter=all_filters)
 
@@ -194,11 +207,12 @@ def display():
         cur_xmin, cur_ymin = 1e9, 1e9
 
         if mode == 'ev':
-            zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data['good_tc_mipPt'])
+            zobj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'],vsrc.data[ven])
         else:
-            zip_obj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
-        for elem in zip(*zip_obj):
-            if mode == 'ev' and elem[2] < cfg_prod['mipThreshold']: #cut replicates the default `view_en`
+            zobj = (vsrc.data['diamond_x'],vsrc.data['diamond_y'])
+        for elem in zip(*zobj):
+            # cut replicates the default `view_en`
+            if mode == 'ev' and elem[2] < cfg_prod['selection']['mipThreshold']:
                 continue
             if max(elem[0][0][0]) > cur_xmax: cur_xmax = max(elem[0][0][0])
             if min(elem[0][0][0]) < cur_xmin: cur_xmin = min(elem[0][0][0])
@@ -233,9 +247,9 @@ def display():
 
         if mode == 'ev':
             hover_key_cells = 'Energy (cu,cv / wu,wv)'
-            hover_val_cells = '@good_tc_mipPt (@triggercellu,@triggercellv / @waferu,@waferv)'
+            hover_val_cells = '@{} (@triggercellu,@triggercellv / @waferu,@waferv)'.format(ven)
             hover_key_mods = 'Energy (wu,wv)'
-            hover_val_mods = '@good_tc_mipPt (@waferu,@waferv)'
+            hover_val_mods = '@{} (@waferu,@waferv)'.format(ven)
         else:
             hover_key_cells = 'cu,cv / wu,wv'
             hover_val_cells = '@triggercellu,@triggercellv / @waferu,@waferv'
@@ -264,9 +278,9 @@ def display():
         hover_opt = dict(hover_fill_color='black', hover_line_color='black', hover_line_width=4, hover_alpha=0.2)
 
         if mode == 'ev':
-            p_diams.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper_diams},
+            p_diams.multi_polygons(fill_color={'field': ven, 'transform': mapper_diams},
                                    **hover_opt, **p_diams_opt)
-            p_mods.multi_polygons(fill_color={'field': 'good_tc_mipPt', 'transform': mapper_mods}, #CHANGE WHEN MODULE SUMS ARE AVAILABLE
+            p_mods.multi_polygons(fill_color={'field': ven, 'transform': mapper_mods}, #CHANGE WHEN MODULE SUMS ARE AVAILABLE
                                    **hover_opt, **p_mods_opt)
 
         else:

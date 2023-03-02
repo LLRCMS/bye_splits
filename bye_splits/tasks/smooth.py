@@ -107,7 +107,7 @@ def smoothAlongPhi(arr, kernel,
 
     return arr_new * areaPerTriggerCell
 
-def createHistogram(bins, nbinsRz, nbinsPhi, fillWith):
+def createHisto(bins, nbinsRz, nbinsPhi, fillWith):
     """
     Creates a 2D histogram with fixed (R/z vs Phi) size.
     The input event must be a 2D array where the inner axis encodes, in order:
@@ -124,71 +124,35 @@ def createHistogram(bins, nbinsRz, nbinsPhi, fillWith):
 
     return arr
 
-# Event by event smooth
-def smooth(pars, **kwargs):
-    insmooth = common.fill_path(kwargs['SmoothIn'], **pars)
-    outsmooth = common.fill_path(kwargs['SmoothOut'], **pars)
-    with h5py.File(insmooth,  mode='r') as storeIn, h5py.File(outsmooth, mode='w') as storeOut :
+def smooth(pars, **kw):
+    """Event by event smoothing backedn stage2 step."""
+    insmooth = common.fill_path(kw['SmoothIn'], **pars)
+    outsmooth = common.fill_path(kw['SmoothOut'], **pars)
+    with h5py.File(insmooth,  mode='r') as sin, h5py.File(outsmooth, mode='w') as sout:
+        keys = [x for x in sin.keys() if '_group' in x]
+        for key in keys:
+            en_opts = dict(nbinsRz=kw['NbinsRz'], nbinsPhi=kw['NbinsPhi'], fillWith=0.)
+            xy_opts = dict(nbinsRz=kw['NbinsRz'], nbinsPhi=kw['NbinsPhi'],
+                           fillWith=np.nan)
+            energies = createHisto(sin[key][:,[0,1,2]], **en_opts)
+            wght_x   = createHisto(sin[key][:,[0,1,3]], **xy_opts)
+            wght_y   = createHisto(sin[key][:,[0,1,4]], **xy_opts)
 
-        for falgo in kwargs['FesAlgos']:
-            keys_old = [x for x in storeIn.keys()
-                        if falgo in x and '_group_old' in x]
-            keys_new = [x for x in storeIn.keys()
-                        if falgo in x and '_group_new' in x]
-            
-            for kold,knew in zip(keys_old,keys_new):
-                en_opts = dict(nbinsRz=kwargs['NbinsRz'], nbinsPhi=kwargs['NbinsPhi'], fillWith=0.)
-                xy_opts = dict(nbinsRz=kwargs['NbinsRz'], nbinsPhi=kwargs['NbinsPhi'],
-                               fillWith=kwargs['Placeholder'])
-                energies_old = createHistogram(storeIn[kold][:,[0,1,2]], **en_opts)
-                energies_new = createHistogram(storeIn[knew][:,[0,1,2]], **en_opts)
-                wght_x_old   = createHistogram(storeIn[kold][:,[0,1,3]], **xy_opts)
-                wght_y_old   = createHistogram(storeIn[kold][:,[0,1,4]], **xy_opts)
-                wght_x_new   = createHistogram(storeIn[knew][:,[0,1,3]], **xy_opts)
-                wght_y_new   = createHistogram(storeIn[knew][:,[0,1,4]], **xy_opts)
+            phi_opt = dict(binSums=kw['BinSums'],
+                           nbinsRz=kw['NbinsRz'],
+                           nbinsPhi=kw['NbinsPhi'],
+                           seedsNormByArea=kw['SeedsNormByArea'],
+                           minROverZ=kw['MinROverZ'],
+                           maxROverZ=kw['MaxROverZ'],
+                           areaPerTriggerCell=kw['AreaPerTriggerCell'])
 
-                phi_opt = dict(binSums=kwargs['BinSums'],
-                               nbinsRz=kwargs['NbinsRz'],
-                               nbinsPhi=kwargs['NbinsPhi'],
-                               seedsNormByArea=kwargs['SeedsNormByArea'],
-                               minROverZ=kwargs['MinROverZ'],
-                               maxROverZ=kwargs['MaxROverZ'],
-                               areaPerTriggerCell=kwargs['AreaPerTriggerCell'])
-                energies_old = smoothAlongPhi(
-                    arr=energies_old,
-                    kernel=pars['smooth_kernel'],
-                    **phi_opt
-                    )
-                energies_new = smoothAlongPhi(
-                    arr=energies_new,
-                    kernel=pars['smooth_kernel'],
-                    **phi_opt,
-                    )
-            
-                rz_opt = (kwargs['NbinsRz'], kwargs['NbinsPhi'])
-                energies_old = smoothAlongRz(
-                    energies_old,
-                    *rz_opt,
-                )
-                energies_new = smoothAlongRz(
-                    energies_new,
-                    *rz_opt,
-                    )
-         
-                #printHistogram(ev)
-                # 'wght_x_new', 'wght_y_new'
-                cols_old = [ 'energies_old', 'wght_x_old', 'wght_y_old' ] 
-                cols_new = [ 'energies_new', 'wght_x_new', 'wght_y_new' ] 
+            energies = smoothAlongPhi(arr=energies, kernel=pars['smooth_kernel'], **phi_opt)
+            energies = smoothAlongRz(energies, kw['NbinsRz'], kw['NbinsPhi'])
 
-                storeOut[kold] = (energies_old, wght_x_old, wght_y_old )
-                storeOut[knew] = (energies_new, wght_x_new, wght_y_new )
-                
-                storeOut[kold].attrs['columns'] = cols_old
-                storeOut[knew].attrs['columns'] = cols_new                
-                doc_m = 'Energies (post-smooth) and projected bin positions'
-                doc_message = doc_m
-                storeOut[kold].attrs['doc'] = doc_message
-                storeOut[knew].attrs['doc'] = doc_message
+            out = {'energies': energies, 'wght_x': wght_x, 'wght_y': wght_y}
+            sout[key] = list(out.values())
+            sout[key].attrs['columns'] = list(out.keys())
+            sout[key].attrs['doc'] = 'Energies (post-smooth) and projected bin positions'
 
 if __name__ == "__main__":
     import argparse
@@ -197,4 +161,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Smoothing standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
-    smooth(vars(FLAGS), **params.smooth_kw)
+
+    smooth_d = params.read_task_params('smooth')
+    smooth(vars(FLAGS), **smooth_d)
