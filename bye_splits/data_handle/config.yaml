@@ -25,7 +25,7 @@ varEvents:
     z: 'good_tc_z'
     phi: 'good_tc_phi'
     eta: 'good_tc_eta'
-    id: 'good_tc_cluster_id'
+    idcl: 'good_tc_cluster_id'
     pt: 'good_tc_pt'
     en: 'good_tc_mipPt'
   # tsum:

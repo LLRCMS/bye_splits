@@ -31,8 +31,8 @@ def get_data_reco_chain_start(nevents=500, reprocess=False):
                'good_tc_cluster_id': 'tc_cluster_id'}
 
     ds_tc = ds_all['tc']
-    ds_tc = ds_tc.rename(columns=tc_keep)
     ds_tc = ds_tc[tc_keep.values()]
+    ds_tc = ds_tc.rename(columns=tc_keep)
 
     gen_keep = {'event': 'event',
                 'good_genpart_exeta': 'gen_eta', 'good_genpart_exphi': 'gen_phi', 
