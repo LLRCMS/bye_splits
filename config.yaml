@@ -2,7 +2,10 @@ io:
   dirphotons: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
   treephotons: HGCalTriggerNtuple
   filephotons: /eos/user/b/bfontana/FPGAs/new_algos/skim_with_pt_ntuple_1.root #skim_photons_0PU_bc_stc_hadd.root
-  direlectrons: hgcalTriggerNtuplizer
+  dirphotons_PU: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple #hgcalTriggerNtuplizer
+  treephotons_PU: HGCalTriggerNtuple
+  filephotons_PU: /eos/user/m/mchiusi/visualization/skim_photons_hadd.root
+  direlectrons: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
   treeelectrons: HGCalTriggerNtuple
   fileelectrons: /eos/user/i/iehle/data/PU0/electrons/skim_electrons_0PU_bc_stc_hadd.root
   dirpions: hgcalTriggerNtuplizer
@@ -19,14 +22,15 @@ geometry:
     nlayersCEH: 22
   
 selection:
-    particles: photons
+    particles: photons_PU
     disconnectedTriggerLayers: [2,4,6,8,10,12,14,16,18,20,22,24,26,28]
     reachedEE: 2
-    deltarThreshold: 0.05
+    deltarThreshold: 0.1
     mipThreshold: 0.5
 
 defaultEvents:
     photons: [170032, 170044]
+    photons_PU: [62878, 55896]
     electrons: [92243, 92244]
     pions: [9102, 9148]
 
@@ -49,7 +53,6 @@ varEvents:
     z: 'good_tc_z'
     phi: 'good_tc_phi'
     eta: 'good_tc_eta'
-    idcl: 'good_tc_multicluster_id'
     pt: 'good_tc_pt'
     en: 'good_tc_mipPt'
     en_gev: 'good_tc_energy'
@@ -87,17 +90,25 @@ varGeometry:
     orient: 'waferorient'
     part: 'waferpart'
 
+3Ddisplay:
+  reprocess: False
+  coefs: [0.002,0.006,0.010,0.014,0.018,0.022,0.026,0.030]
+  photons: 'photons_0PU_cluster.hdf5' 
+  photons_PU: 'photons_200PU_cluster.hdf5' 
+  electrons: 'electrons_0PU_cluster.hdf5' 
+  pions: 'pions_0PU_cluster.hdf5' 
+
 clusterStudies:
-  localDir: /home/llr/cms/ehle/NewRepos/bye_splits/data/new_algos/
+  localDir: /home/llr/cms/mchiusi/event_display/bye_splits/data/new_algos/
   ehleDir: /eos/user/i/iehle/
   dataFolder: data/
-  reinit: False
+  reinit: True #False
   clusterSizeBaseName: cluster_size
-  coeffs: [0.0, 0.05, 50]
+  coeffs: [0.0, 0.5, 50]
   nevents: 100
   pileUp: False
   tree: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple
-  coeffs: [0.0, 0.05, 50]
+  #coeffs: [0.0, 0.05, 50]
   fileBaseName: energy_out
   local: False
 

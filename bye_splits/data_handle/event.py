@@ -91,6 +91,7 @@ class EventData(BaseData):
     def _get_event_numbers(self):
         if not os.path.exists(self.outpath):
             self.store()
+        print(self.outpath)
         ds = ak.from_parquet(self.outpath)
         return ds.event.tolist()
 
@@ -110,7 +111,7 @@ class EventData(BaseData):
 
         ret = {}
         for k in self.var.keys():
-            ret[k] = self._event_mask(self.cache[k], [event]).drop(["event"], axis=1)
+            ret[k] = self._event_mask(self.cache[k], [event])#.drop(["event"], axis=1)
 
         if merge:
             ret = functools.reduce(
@@ -155,10 +156,11 @@ class EventData(BaseData):
         return self.provide_events(events), events
 
     def select(self):
-        with up.open(self.indata.path, array_cache="550 MB", num_workers=8) as f:
+        with up.open(self.indata.path, array_cache='550 MB', num_workers=8) as f:
             tree = f[self.indata.tree_path]
             allvars = set([y for x in self.var.values() for y in x.values()])
-            data = tree.arrays(filter_name="/" + "|".join(allvars) + "/", library="ak")
+            data = tree.arrays(filter_name='/' + '|'.join(allvars) + '/',
+                               entry_stop=1000, library='ak')
         # data[self.var.v] = data.waferv
         # data[self.newvar.vs] = -1 * data.waferv
         # data[self.newvar.c] = "#8a2be2"

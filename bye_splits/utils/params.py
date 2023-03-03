@@ -20,6 +20,6 @@ def read_task_params(task):
         d.update(cfg[task])
     return d
 
-LocalStorage = os.path.join(parent_dir, "data/new_algos")
+LocalStorage = os.path.join(parent_dir, "data/new_algos/")
 EOSStorage = lambda u, dir: os.path.join("/eos/user", u[0], u, dir)
 CfgPath = os.path.join(parent_dir, "config.yaml")
