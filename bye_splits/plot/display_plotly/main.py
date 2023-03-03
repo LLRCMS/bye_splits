@@ -10,63 +10,85 @@ sys.path.insert(0, parent_dir)
 
 from dash import Dash, dcc, html, Input, Output, State, ctx
 from dash.exceptions import PreventUpdate
-import argparse
+import dash_bootstrap_components as dbc
+from dash_bootstrap_templates import load_figure_template
 
+import argparse
 import numpy as np
 import pandas as pd
 import event_processing as processing
 
-app = Dash(__name__)
+app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 app.title = '3D Visualization' 
 app.config['suppress_callback_exceptions'] = True
+load_figure_template('FLATLY')
 
 app.layout = html.Div([
-    html.Div([
-        html.Div([dcc.Dropdown(['3D view', 'Layer view'], '3D view', id='page')], style={'width':'15%'}),
-    ], style={'display': 'flex', 'flex-direction': 'row'}),
+    html.Div([dbc.NavbarSimple([
+                  dbc.Nav([dbc.NavItem(dbc.NavLink("About", href="https://github.com/mchiusi/bye_splits")),
+                           dbc.DropdownMenu([
+                               dbc.DropdownMenuItem('3D view', id='3D view'),
+                               dbc.DropdownMenuItem('Layer view', id='Layer view')],
+                           label="Pages", nav=True)
+                          ])
+              ],brand="3D trigger cells visualization",color="primary",dark=True,)]),
+    html.Br(),
     html.Div(id='page-content')
     ])
 
 @app.callback(Output('page-content', 'children'),
-              [Input('page', 'value')])
-def render_content(page = '3D view'):
-    if page == '3D view':
+              [Input('3D view','n_clicks'), Input('Layer view','n_clicks')])
+def render_content(*args):
+    button_id = ctx.triggered_id
+    if button_id == '3D view' or not ctx.triggered:
         return processing.tab_3d_layout
-    elif page == 'Layer view':
+    elif button_id == 'Layer view':
         return processing.tab_layer_layout
 
+@app.callback([Output('event-display','children'),Output('out_slider','children'), 
+              Output('dataframe','data'), Output('event','value')],
+             [Input('particle','value'),Input('event-val','n_clicks'),
+              Input('submit-val','n_clicks')],
+             [State('event','value')])
+def update_event(particle, n_click, submit_event, event):
+    button_clicked = ctx.triggered_id
 
-@app.callback(Output('event-display', 'children'), Output('out_slider', 'children'), Output('dataframe', 'data'),
-             [Input('particle', 'value'),  Input('tc-cl', 'value'),    Input('event-val', 'n_clicks'),
-              Input('submit-val', 'n_clicks'), Input('mip', 'value'),  State('event', 'value')])
-def update_event(particle, cluster, n_clicks, submit, mip, event):
-    df, event  = processing.get_data(event, particle)
+    if button_clicked != 'submit-val':
+        df, event, gen_info = processing.get_data(event=None, particles=particle)
+    else:
+        assert event != None, '''Please select manually an event or click on 'Random event'.'''
+        df, event, gen_info = processing.get_data(event, particle)
 
-    slider = dcc.RangeSlider(df['layer'].min(),df['layer'].max(), value=[df['layer'].min(), df['layer'].max()], step=None,
-                       marks={int(layer) : {"label": str(layer)} for each, layer in enumerate(sorted(df['layer'].unique()))}, 
-                       id = 'slider-range')
-    return u'Event {} selected'.format(event), slider, df.reset_index().to_json(date_format='iso')
+    slider = dcc.RangeSlider(df['layer'].min(),df['layer'].max(), 
+                             value=[df['layer'].min(), df['layer'].max()], step=None,
+                             marks={int(layer) : {"label": str(layer)} for each, 
+                                    layer in enumerate(sorted(df['layer'].unique()))}, 
+                             id = 'slider-range')
+    return u'Event {} selected. Gen Particle (\u03B7={:.2f}, \u03C6={:.2f}), {} GeV.'.format(int(event),gen_info['exeta'].values[0],gen_info['exphi'].values[0],int(gen_info['gen_energy'].values[0])), slider, df.reset_index().to_json(date_format='iso'), ''
+
 
 @app.callback(Output('graph', 'figure'),  Output('slider-container', 'style'),
-              [Input('submit-layer', 'n_clicks'), Input('dataframe', 'data')], 
-              [Input('layer_sel', 'value'), State('tc-cl', 'value'), State('mip', 'value'), 
-               State('slider-range', 'value'), State('page', 'value')])
-def make_graph(submit, data, layer, cluster, mip, slider_value, page):
+              [Input('dataframe', 'data'), Input('slider-range', 'value'), 
+               Input('mip', 'value'), Input('checkbox', 'value')])
+def make_graph(data, slider_value, mip, checkbox):
+    assert float(mip) >= 0.5, 'mip\u209C value out of range. Minimum value 0.5 !'
     df = pd.read_json(data, orient='records')
     df_sel = df[df.mipPt >= mip]
     
-    if layer == 'layer selection':
+    if 'Layer selection' in checkbox:
         df_sel = df_sel[(df_sel.layer >= slider_value[0]) & (df_sel.layer <= slider_value[1])]
     
-    if cluster == 'cluster':
+    if 'Cluster trigger cells' in checkbox:
         df_no_cluster = df_sel[df_sel.tc_cluster_id == 0]
         df_cluster    = df_sel[df_sel.tc_cluster_id != 0]
         fig = processing.set_3dfigure(df_cluster)
         fig = processing.update_3dfigure(fig, df_no_cluster)
     else:
         fig = processing.set_3dfigure(df_sel)
-    
-    if layer == 'display the entire event':
+   
+    if 'ROI' in checkbox:
+        fig = processing.add_ROI(fig, df_sel) 
+    if 'Layer selection' not in checkbox:
         status_slider = {'display': 'none', 'width':'1'}
     else: 
         status_slider = {'display': 'block', 'width':'1'}
@@ -74,9 +96,9 @@ def make_graph(submit, data, layer, cluster, mip, slider_value, page):
 
 
 @app.callback(Output('graph2d', 'figure'),
-              [Input('dataframe', 'data'), Input('slider-range', 'value')],
-              [State('tc-cl', 'value'), State('mip', 'value'), State('page', 'value')])
-def make_graph(data, slider_value, cluster, mip, page):
+              [Input('dataframe', 'data'), Input('slider-range', 'value'),
+               Input('mip', 'value'), Input('tc-cl', 'value')])
+def make_graph(data, slider_value, mip, cluster):
     df = pd.read_json(data, orient='records')
     df_sel = df.loc[df.mipPt >= mip]
 
@@ -92,7 +114,6 @@ def make_graph(data, slider_value, cluster, mip, page):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-id','--username',type=str,default=os.getlogin())
     parser.add_argument('--host',type=str,default='llruicms01.in2p3.fr')
     parser.add_argument('--port',type=int,default=8004)
     args = parser.parse_args()

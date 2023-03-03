@@ -205,10 +205,15 @@ class GeometryData(BaseData):
             yaxis.update(
                 {kloc: pd.concat([y0[kloc],y1[kloc],y2[kloc],y3[kloc]],
                                  axis=1, keys=keys)})
-            xaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
-                                  for sublst in xaxis[kloc].values.tolist()]
-            yaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
-                                  for sublst in yaxis[kloc].values.tolist()]
+            if library == 'bokeh':
+                xaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
+                                         for sublst in xaxis[kloc].values.tolist()]
+                yaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
+                                         for sublst in yaxis[kloc].values.tolist()]
+            else:
+                xaxis[kloc]['new'] = xaxis[kloc].round(3)[keys].values.tolist()
+                yaxis[kloc]['new'] = yaxis[kloc].round(3)[keys].values.tolist()
+
             xaxis[kloc] = xaxis[kloc].drop(keys, axis=1)
             yaxis[kloc] = yaxis[kloc].drop(keys, axis=1)
 
@@ -226,9 +231,10 @@ class GeometryData(BaseData):
             df[ycorners_str[i]] = df.wafer_shift_y + ycorners[i]
 
         df['hex_x'] = df[xcorners_str].values.tolist()
-        df['hex_x'] = df['hex_x'].map(lambda x: [[x]])
         df['hex_y'] = df[ycorners_str].values.tolist()
-        df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
+        if library == 'bokeh':
+            df['hex_x'] = df['hex_x'].map(lambda x: [[x]])
+            df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
 
         remove = ['tc_x_center', 'tc_y_center', 'wx_center', 'wy_center',
                   'cloc', 'wafer_shift_x', 'wafer_shift_y',
@@ -289,10 +295,10 @@ class GeometryData(BaseData):
         ds = self.prepare_for_display(ds)
         return ds
 
-    def prepare_for_display(self, df, library='bokeh'):
+    def prepare_for_display(self, df, library):
         """Prepares dataframe to be displayed by certain libraries."""
         if self.is_tc:
-            libraries = ('bokeh', )
+            libraries = ('bokeh', 'plotly')
             if library not in libraries:
                 raise NotImplementedError()
             df = self._display_trigger_cells(df, library)
