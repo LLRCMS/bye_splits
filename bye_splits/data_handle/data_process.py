@@ -19,6 +19,7 @@ from utils import params
 from data_handle.geometry import GeometryData
 from data_handle.event import EventData
 from data_handle.data_input import InputData
+from plotly.express.colors import sample_colorscale, qualitative
 
 def baseline_selection(df_gen, df_cl, sel, **kw):
     data = pd.merge(left=df_gen, right=df_cl, how='inner', on='event')
@@ -70,11 +71,11 @@ def baseline_selection(df_gen, df_cl, sel, **kw):
     print("The baseline selection has a {}% efficiency: {}/{}".format(np.round(eff,2), nout, nin))
     return data
 
-def get_data_reco_chain_start(nevents=500, reprocess=False, tag='chain'):
+def get_data_reco_chain_start(nevents=500, reprocess=True, tag='chain', particles='photons'):
     """Access event data."""
     data_part_opt = dict(tag=tag, reprocess=reprocess, debug=True)
-    data_particle = EventDataParticle(**data_part_opt)
-    ds_all, events = data_particle.provide_random_events(n=nevents, seed=42)
+    data_particle = EventDataParticle(particles=particles, **data_part_opt)
+    ds_all, events = data_particle.provide_random_events(n=nevents) #, seed=42)
     # ds_all = data_particle.provide_events(events=[170004, 170015, 170017, 170014])
 
     tc_keep = {
@@ -121,13 +122,70 @@ def get_data_reco_chain_start(nevents=500, reprocess=False, tag='chain'):
     ds_cl = ds_cl.rename(columns=cl_keep)
     return ds_gen, ds_cl, ds_tc
 
+def colorscale(df, variable, scale, saturate=False):
+    norm_points = (df[variable]-df[variable].min())/(df[variable].max()-df[variable].min())
+    colorscale = sample_colorscale(scale, norm_points) 
+    if saturate:
+        ["rgb(255,255,255)" if norm_points[i] == 1 else s for i, s in enumerate(colorscale)]
+    return colorscale
+
+def get_event(filename, event, coefs):
+    """   Load dataframes of a particular event from the hdf5 file   """
+
+    h5file = pd.HDFStore(filename,  mode='r')
+    dic = {}
+    for coef in coefs:
+        key = 'ev_'+str(event)+'/coef_'+str(coef)[2:]
+        dic[coef] = pd.read_hdf(filename, key)    
+    dic['gen'] = pd.read_hdf(filename, 'ev_'+str(event)+'/gen_info')
+    return dic
+
+def store_event(h5file, path, data):
+    """   Save dictionary in a h5file. A dictionary corresponds to one event.
+    The key is a selected radius, while the values is the corresponding dataframe  """
+
+    if isinstance(data, dict):
+        for key, item in data.items():
+            if isinstance(item, pd.DataFrame):
+                item.to_hdf(h5file, path + str(key))
+            else:
+                raise ValueError('Cannot save %s type'%type(item))
+    else:
+        data.to_hdf(h5file, path)
+
+def process_and_store(dict_events, gen_info, ds_geom, h5file):
+
+    tc_keep = {'seed_idx'  : 'seed_idx',
+               'tc_mipPt'  : 'mipPt',
+               'tc_wu'     : 'waferu',
+               'tc_wv'     : 'waferv',
+               'tc_cu'     : 'triggercellu',
+               'tc_cv'     : 'triggercellv',
+               'tc_layer'  : 'layer'}
+
+    for event in dict_events.keys():
+        print('Procesing event '+str(event))
+        dict_event = dict_events[event]
+        for coef in dict_event.keys():
+            dict_event[coef] = dict_event[coef].rename(columns=tc_keep)
+            dict_event[coef] = pd.merge(left=dict_event[coef], right=ds_geom['si'], how='inner',
+                                        on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
+
+            color_continuous = colorscale(dict_event[coef], 'mipPt', 'viridis')
+            color_discrete   = colorscale(dict_event[coef], 'seed_idx', qualitative.Light24, True)
+            dict_event[coef] = dict_event[coef].assign(color_energy=color_continuous, color_clusters=color_discrete)
+            
+        store_event(h5file, '/ev_'+str(event)+'/coef_', dict_event)
+        store_event(h5file, '/ev_'+str(event)+'/gen_info', gen_info[gen_info.event == event])
+
+            
 def EventDataParticle(tag, reprocess, logger=None, debug=False, particles=None):
     """Factory for EventData instances of different particle types"""
     with open(params.CfgPath, "r") as afile:
         cfg = yaml.safe_load(afile)
         if particles is None:
             particles = cfg["selection"]["particles"]
-        if particles not in ("photons", "electrons", "pions"):
+        if particles not in ("photons", "photons_PU", "electrons", "pions"):
             raise ValueError("{} are not supported.".format(particles))
         defevents = cfg["defaultEvents"][particles]
 

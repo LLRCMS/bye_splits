@@ -9,6 +9,7 @@ import sys
 parent_dir = os.path.abspath(__file__ + 2 * "/..")
 sys.path.insert(0, parent_dir)
 
+import yaml
 import tasks
 import utils
 from utils import params, common, parsing
@@ -21,6 +22,34 @@ from tasks import validation
 
 import argparse
 import pandas as pd
+
+def run_chain_radii(pars, particles, coefs):
+    df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=100, particles=particles)
+
+    fill_d = params.read_task_params("fill")
+    tasks.fill.fill(pars, df_gen, df_cl, df_tc, **fill_d)
+
+    smooth_d = params.read_task_params("smooth")
+    tasks.smooth.smooth(pars, **smooth_d)
+
+    seed_d = params.read_task_params("seed")
+    tasks.seed.seed(pars, **seed_d)
+
+    cluster_d = params.read_task_params("cluster")
+    dict_cluster = {}
+    for coef in coefs:
+        cluster_d["CoeffA"] = [coef, 0] * 50
+        dict_cluster[str(coef)[2:]], nevents = tasks.cluster.cluster(pars, **cluster_d)
+
+    dict_event = {}
+    for index, ev in enumerate(nevents):
+        dict_event[ev] = {}
+        df_event_tc = df_tc[df_tc.event == ev][['tc_mipPt', 'tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_layer']]
+        for coef in dict_cluster.keys():
+            dict_event[ev][coef] = pd.merge(left=dict_cluster[coef][index], right=df_event_tc, 
+                                            on=['tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_layer'],
+                                            how='outer').fillna(dict_cluster[coef][index]['seed_idx'].max()+1) 
+    return dict_event, df_gen
 
 def run_default_chain(pars, user):
     """Run the backend stage 2 reconstruction chain for a single event."""

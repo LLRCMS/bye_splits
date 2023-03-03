@@ -19,8 +19,9 @@ import pandas as pd
 import h5py
 from tqdm import tqdm
 
-def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
+def cluster(pars, **kw):
     dfout = None
+    df_cluster = []
     sseeds = h5py.File(in_seeds, mode='r')
     sout = pd.HDFStore(out_valid, mode='w')
     stc = h5py.File(in_tc, mode='r')
@@ -133,6 +134,7 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
         else:
             dfout = pd.concat((dfout, cl3d[cl3d_cols + ["event"]]), axis=0)
 
+        df_cluster.append(df[['seed_idx', 'tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_layer']])
     print("[clustering step] There were {} events without seeds.".format(empty_seeds))
 
     splot = pd.HDFStore(out_plot, mode='w')
@@ -148,7 +150,7 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
     sout.close()
     stc.close()
     splot.close()
-    return nevents
+    return df_cluster, nevents
 
 def cluster_default(pars, **kw):
     in_seeds  = common.fill_path(kw["ClusterInSeeds"], **pars)

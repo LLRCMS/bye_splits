@@ -103,7 +103,7 @@ def cluster_size(pars, cfg):
 
         with pd.HDFStore(cl_size_out, mode="a") as clSizeOut:
             df_gen, _, _ = get_data_reco_chain_start(
-                "cluster_size", nevents=nevents, reprocess=False
+                nevents=nevents, reprocess=False, tag="cluster_size"
             )
             coef_keys = clSizeOut.keys()
             for coef in coef_keys[1:]:
@@ -128,8 +128,8 @@ if __name__ == "__main__":
     parser.add_argument("--no_smooth", action="store_true")
     parser.add_argument("--no_seed", action="store_true")
     parser.add_argument("--no_cluster", action="store_true")
-    nevents_help = "Number of events for processing. Pass '-1' for all events."
-    parser.add_argument("-n", "--nevents", help=nevents_help, default=-1, type=int)
+    #nevents_help = "Number of events for processing. Pass '-1' for all events."
+    #parser.add_argument("-n", "--nevents", help=nevents_help, default=-1, type=int)
     parsing.add_parameters(parser)
 
     FLAGS = parser.parse_args()
