@@ -122,7 +122,7 @@ def EventDataParticle(tag, reprocess, logger=None, debug=False, particles=None):
         cfg = yaml.safe_load(afile)
         if particles is None:
             particles = cfg["selection"]["particles"]
-        if particles not in ("photons", "electrons", "pions"):
+        if particles not in ("photons", "photons_PU", "electrons", "pions"):
             raise ValueError("{} are not supported.".format(particles))
         defevents = cfg["defaultEvents"][particles]
 

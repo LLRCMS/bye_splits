@@ -45,7 +45,6 @@ def render_content(*args):
     elif button_id == 'Layer view':
         return processing.layout(checkbox=['Cluster trigger cells','Layer selection'], page='2D')
 
-
 @app.callback([Output('event-display','children'),Output('out_slider','children'), 
               Output('dataframe','data'), Output('event','value')],
              [Input('particle','value'),Input('event-val','n_clicks'),
@@ -60,6 +59,12 @@ def update_event(particle, n_click, submit_event, event, page):
         assert event != None, '''Please select manually an event or click on 'Random event'.'''
         df, event, gen_info = processing.get_data(event, particle)
 
+    eta = gen_info['exeta'].values[0]
+    phi = gen_info['exphi'].values[0]
+    if particle == 'photons 200PU':
+        x_gen, y_gen = processing.sph2cart(eta, phi)
+        df = df[np.sqrt((x_gen-df.tc_x)**2+(y_gen-df.tc_y)**2)<20]
+    
     if page == '3D':
         slider = dcc.RangeSlider(df['layer'].min(),df['layer'].max(), 
                              value=[df['layer'].min(), df['layer'].max()], step=None,

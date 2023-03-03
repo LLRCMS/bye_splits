@@ -24,13 +24,21 @@ log = logging.getLogger(__name__)
 
 data_part_opt = dict(tag='v2', reprocess=False, debug=True, logger=log)
 data_particle = {
-    'photons': EventDataParticle(particles='photons', **data_part_opt),
-    'electrons': EventDataParticle(particles='electrons', **data_part_opt),
+    'photons 0PU': EventDataParticle(particles='photons', **data_part_opt),
+    'photons 200PU': EventDataParticle(particles='photons_PU', **data_part_opt),
+    'electrons 0PU': EventDataParticle(particles='electrons', **data_part_opt),
     'pions': EventDataParticle(particles='pions', **data_part_opt)}
-geom_data = GeometryData(inname='test_triggergeom.root',
+geom_data = GeometryData(inname='/eos/user/m/mchiusi/visualization/test_triggergeom.root',
                          reprocess=False, logger=log)
 
 axis = dict(backgroundcolor="rgba(0,0,0,0)", gridcolor="white", showbackground=True, zerolinecolor="white",)
+
+def sph2cart(eta, phi, z=322.):
+    theta = 2*np.arctan(np.exp(-eta))
+    r = z / np.cos(theta)
+    x = r * np.sin(theta) * np.cos(phi)
+    y = r * np.sin(theta) * np.sin(phi)
+    return x,y
 
 def get_data(event, particles):
     ds_geom = geom_data.provide(library='plotly')
@@ -140,7 +148,7 @@ def update_2dfigure(fig, df):
 def layout(**options):
     return dbc.Container([html.Div([
         html.Div([
-            html.Div([dcc.Dropdown(['photons', 'electrons', 'pions'], 'photons', id='particle')], style={'width':'15%'}),
+            html.Div([dcc.Dropdown(['photons 0PU', 'photons 200PU', 'electrons', 'pions'], 'photons 0PU', id='particle')], style={'width':'15%'}),
             html.Div([dbc.Checklist(options['checkbox'], [], inline=True, id='checkbox', switch=True)], style={"margin-left": "15px"}),
             html.Div(id='slider-container', children=html.Div(id='out_slider', style={'width':'95%'}), style= {'display': 'block', 'width':'40%'}),
         ], style={'display': 'flex', 'flex-direction': 'row'}),
