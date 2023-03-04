@@ -33,6 +33,7 @@ class EventData(BaseData):
             self.cache_events(self.events)
 
         self.ev_numbers = self._get_event_numbers()
+        self.rng = np.random.default_rng()
 
     def _add_events(self, events):
         events = self._convert_to_list(events)
@@ -66,7 +67,7 @@ class EventData(BaseData):
         if not isinstance(events, (tuple,list)):
             ret = [events]
         return ret
-        
+
     def _event_mask(self, ds, events):
         """Select 'events' from awkward dataset 'ds'."""
         #evmask = False
@@ -137,14 +138,15 @@ class EventData(BaseData):
 
         return ret
     
-    def provide_random_event(self, seed, merge=False):
+    def provide_random_event(self, seed=None):
         """Provide a random event"""
-        return self.provide_random_events(n=1, seed=seed, merge=merge)
+        return self.provide_random_events(n=1, seed=seed)
 
-    def provide_random_events(self, n, seed, merge=False):
+    def provide_random_events(self, n, seed=None):
         """Provide 'n' random events."""
-        np.random.seed(seed)
-        events = np.random.choice(self.ev_numbers, size=n, replace=False)
+        if seed is not None:
+            self.rng = np.random.default_rng(seed=seed)
+        events = self.rng.choice(self.ev_numbers, size=n, replace=False)
         return self.provide_events(events), events
         
     def select(self):
