@@ -137,11 +137,11 @@ class EventData(BaseData):
 
         return ret
     
-    def provide_random_event(self, seed, merge):
+    def provide_random_event(self, seed, merge=False):
         """Provide a random event"""
         return self.provide_random_events(n=1, seed=seed, merge=merge)
 
-    def provide_random_events(self, n, seed, merge):
+    def provide_random_events(self, n, seed, merge=False):
         """Provide 'n' random events."""
         np.random.seed(seed)
         events = np.random.choice(self.ev_numbers, size=n, replace=False)
@@ -153,7 +153,6 @@ class EventData(BaseData):
             allvars = set([y for x in self.var.values() for y in x.values()])
             data = tree.arrays(filter_name='/' + '|'.join(allvars) + '/',
                                library='ak')
-
         # data[self.var.v] = data.waferv
         # data[self.newvar.vs] = -1 * data.waferv
         # data[self.newvar.c] = "#8a2be2"

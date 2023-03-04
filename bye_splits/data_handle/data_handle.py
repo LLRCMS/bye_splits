@@ -19,7 +19,7 @@ def get_data_reco_chain_start(nevents=500, reprocess=False):
     data_part_opt = dict(tag='chain', reprocess=reprocess, debug=True)
     data_particle = EventDataParticle(particles='photons', **data_part_opt)
     ds_all, events = data_particle.provide_random_events(n=nevents, seed=42)
-    # ds_all = data_particle.provide_events(events=[170004, 170015, 170017, 170014]) # alternative
+    # ds_all = data_particle.provide_events(events=[170004, 170015, 170017, 170014])
 
     tc_keep = {'event': 'event',
                'good_tc_waferu': 'tc_wu', 'good_tc_waferv': 'tc_wv',
@@ -31,7 +31,7 @@ def get_data_reco_chain_start(nevents=500, reprocess=False):
                'good_tc_cluster_id': 'tc_cluster_id'}
 
     ds_tc = ds_all['tc']
-    ds_tc = ds_tc[tc_keep.values()]
+    ds_tc = ds_tc[tc_keep.keys()]
     ds_tc = ds_tc.rename(columns=tc_keep)
 
     gen_keep = {'event': 'event',
@@ -49,32 +49,20 @@ def get_data_reco_chain_start(nevents=500, reprocess=False):
 
     return ds_gen, ds_cl, ds_tc
 
-class EventDataParticle:
-    def __init__(self, particles, tag, reprocess=False, debug=False, logger=None):
-        assert particles in ('photons', 'electrons', 'pions')
-        self.particles = particles
-        self.tag = self.particles + '_' + tag
-        with open(params.CfgPaths['data'], 'r') as afile:
-            self.config = yaml.safe_load(afile)
-
-        with open(params.CfgPaths['prod'], 'r') as afile:
-            cfgprod = yaml.safe_load(afile)
-
-        # suffix = 'skim_TEST_RECO_CHAIN' + ('_small' if debug else '')
-        # path = '_'.join((suffix, self.particles, '0PU_bc_stc_hadd.root'))
-        path = cfgprod['io'][self.particles]
-        default_events = self.config['defaultEvents'][self.particles]
-        self.data = EventData(path, self.tag + '_debug' * debug,
-                              default_events, reprocess=reprocess, logger=logger)
-
-    def provide_event(self, event, merge=False):
-        return self.data.provide_event(event, merge)
+def EventDataParticle(particles, tag, reprocess, logger=None, debug=False):
+    """Factory for EventData instances of different particle types"""
+    if particles not in ('photons', 'electrons', 'pions'):
+        raise ValueError('{} are not supported.'.format(particles))
+        
+    tag = particles + '_' + tag
+    tag += '_debug' * debug
     
-    def provide_events(self, events):
-        return self.data.provide_events(events)
+    with open(params.CfgPaths['data'], 'r') as afile:
+        cfgdata = yaml.safe_load(afile)
+        defevents = cfgdata['defaultEvents'][particles]
 
-    def provide_random_event(self, seed=42, merge=False):
-        return self.data.provide_random_event(seed, merge)
-
-    def provide_random_events(self, n, seed=42, merge=False):
-        return self.data.provide_random_events(n, seed, merge)
+    with open(params.CfgPaths['prod'], 'r') as afile:
+        cfgprod = yaml.safe_load(afile)
+        path = cfgprod['io'][particles]
+        
+    return EventData(path, tag, defevents, reprocess, logger)
