@@ -19,20 +19,11 @@ import functools
 from utils import params
 from data_handle.base import BaseData
 
-
 class EventData(BaseData):
-    def __init__(
-        self,
-        inname,
-        prod_key,
-        tag="v0",
-        default_events=[],
-        reprocess=False,
-        logger=None,
-        is_tc=True,
-        set_default_events=False,
-    ):
-        super().__init__(inname, tag, reprocess, logger, is_tc, prod_key)
+    def __init__(self, inname, tag="v0", default_events=[], reprocess=False,
+                 logger=None, is_tc=True, set_default_events=False,
+                 cfgkey='prod'):
+        super().__init__(inname, tag, reprocess, logger, is_tc, cfgkey)
 
         with open(params.CfgPaths["data"], "r") as afile:
             self.var = yaml.safe_load(afile)["varEvents"]
@@ -81,23 +72,27 @@ class EventData(BaseData):
 
     def _event_mask(self, ds, events):
         """Select 'events' from awkward dataset 'ds'."""
+<<<<<<< HEAD
         # evmask = False
+=======
+>>>>>>> 7afc51a (add option to provide all events at once)
         evmask = np.argwhere(np.isin(np.array(ds.event), events)).ravel()
 
         if isinstance(ds, pd.DataFrame):
-            # repeated_events_count = np.array(ds.groupby(['event'],as_index=False).size()['size'])
-            # evmask = np.repeat(evmask, repeated_events_count)
             ret = ds.iloc[evmask]
         elif isinstance(ds, ak.Array):
             ret = ds[evmask]
         else:
             raise RuntimeError()
 
+<<<<<<< HEAD
         # for ev in events:
         #     if not ak.sum(ds.event == ev):
         #         mes = 'Event {} is not present in file {}.'
         #         raise RuntimeError(mes.format(ev, self.outpath))
         #     evmask = evmask | (ds.event==ev)
+=======
+>>>>>>> 7afc51a (add option to provide all events at once)
         return ret
 
     def _get_event_numbers(self):
@@ -132,9 +127,19 @@ class EventData(BaseData):
         return ret
 
     def provide_events(self, events):
+<<<<<<< HEAD
         """Provide multiple events, checking if they are in cache"""
         if isinstance(events, int) and events == -1:
             events = self.ev_numbers
+=======
+        """
+        Provide multiple events, checking if they are in cache.
+        'events=-1' means all.
+        """
+        if isinstance(events, int) and events==-1:
+            events = self.ev_numbers
+            
+>>>>>>> 7afc51a (add option to provide all events at once)
         if len(events) != len(set(events)):
             mes = "You provided duplicate event numbers!"
             raise ValueError(mes)
@@ -155,12 +160,16 @@ class EventData(BaseData):
         return self.provide_random_events(n=1, seed=seed)
 
     def provide_random_events(self, n, seed=None):
-        """Provide 'n' random events."""
+        """Provide 'n' random events ('n=-1' means all). """
         if seed is not None:
             self.rng = np.random.default_rng(seed=seed)
+<<<<<<< HEAD
         events = (
             self.rng.choice(self.ev_numbers, size=n, replace=False) if n != -1 else -1
         )
+=======
+        events = self.rng.choice(self.ev_numbers, size=n, replace=False) if n!=-1 else -1
+>>>>>>> 7afc51a (add option to provide all events at once)
         return self.provide_events(events), events
 
     def select(self):

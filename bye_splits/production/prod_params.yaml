@@ -5,6 +5,11 @@ io:
   electrons: /eos/user/i/iehle/data/PU0/electrons/skim_electrons_0PU_bc_stc_hadd.root
   pions: /eos/user/i/iehle/data/PU0/pions/skim_pions_0PU_bc_stc_hadd.root
 
+geom:
+    dir: L1THGCaltriggergeomtester
+    tree: TreeTriggerCells
+    file: /eos/user/b/bfontana/FPGAs/test_triggergeom_12_5_2_patch1_FIXED.root
+
 selection:
     particles: photons
     disconnectedTriggerLayers: [2,4,6,8,10,12,14,16,18,20,22,24,26,28]

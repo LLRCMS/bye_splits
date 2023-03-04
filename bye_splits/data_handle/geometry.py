@@ -25,15 +25,14 @@ class GeometryData(BaseData):
     https://indico.cern.ch/event/1111846/contributions/4675223/attachments/2372915/4052852/PartialsRotation.pdf
     """
     def __init__(self, inname, reprocess=False, logger=None, is_tc=True):        
-        super().__init__(inname, 'geom', reprocess, logger, is_tc)
-        self.indata.tree = 'TreeTriggerCells' if self.is_tc else 'TreeCellsBH'
-        self.indata.adir = 'hgcaltriggergeomtester'
+        super().__init__('geom', reprocess, logger, is_tc)
+        self.indata.path = self.cfgprod['geom']['file']
+        self.indata.adir = self.cfgprod['geom']['dir']
+        self.indata.tree = self.cfgprod['geom']['tree']
 
         self.dataset = None
         self.dname = 'tc'
-        with open(params.CfgPaths['data'], 'r') as afile:
-            cfg = yaml.safe_load(afile)
-            self.var = common.dot_dict(cfg['varGeometry'])
+        self.var = common.dot_dict(self.cfgdata['varGeometry'])
 
         self.readvars = self._readvars()
         self.readvars.remove(self.var.wvs)
@@ -43,8 +42,8 @@ class GeometryData(BaseData):
         self.wu, self.wv = 'waferu', 'waferv'
 
         ## geometry-specific parameters
-        self.waferWidth = cfg['geometry']['waferSize'] #this defines all other sizes
-        self.sensorSeparation = cfg['geometry']['sensorSeparation']
+        self.waferWidth = self.cfgdata['geometry']['waferSize'] #this defines all other sizes
+        self.sensorSeparation = self.cfgdata['geometry']['sensorSeparation']
         self.N = 4 #number of cells per wafer side
         self.c30 = np.sqrt(3)/2 #cossine of 30 degrees
         self.t30 = 1/np.sqrt(3) #tangent of 30 degrees
@@ -91,13 +90,24 @@ class GeometryData(BaseData):
         Display silicon trigger cells (groups of cells) and
         scintillator trigger tiles (groups of tiles).
         """
+        df_si = df[(df.subdet==1) | (df.subdet==2)]
+        df_si = self._display_silicon_tcs(df_si)
+
+        df_sci = df[(df.subdet==10)]
+        df_sci = self._display_scintillator_tcs(df_sci)
+
+        # merge both dataframes
+        return df_sci
+
+    def _display_silicon_tcs(self, df):
+        """Displays silicon trigger cells"""
         df['wafer_shift_x'] = (-2*df[self.wu] + df[self.wv])*(self.waferWidth+self.sensorSeparation)/2
         df['wafer_shift_y'] = (self.c30*df[self.wv])*(self.waferWidth+self.sensorSeparation)
         
         # cells_conversion = (lambda cu,cv: (1.5*(cv-cu)+0.5) * self.R,
         #                     lambda cu,cv: (cv+cu-2*self.N+1) * self.r) #orientation 6
         cells_conversion = (lambda cu,cv: (1.5*(cv-self.N)+1) * self.R,
-                            lambda cu,cv: (2*cu-cv-self.N) * self.r) #orientation 7
+                            lambda cu,cv: (2*cu-cv-self.N) * self.r) #orientation 7pu
   
         univ_wcenterx = cells_conversion[0](3,3) + self.cellDistX
         univ_wcentery = cells_conversion[1](3,3) + 3*self.cellDistY/2
@@ -196,10 +206,6 @@ class GeometryData(BaseData):
         df['diamond_x'] = pd.concat(xaxis.values())
         df['diamond_y'] = pd.concat(yaxis.values())
   
-        # scintillator tiles
-        # as per TDR; deltaPhi=1degree for the first four layers, 1.25 for the remaining ones (page 35)
-        # cells inner edge: 4cm^2, outer edge: 32cm^2
-        
         # define module corners' coordinates
         xcorners_str = ['corner1x','corner2x','corner3x','corner4x','corner5x','corner6x']
         assert len(xcorners_str) == len(xcorners)
@@ -218,6 +224,18 @@ class GeometryData(BaseData):
         df = df.drop(xcorners_str + ycorners_str + ['tc_x_center', 'tc_y_center'], axis=1)
         return df
 
+    def _display_scintillator_tcs(self, df):
+        # as per TDR; deltaPhi=1degree for the first four layers, 1.25 for the remaining ones (page 35)
+        # cells inner edge: 4cm^2, outer edge: 32cm^2
+        df = df.drop(['subdet', 'waferu', 'waferv', 'triggercellu', 'triggercellv', 'z'],
+                     axis=1)
+        print(df.columns)
+        df['layer'] += 20 # ?????????
+        df['R'] = np.sqrt(df.x*df.x + df.y*df.y)
+        for x in sorted(df['layer'].unique()):
+            print(len(df[df['layer']==x].R.unique()))
+        breakpoint()
+        
     def filter_columns(self, d):
         """Filter some columns to reduce memory usage"""
         cols_to_remove = ['color']
@@ -296,8 +314,6 @@ class GeometryData(BaseData):
             elif region == 'wafer':
                 df = df[((df[self.wu]==3) & (df[self.wv]==3))]
 
-        # df = df[df.layer<9]
-        # df = df[df.waferpart==0]
         return df
 
     def rotate(self, angle, x, y, cx, cy):
@@ -314,13 +330,14 @@ class GeometryData(BaseData):
             if self.logger is not None:
                 self.logger.info(tree.show())
             data = tree.arrays(self.readvars)
-            sel = (data.zside==1) & (data.subdet==1)
+            sel = (data.zside==1) & ((data.subdet==1) | (data.subdet==10))
             fields = data.fields[:]
 
-            for v in (self.var.side, self.var.subd):
+            for v in (self.var.side,):
                 fields.remove(v)
             data = data[sel][fields]
-            data = data[data.layer%2==1]
+            #data = data[data.layer%2==1]
+
             #below is correct but much slower (no operator isin in awkward)
             #this cut is anyways implemented in the skimmer
             #data = data[ak.Array([x not in params.disconnectedTriggerLayers for x in data.layer])]

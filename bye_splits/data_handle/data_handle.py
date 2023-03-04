@@ -15,12 +15,9 @@ from utils import params
 from data_handle.geometry import GeometryData
 from data_handle.event import EventData
 
-
-def get_data_reco_chain_start(prod_key="prod", nevents=500, reprocess=False):
+def get_data_reco_chain_start(nevents=500, reprocess=False, cfgkey="prod"):
     """Access event data."""
-    data_part_opt = dict(
-        prod_key=prod_key, tag="chain", reprocess=reprocess, debug=True
-    )
+    data_part_opt = dict(tag="chain", reprocess=reprocess, debug=True, cfgkey=cfgkey)
     data_particle = EventDataParticle(**data_part_opt)
     ds_all, events = data_particle.provide_random_events(n=nevents, seed=42)
     # ds_all = data_particle.provide_events(events=[170004, 170015, 170017, 170014])

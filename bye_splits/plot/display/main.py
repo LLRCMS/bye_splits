@@ -39,14 +39,14 @@ with open(params.CfgPaths['prod'], 'r') as afile:
 with open(params.CfgPaths['data'], 'r') as afile:
     cfg_data = yaml.safe_load(afile)
 
-data_part_opt = dict(tag='mytag', reprocess=True, debug=True, logger=log)
+data_part_opt = dict(tag='mytag', reprocess=False, debug=True, logger=log)
 data_particle = {
     'photons': EventDataParticle(particles='photons', **data_part_opt),
     #'electrons': EventDataParticle(particles='electrons', **data_part_opt)
 }
 geom_data = GeometryData(inname='test_triggergeom.root',
                          reprocess=False, logger=log)
-mode = 'ev'
+mode = 'geom'
 
 def common_props(p):
     p.output_backend = 'svg'

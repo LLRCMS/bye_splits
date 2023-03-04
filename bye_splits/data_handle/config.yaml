@@ -49,6 +49,8 @@ varGeometry:
     l: 'layer'
     cu: 'triggercellu'
     cv: 'triggercellv'
+    ieta: 'triggercellieta'
+    iphi: 'triggercelliphi'
     x: 'x'
     y: 'y'
     z: 'z'

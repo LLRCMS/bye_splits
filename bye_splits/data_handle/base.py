@@ -57,8 +57,8 @@ class InputData:
 class BaseData(abc.ABC):
     """Base data management class."""
 
-    def __init__(self, inname, tag, reprocess, logger, is_tc, prod_key):
-        with open(params.CfgPaths[prod_key], "r") as afile:
+    def __init__(self, inname, tag, reprocess, logger, is_tc, cfgkey):
+        with open(params.CfgPaths[cfgkey], "r") as afile:
             _cfg = yaml.safe_load(afile)
 
         self.indata = InputData()
