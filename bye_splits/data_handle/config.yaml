@@ -6,6 +6,7 @@ defaultEvents:
 geometry:
     waferSize: 16.64408
     sensorSeparation: 0.1
+    nlayersCEE: 28
 
 varEvents:
   gen:

@@ -8,7 +8,7 @@ io:
 geom:
     dir: L1THGCaltriggergeomtester
     tree: TreeTriggerCells
-    file: /eos/user/b/bfontana/FPGAs/test_triggergeom_12_5_2_patch1_FIXED.root
+    file: /data_CMS/cms/alves/L1HGCAL/test_triggergeom_12_5_2_patch1_FIXED_v2.root
 
 selection:
     particles: photons

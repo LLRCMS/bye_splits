@@ -72,10 +72,6 @@ class EventData(BaseData):
 
     def _event_mask(self, ds, events):
         """Select 'events' from awkward dataset 'ds'."""
-<<<<<<< HEAD
-        # evmask = False
-=======
->>>>>>> 7afc51a (add option to provide all events at once)
         evmask = np.argwhere(np.isin(np.array(ds.event), events)).ravel()
 
         if isinstance(ds, pd.DataFrame):
@@ -163,13 +159,7 @@ class EventData(BaseData):
         """Provide 'n' random events ('n=-1' means all). """
         if seed is not None:
             self.rng = np.random.default_rng(seed=seed)
-<<<<<<< HEAD
-        events = (
-            self.rng.choice(self.ev_numbers, size=n, replace=False) if n != -1 else -1
-        )
-=======
         events = self.rng.choice(self.ev_numbers, size=n, replace=False) if n!=-1 else -1
->>>>>>> 7afc51a (add option to provide all events at once)
         return self.provide_events(events), events
 
     def select(self):
