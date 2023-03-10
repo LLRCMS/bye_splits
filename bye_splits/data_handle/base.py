@@ -52,8 +52,8 @@ class InputData:
         
 class BaseData(abc.ABC):
     """Base data management class."""
-    def __init__(self, inname, tag, reprocess, logger, is_tc):
-        with open(params.CfgPaths['prod'], 'r') as afile:
+    def __init__(self, prod_key, inname, tag, reprocess, logger, is_tc):
+        with open(params.CfgPaths[prod_key], 'r') as afile:
             _cfg = yaml.safe_load(afile)
 
         self.indata = InputData()
@@ -65,8 +65,8 @@ class BaseData(abc.ABC):
         self.reprocess = reprocess
         self.logger = logger
         self.is_tc = is_tc
-
-        loc = str(params.LocalStorage)
+        
+        loc=str(params.LocalStorage)
         os.makedirs(loc, exist_ok=True)
         self.outpath = os.path.join(loc, self.tag + '.parquet')
         self.var = common.dot_dict({})

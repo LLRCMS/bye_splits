@@ -29,6 +29,8 @@ unzip yaml-cpp-yaml-cpp-0.7.0.zip
 cd yaml-cpp-yaml-cpp-0.7.0
 mkdir build
 cd build
+# 3.5) This command might be necessary if your cmake executable is set to the default for the LLR machines, which is an earlier version than required.
+module load /opt/exp_soft/vo.llr.in2p3.fr/modulefiles_el7/cmake/3.22.3
 # 4) Compile a static library (the flag removes a -Werror issue)
 cmake -DYAML_CPP_BUILD_TESTS=OFF ..
 # 5) Build the package
@@ -41,7 +43,7 @@ g++ bye_splits/tests/test_yaml_cpp.cc -I <installation_path_yaml_cpp>/yaml-cpp-y
 ./test_yaml_cpp.o
 #+END_SRC
 
-The above should print the contents stored in =bye_splits/tests/params.yaml=.
+The above should print the contents stored in =bye_splits/tests/params.yaml=. 
 Occasionally the following error message is printed: ~relocation R_X86_64_32 against symbol `_ZTVN4YAML9ExceptionE' can not be used when making a PIE object; recompile with -fPIE~. This is currently not understood but removing the =yaml-cpp-yaml-cpp-0.7.0= folder (=rm -rf=) and running the above from scratch solves the issue.
 
 **** Skimming: run
@@ -76,7 +78,49 @@ The reconstruction chain is implemented in Python. To run it:
 python bye_splits/run_chain.py
 #+END_SRC
 
-where =-h/--help= can be used to inspect all options. You can adapt the above to your needs, exploiting the separate tasks defined under =bye_splits/tasks/=. A plotting step for validation is included.
+where one can use the =-h= flag to visualize available options. To use the steps separately in your own script use the functions defined under =bye_splits/tasks/=, just as done in the ~iterative_optimization.py~ script.
+
+For plotting results as a function of the optimization trigger cell parameter:
+
+#+BEGIN_SRC shell
+python plot/meta_algorithm.py
+#+END_SRC
+
+The above will create =html= files with interactive outputs.
+
+**** Cluster Size Studies
+The script =bye_splits/scripts/cluster_size.py= reads a configuration file =bye_splits/scripts/cl_size_params.yaml= and runs the Reconstruction Chain on the =.root= inside corresponding to the chosen particle, where the clustering step is repeated for a range of cluster radii that is specified in the parameter file under =cl_size: Coeffs=.
+
+The most convenient way of running the study is to do:
+
+#+BEGIN_SRC shell
+bash run_cluster_size.sh <username>
+#+END_SRC
+
+where =<username>= is your lxplus username, creating ~.hdf5~ files containing Pandas DFs containing cluster properties (notably energy, eta, phi) and associated gen-level particle information for each radius. The bash script acts as a wrapper for the python script, setting a few options that are convenient for the cluster size studies that are not the default options for the general reconstruction chain. As of now, the output =.hdf5= files will be written to your local directory using the structure:
+
+#+BEGIN_SRC shell
+├── /<base_dir>
+│            ├── out
+│            ├── data
+│            │   ├──new_algos
+#+END_SRC
+
+with the files ending up in =new_algos/=. Currently working on implementing an option to send the files directly to your =eos/= directory, assuming the structure:
+
+#+BEGIN_SRC shell
+├── /eos/user/<first_letter>/<username>
+│                                   ├── out
+│                                   ├── data
+│                                   │   ├──PU0
+│                                   │   │   ├──electrons
+│                                   │   │   ├──photons
+│                                   │   │   ├──pions
+│                                   │   ├──PU200
+│                                   │   │   ├──electrons
+│                                   │   │   ├──photons
+│                                   │   │   ├──pions
+#+END_SRC
 
 *** Event Visualization
 The repository creates two web apps that can be visualized in a browser. The code is stored under =bye_splits/plot=.
@@ -128,6 +172,17 @@ We are currently running a pod at https://viz2-hgcal-event-display.app.cern.ch/.
 + [[https://cloud.google.com/kubernetes-engine/docs/concepts/pod][What is a pod]]?
 + [[https://paas.docs.cern.ch/3._Storage/eos/][How to mount =/eos= at CERN so that it is accessible by a pod?]]
 
+*** DashApp For Cluster Radii Studies
+A DashApp has been built to interactively explore the effect of cluster size on various cluster properties, which is currently hosted at https://bye-splits-app-hgcal-cl-size-studies.app.cern.ch/.
+To run the app locally, you can do:
+
+#+BEGIN_SRC shell
+bash run_cluster_app.sh <username>
+#+END_SRC
+
+where =<username>= is your lxplus username. The app reads the configuration file =bye_splits/plot/display_clusters/config.yaml= and assumes that you have a directory structure equivalent to the =eos/= directory described in the cluster size step.
+
+If you have run the cluster size study yourself, the generated files that the Dash App takes as input will be under either the =PU0/= or =PU200/=, depending on the boolean 'PileUp' in the configuration file. It then performs the necessary analysis on these files to generate the data for each page, which are themselves written to files in this directory. In order to minimize duplication and greatly speed up the user experience, if one of these files does not exist in your own directory, it looks for it under =/eos/user/i/iehle/data/<pile_up>= where a large number of the possible files already exist. The same procedure is used for reading the generated cluster size files, so you can use the app without having had to run the study yourself.
 
 *** Merging =plotly= and =bokeh= with =flask=
 **** Introduction

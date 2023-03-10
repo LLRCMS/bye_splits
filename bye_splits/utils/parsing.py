@@ -10,8 +10,7 @@ sys.path.insert(0, parent_dir)
 def add_parameters(parser):
     parser.add_argument('--sel', default='all', type=str,
                         help='Selection used to select cluster under study.')
-    parser.add_argument('--reg',
-                        choices=('Si', 'ECAL', 'HCAL', 'MaxShower', 'ExcludeMaxShower'),
+    parser.add_argument('--reg', choices=('Si', 'ECAL', 'HCAL', 'All', 'MaxShower', 'ExcludeMaxShower'),
                         default='Si', type=str,
                         help='Z region in the detector for the trigger cell geometry.')
     seed_help = ( 'Size of the window used for seeding in the phi ' +
@@ -27,3 +26,5 @@ def add_parameters(parser):
                         choices=('max_energy', 'min_distance'),
                         default='min_distance', type=str,
                         help='Clustering algorithm applied.')
+    parser.add_argument('--user', type=str, help='LXPlus username.')
+    parser.add_argument('--cluster_studies', type=bool, help='boolean, whether or not to read and write files for the cluster size studies steps.', default=False)

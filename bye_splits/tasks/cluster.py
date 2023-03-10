@@ -16,6 +16,8 @@ import numpy as np
 import pandas as pd
 import h5py
 
+from tqdm import tqdm
+
 def cluster(pars, **kw):
     dfout = None
     in_seeds  = common.fill_path(kw['ClusterInSeeds'], **pars)
@@ -29,7 +31,7 @@ def cluster(pars, **kw):
         radiusCoeffB = kw['CoeffB']
         empty_seeds = 0
 
-        for tck, seedk in zip(tc_keys, seed_keys):
+        for tck, seedk in tqdm(zip(tc_keys, seed_keys), total=len(tc_keys)):
             tc = sin_tc[tck]
             tc_cols = list(tc.attrs['columns'])
 
@@ -131,6 +133,12 @@ def cluster(pars, **kw):
             sout['data'] = dfout
 
         nevents = dfout.event.unique().shape[0]
+        
+        if kw['GenerateClusterSize']:
+            coef = 'coef_'+str(kw['CoeffA'][0]).replace('.','p')
+            with pd.HDFStore(kw['ClusterSizePath'], mode='a') as clSizeOut:
+                clSizeOut[coef] = dfout
+
     else:
         mes = 'No output in the cluster.'
         raise RuntimeError(mes)

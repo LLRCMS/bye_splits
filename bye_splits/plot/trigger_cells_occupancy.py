@@ -34,7 +34,7 @@ from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
                           LinearColorMapper, BasicTicker,
                           PrintfTickFormatter,
                           Range1d,
-                          Panel, Tabs)
+                          TabPanel, Tabs)
 from bokeh.plotting import figure
 from bokeh.transform import transform
 from bokeh.palettes import viridis as _palette
@@ -515,16 +515,16 @@ def plot_trigger_cells_occupancy(pars,
 
             #pics.append( (p,ev) )
             _lay = layout( [[figs[4], figs[5]], [figs[0],figs[1]], [figs[2],figs[3]]] )
-            ev_panels.append( Panel(child=_lay,
+            ev_panels.append( TabPanel(child=_lay,
                                     title='{}'.format(ev)) )
 
     output_file(plot_name)
 
     tc_panels_full, tc_panels_sel = ([] for _ in range(2))
     for i,(bkg1,bkg2) in enumerate(zip(bckg_full,bckg_sel)):
-        tc_panels_full.append( Panel(child=bkg1,
+        tc_panels_full.append( TabPanel(child=bkg1,
                                      title='Full | Selection {}'.format(i)) )
-        tc_panels_sel.append( Panel(child=bkg2,
+        tc_panels_sel.append( TabPanel(child=bkg2,
                                     title='Region {} | Selection {}'.format(pars['reg'],i)) )
 
     lay = layout([[Tabs(tabs=ev_panels)],

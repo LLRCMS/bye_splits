@@ -19,9 +19,9 @@ from utils import params
 from data_handle.base import BaseData
 
 class EventData(BaseData):
-    def __init__(self, inname, tag='v0', default_events=[],
+    def __init__(self, prod_key, inname, tag='v0', default_events=[],
                  reprocess=False, logger=None, is_tc=True, set_default_events=False):
-        super().__init__(inname, tag, reprocess, logger, is_tc)
+        super().__init__(prod_key, inname, tag, reprocess, logger, is_tc)
 
         with open(params.CfgPaths['data'], 'r') as afile:
             self.var = yaml.safe_load(afile)['varEvents']
@@ -123,6 +123,8 @@ class EventData(BaseData):
 
     def provide_events(self, events):
         """Provide multiple events, checking if they are in cache"""
+        if isinstance(events, int) and events==-1:
+            events = self.ev_numbers
         if len(events) != len(set(events)):
             mes = 'You provided duplicate event numbers!'
             raise ValueError(mes)
@@ -146,15 +148,15 @@ class EventData(BaseData):
         """Provide 'n' random events."""
         if seed is not None:
             self.rng = np.random.default_rng(seed=seed)
-        events = self.rng.choice(self.ev_numbers, size=n, replace=False)
+        events = self.rng.choice(self.ev_numbers, size=n, replace=False) if n!=-1 else -1
         return self.provide_events(events), events
         
-    def select(self):
+    def select(self):        
         with up.open(self.indata.path, array_cache='550 MB', num_workers=8) as f:
             tree = f[self.indata.tree_path]
             allvars = set([y for x in self.var.values() for y in x.values()])
             data = tree.arrays(filter_name='/' + '|'.join(allvars) + '/',
-                               library='ak')
+                               library='ak', entry_stop=10)
         # data[self.var.v] = data.waferv
         # data[self.newvar.vs] = -1 * data.waferv
         # data[self.newvar.c] = "#8a2be2"
