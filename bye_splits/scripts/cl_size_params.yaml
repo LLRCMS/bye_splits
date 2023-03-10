@@ -1,0 +1,18 @@
+io:
+    dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+    tree: HGCalTriggerNtuple
+    photons: /data_CMS/cms/ehle/L1HGCAL/photons/sample_skims/skim_photon_0PU_bc_stc_hadd.root
+    electrons: /data_CMS/cms/ehle/L1HGCAL/electrons/sample_skims/skim_electron_0PU_bc_stc_hadd.root
+    pions: /data_CMS/cms/ehle/L1HGCAL/pions/skim_pion_0PU_bc_stc_hadd.root
+
+selection:
+    disconnectedTriggerLayers: [2,4,6,8,10,12,14,16,18,20,22,24,26,28]
+    reachedEE: 2
+    deltarThreshold: 0.05
+    mipThreshold: 0.5
+
+cl_size:
+    particles: 'photons'
+    reinit: False
+    ClusterSizeBaseName: 'cluster_size_pileup'
+    Coeffs: [0.0, 0.05, 50]
