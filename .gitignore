@@ -21,3 +21,29 @@
 yaml-cpp-yaml-cpp-0.7.0*
 *#
 *.#*
+
+# Ignore VS Code files
+*.vscode/*
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+# Directories
+bye_splits/production/submit_scripts/
+
+# Exec etc files
+*.DS_Store
+*.pyc
+*.d
+*.diff
+settings.json
+conda_byesplits.sh
+temp_cleanup.sh
+git_login.sh
+
+# Test scripts
+dict_testing.py
+*dummy*
