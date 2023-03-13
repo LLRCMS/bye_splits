@@ -98,6 +98,7 @@ def add_ROI(fig, df, k=4):
     input_df = df[mask]
     
     ''' Choose the (u,v) coordinates of the module corresponding to max dep-energy.
+    This choice is performed by grouping modules beloging to different layers, having the same coordinates.
     Extend the selection to the nearby modules with at least 30% max energy and 10 mipT. '''
     module_sums = input_df.groupby(['waferu','waferv']).mipPt.sum()
     module_max = module_sums[module_sums.values == module_sums.max()].index[0]
@@ -136,45 +137,26 @@ def update_2dfigure(fig, df):
     return fig
 
 
-tab_3d_layout = dbc.Container([html.Div([
-    html.Div([
-        html.Div([dcc.Dropdown(['photons', 'electrons', 'pions'], 'photons', id='particle')], style={'width':'15%'}),
-        html.Div([dbc.Checklist(['Cluster trigger cells', 'ROI', 'Layer selection'], [], inline=True, id='checkbox', switch=True)], style={"margin-left": "15px"}),
-        html.Div(id='slider-container', children=html.Div(id='out_slider', style={'width':'95%'}), style= {'display': 'block', 'width':'40%'}),
-    ], style={'display': 'flex', 'flex-direction': 'row'}),
+def layout(**options):
+    return dbc.Container([html.Div([
+        html.Div([
+            html.Div([dcc.Dropdown(['photons', 'electrons', 'pions'], 'photons', id='particle')], style={'width':'15%'}),
+            html.Div([dbc.Checklist(options['checkbox'], [], inline=True, id='checkbox', switch=True)], style={"margin-left": "15px"}),
+            html.Div(id='slider-container', children=html.Div(id='out_slider', style={'width':'95%'}), style= {'display': 'block', 'width':'40%'}),
+        ], style={'display': 'flex', 'flex-direction': 'row'}),
+    
+        html.Div([
+            html.Div(["Threshold in [mip\u209C]: ", dcc.Input(id='mip', value=1, type='number', step=0.1)], style={'padding': 10}),
+            html.Div(["Select manually an event: ", dcc.Input(id='event', value=None, type='number')], style={'padding': 10, 'flex': 1}),
+        ], style={'display':'flex', 'flex-direction':'row'}),
+    
+        html.Div([
+            dbc.Button(children='Random event', id='event-val', n_clicks=0),
+            dbc.Button(children='Submit selected event', id='submit-val', n_clicks=0, style={'display':'inline-block', "margin-left": "15px"}),
+            html.Div(id='event-display', style={'display':'inline-block', "margin-left": "15px"}), 
+        ], style={'display':'inline-block', "margin-left": "15px"}),
 
-    html.Div([
-        html.Div(["Threshold in [mip\u209C]: ", dcc.Input(id='mip', value=1, type='number', step=0.1)], style={'padding': 10}),
-        html.Div(["Select manually an event: ", dcc.Input(id='event', value=None, type='number')], style={'padding': 10, 'flex': 1}),
-    ], style={'display':'flex', 'flex-direction':'row'}),
-
-    html.Div([
-        dbc.Button(children='Random event', id='event-val', n_clicks=0),
-        dbc.Button(children='Submit selected event', id='submit-val', n_clicks=0, style={'display':'inline-block', "margin-left": "15px"}),
-        html.Div(id='event-display', style={'display':'inline-block', "margin-left": "15px"}),
-    ]),
-    dcc.Graph(id='graph'),
-    dcc.Store(id='dataframe'),
-    ]), ])
-
-tab_layer_layout = dbc.Container([html.Div([
-    html.Div([
-        html.Div([dcc.Dropdown(['photons', 'electrons', 'pions'], 'photons', id='particle')], style={'width':'15%'}),
-        html.Div([dcc.Dropdown(['trigger cells', 'cluster'], 'trigger cells', id='tc-cl')], style={"margin-left": "15px", 'width':'15%'}),
-        html.Br(),
-        html.Div(id='out_slider', style={'width':'40%'}),
-        html.Div(id='layer_slider_container', style={'width':'30%'}),
-    ], style={'display': 'flex', 'flex-direction': 'row'}),
-    html.Div([
-        html.Div(["Threshold in [mip\u209C]: ", dcc.Input(id='mip', value=1, type='number', step=0.1)], style={'padding': 10}),
-        html.Div(["Select manually an event: ", dcc.Input(id='event', value=None, type='number')], style={'padding': 10, 'flex': 1}),
-    ], style={'display': 'flex', 'flex-direction': 'row'}),
-    html.Br(),
-    html.Div([
-        dbc.Button(children='Random event', id='event-val', n_clicks=0),
-        dbc.Button(children='Submit selected event', id='submit-val', n_clicks=0),
-        html.Div(id='event-display', style={'display':'inline-block', "margin-left": "15px"}),
-        html.Div(id='which', style={'display':'inline-block', "margin-left": "15px"}),
-    ]),
-    dcc.Graph(id='graph2d'),
-    dcc.Store(id='dataframe')]), ])
+        dcc.Graph(id='plot'),
+        dcc.Store(id='dataframe'),
+        html.Div(id='page', key=options['page']),
+        ]), ])

@@ -18,7 +18,7 @@ def produce_3dplot(df, opacity=1, surfaceaxis=0):
     for j,i in enumerate(array_data):
         x1 = np.append(i[0],i[0][0])
         y1 = np.append(i[1],i[1][0])
-        z1 = np.array(int(len(x1)) * [i[2]])
+        z1 = np.full_like(x1,i[2])
         datum = go.Scatter3d(x=z1, y=y1, z=x1, opacity=opacity,mode="lines", 
                             customdata=np.stack((5*[i[7]],5*[i[6]],5*[i[3]],5*[i[4]]), axis=-1),
                             hovertemplate='<b>Enegy[GeV]</b>: %{customdata[0]:,.2f}<br>' +
