@@ -25,14 +25,14 @@ class GeometryData(BaseData):
     https://indico.cern.ch/event/1111846/contributions/4675223/attachments/2372915/4052852/PartialsRotation.pdf
     """
     def __init__(self, reprocess=False, logger=None, is_tc=True):        
-        super().__init__('geom', reprocess, logger, is_tc)
-        self.indata.path = self.cfgprod['geom']['file']
-        self.indata.adir = self.cfgprod['geom']['dir']
-        self.indata.tree = self.cfgprod['geom']['tree']
+        super().__init__('', 'geom', reprocess, logger, is_tc)
+        self.indata.path = self.cfg['geometry']['file']
+        self.indata.adir = self.cfg['geometry']['dir']
+        self.indata.tree = self.cfg['geometry']['tree']
 
         self.dataset = None
         self.dname = 'tc'
-        self.var = common.dot_dict(self.cfgdata['varGeometry'])
+        self.var = common.dot_dict(self.cfg['varGeometry'])
 
         self.readvars = self._readvars()
         self.readvars.remove(self.var.wvs)
@@ -43,8 +43,8 @@ class GeometryData(BaseData):
         self.wu, self.wv = 'waferu', 'waferv'
 
         ## geometry-specific parameters
-        self.waferWidth = self.cfgdata['geometry']['waferSize'] #this defines all other sizes
-        self.sensorSeparation = self.cfgdata['geometry']['sensorSeparation']
+        self.waferWidth = self.cfg['geometry']['waferSize'] #this defines all other sizes
+        self.sensorSeparation = self.cfg['geometry']['sensorSeparation']
         self.N = 4 #number of cells per wafer side
         self.c30 = np.sqrt(3)/2 #cossine of 30 degrees
         self.t30 = 1/np.sqrt(3) #tangent of 30 degrees
@@ -380,7 +380,7 @@ class GeometryData(BaseData):
                 fields.remove(v)
             data = data[sel][fields]
 
-            nl = int(self.cfgdata['geometry']['nlayersCEE'])
+            nl = int(self.cfg['geometry']['nlayersCEE'])
             subsel = (data.subdet==2) | (data.subdet==10)
             data['layer'] = data.layer + nl*ak.values_astype(subsel, to=int)
             data = data[((data.layer<=nl) & (data.layer%2==1)) | (data.layer>nl)]

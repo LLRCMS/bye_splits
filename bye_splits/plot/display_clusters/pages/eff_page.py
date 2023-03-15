@@ -21,17 +21,17 @@ parser = argparse.ArgumentParser(description="Clustering standalone step.")
 parsing.add_parameters(parser)
 FLAGS = parser.parse_args()
 
-with open(params.CfgPaths["cluster_app"], "r") as afile:
-    cfgprod = yaml.safe_load(afile)
+with open(params.CfgPath, "r") as afile:
+    cfg = yaml.safe_load(afile)
 
-pile_up_dir = "PU0" if not cfgprod["clusterSize"]["pileUp"] else "PU200"
+pile_up_dir = "PU0" if not cfg["clusterSize"]["pileUp"] else "PU200"
 
-if cfgprod["dirs"]["local"]:
-    data_dir = cfgprod["dirs"]["localDir"]
+if cfg["clusterStudies"]["local"]:
+    data_dir = cfgprod["clusterStudies"]["localDir"]
 else:
     data_dir = params.EOSStorage(FLAGS.user, "data/")
 
-input_files = cl_helpers.get_output_files(cfgprod)
+input_files = cl_helpers.get_output_files(cfg)
 
 
 def binned_effs(df, norm, perc=0.1):
@@ -217,7 +217,7 @@ def global_effs(eta_range, normby, pileup, file="global_eff.hdf5"):
     filename = "{}_eta_{}_{}_{}".format(normby, eta_range[0], eta_range[1], file)
     filename_user = "{}{}/{}".format(data_dir, pile_up_dir, filename)
     filename_iehle = "{}{}{}/{}".format(
-        cfgprod["dirs"]["ehleDir"], cfgprod["dirs"]["dataFolder"], pile_up_dir, filename
+        cfg["clusterStudies"]["ehleDir"], cfg["clusterStudies"]["dataFolder"], pile_up_dir, filename
     )
 
     if os.path.exists(filename_user):

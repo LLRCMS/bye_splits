@@ -34,10 +34,8 @@ import data_handle
 from data_handle.data_handle import EventDataParticle
 from data_handle.geometry import GeometryData
 
-with open(params.CfgPaths['prod'], 'r') as afile:
-    cfg_prod = yaml.safe_load(afile)
-with open(params.CfgPaths['data'], 'r') as afile:
-    cfg_data = yaml.safe_load(afile)
+with open(params.CfgPath, 'r') as afile:
+    cfg = yaml.safe_load(afile)
 
 data_part_opt = dict(tag='mytag', reprocess=False, debug=True, logger=log)
 data_particle = {
@@ -85,7 +83,7 @@ def get_data(event, particles):
         return ds_geom
 
 if mode=='ev':
-    def_evs = cfg_data['defaultEvents']
+    def_evs = cfg['defaultEvents']
     def_ev_text = {}
     for k in def_evs:
         drop_text = [(str(q),str(q)) for q in def_evs[k]]
@@ -166,7 +164,7 @@ def display():
            """)
 
         sld_en = bmd.Slider(start=0, end=5, step=0.1,
-                            value=cfg_prod['selection']['mipThreshold'], 
+                            value=cfg['selection']['mipThreshold'], 
                             title='Energy threshold [mip]', **sld_opt)
         sld_en_cb = bmd.CustomJS(args=dict(s=vsrc), code="""s.change.emit();""")
         sld_en.js_on_change('value', sld_en_cb) #value_throttled
@@ -199,7 +197,7 @@ def display():
 
         for elem in zip(*zobj):
             # cut replicates the default `view_en`
-            if mode == 'ev' and elem[2] < cfg_prod['selection']['mipThreshold']:
+            if mode == 'ev' and elem[2] < cfg['selection']['mipThreshold']:
                 continue
             if max(elem[0][0][0]) > cur_xmax: cur_xmax = max(elem[0][0][0])
             if min(elem[0][0][0]) < cur_xmin: cur_xmin = min(elem[0][0][0])

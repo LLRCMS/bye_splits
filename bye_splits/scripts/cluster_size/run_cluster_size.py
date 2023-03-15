@@ -60,11 +60,11 @@ def combine_files_by_coef(in_dir, out_path):
 
 def cluster_size(pars, cfg):
     df_out = None
-    nevents = cfg["clSize"]["nevents"]
+    nevents = cfg["clusterStudies"]["nevents"]
 
     cluster_d = params.read_task_params("cluster")
 
-    if cfg["clSize"]["reinit"]:
+    if cfg["clusterStudies"]["reinit"]:
         df_gen, df_cl, df_tc = get_data_reco_chain_start(
             nevents=nevents, reprocess=True
         )
@@ -84,20 +84,20 @@ def cluster_size(pars, cfg):
             tasks.seed.seed(pars, **seed_d)
 
     if not pars.no_cluster:
-        start, end, tot = cfg["clSize"]["coeffs"]
+        start, end, tot = cfg["clusterStudies"]["coeffs"]
 
         coefs = np.linspace(start, end, tot)
         print("\nIterating over cluster radii.\n")
         for coef in tqdm(coefs, total=len(coefs)):
             cl_size_coef = "{}_coef_{}".format(
-                cfg["clSize"]["clusterSizeBaseName"],
+                cfg["clusterStudies"]["clusterSizeBaseName"],
                 str(round(coef, 3)).replace(".", "p"),
             )
             cluster_d["ClusterOutPlot"] = cl_size_coef
             cluster_d["CoeffA"] = [coef, 0] * 50
             nevents_end = tasks.cluster.cluster(pars, **cluster_d)
 
-        cl_size_out = common.fill_path(cfg["clSize"]["clusterSizeBaseName"])
+        cl_size_out = common.fill_path(cfg["clusterStudies"]["clusterSizeBaseName"])
 
         combine_files_by_coef(params.LocalStorage, cl_size_out)
 
@@ -134,7 +134,7 @@ if __name__ == "__main__":
 
     FLAGS = parser.parse_args()
 
-    with open(params.CfgPaths["prod"], "r") as afile:
+    with open(params.CfgPath, "r") as afile:
         cfg = yaml.safe_load(afile)
 
     cluster_size(common.dot_dict(vars(FLAGS)), cfg)

@@ -15,9 +15,9 @@ from utils import params
 from data_handle.geometry import GeometryData
 from data_handle.event import EventData
 
-def get_data_reco_chain_start(nevents=500, reprocess=False, cfgkey="prod"):
+def get_data_reco_chain_start(nevents=500, reprocess=False):
     """Access event data."""
-    data_part_opt = dict(tag="chain", reprocess=reprocess, debug=True, cfgkey=cfgkey)
+    data_part_opt = dict(tag="chain", reprocess=reprocess, debug=True)
     data_particle = EventDataParticle(**data_part_opt)
     ds_all, events = data_particle.provide_random_events(n=nevents, seed=42)
     # ds_all = data_particle.provide_events(events=[170004, 170015, 170017, 170014])
@@ -65,20 +65,18 @@ def get_data_reco_chain_start(nevents=500, reprocess=False, cfgkey="prod"):
     return ds_gen, ds_cl, ds_tc
 
 
-def EventDataParticle(prod_key, tag, reprocess, logger=None, debug=False):
+def EventDataParticle(tag, reprocess, logger=None, debug=False, particles=None):
     """Factory for EventData instances of different particle types"""
-    with open(params.CfgPaths[prod_key], "r") as afile:
-        cfgprod = yaml.safe_load(afile)
-        particles = cfgprod["selection"]["particles"]
+    with open(params.CfgPath, "r") as afile:
+        cfg = yaml.safe_load(afile)
+        if particles is None:
+            particles = cfg["selection"]["particles"]
         if particles not in ("photons", "electrons", "pions"):
             raise ValueError("{} are not supported.".format(particles))
-        path = cfgprod["io"][particles]
+        path = cfg["io"][particles]
+        defevents = cfg["defaultEvents"][particles]
 
     tag = particles + "_" + tag
     tag += "_debug" * debug
 
-    with open(params.CfgPaths["data"], "r") as afile:
-        cfgdata = yaml.safe_load(afile)
-        defevents = cfgdata["defaultEvents"][particles]
-
-    return EventData(path, prod_key, tag, defevents, reprocess, logger)
+    return EventData(path, tag, defevents, reprocess, logger)

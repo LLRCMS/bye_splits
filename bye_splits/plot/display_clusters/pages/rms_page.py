@@ -19,21 +19,17 @@ parser = argparse.ArgumentParser(description="")
 parsing.add_parameters(parser)
 FLAGS = parser.parse_args()
 
-with open(params.CfgPaths["cluster_app"], "r") as afile:
-    cfgprod = yaml.safe_load(afile)
+with open(params.CfgPath, "r") as afile:
+    cfg = yaml.safe_load(afile)
 
-pile_up_dir = "PU0" if not cfgprod["clusterSize"]["pileUp"] else "PU200"
+pile_up_dir = "PU0" if not cfg["clusterStudies"]["pileUp"] else "PU200"
 
-if cfgprod["dirs"]["local"]:
-    data_dir = cfgprod["dirs"]["localDir"]
+if cfg["clusterStudies"]["local"]:
+    data_dir = cfg["clusterStudies"]["localDir"]
 else:
     data_dir = params.EOSStorage(FLAGS.user, "data/")
 
-input_files = cl_helpers.get_output_files(cfgprod)
-
-with open(params.CfgPaths["cluster_app"], "r") as afile:
-    cfgprod = yaml.safe_load(afile)
-
+input_files = cl_helpers.get_output_files(cfg)
 
 def rms(data):
     return np.sqrt(np.mean(np.square(data)))
@@ -272,7 +268,7 @@ def glob_rms(eta_range, normby, pileup, file="rms_and_eff.hdf5"):
     )
     filename_user = "{}{}/{}".format(data_dir, pile_up_dir, filename)
     filename_iehle = "{}{}{}/{}".format(
-        cfgprod["dirs"]["ehleDir"], cfgprod["dirs"]["dataFolder"], pile_up_dir, filename
+        cfg["clusterStudies"]["ehleDir"], cfg["clusterStudies"]["dataFolder"], pile_up_dir, filename
     )
 
     if os.path.exists(filename_user):

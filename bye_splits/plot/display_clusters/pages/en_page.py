@@ -37,17 +37,17 @@ column_matching = {
     "genpart_energy": "gen_en",
 }
 
-with open(params.CfgPaths["cluster_app"], "r") as afile:
-    cl_cfg = yaml.safe_load(afile)
+with open(params.CfgPath, "r") as afile:
+    cfg = yaml.safe_load(afile)
 
-pile_up_dir = "PU0" if not cl_cfg["clusterSize"]["pileUp"] else "PU200"
+pile_up_dir = "PU0" if not cfg["clusterStudies"]["pileUp"] else "PU200"
 
-if cl_cfg["dirs"]["local"]:
-    data_dir = cl_cfg["dirs"]["localDir"]
+if cfg["clusterStudies"]["local"]:
+    data_dir = cfg["clusterStudies"]["localDir"]
 else:
-    data_dir = params.EOSStorage(FLAGS.user, cl_cfg["dirs"]["dataFolder"])
+    data_dir = params.EOSStorage(FLAGS.user, cfg["dirs"]["dataFolder"])
 
-input_files = cl_helpers.get_output_files(cl_cfg)
+input_files = cl_helpers.get_output_files(cfg)
 
 dash.register_page(__name__, title="Energy", name="Energy")
 
@@ -174,8 +174,8 @@ def plot_norm(
     )
     plot_filename_user = "{}{}/{}".format(data_dir, pile_up_dir, plot_filename)
     plot_filename_iehle = "{}{}{}/new_{}".format(
-        cl_cfg["dirs"]["ehleDir"],
-        cl_cfg["dirs"]["dataFolder"],
+        cfg["clusterStudies"]["ehleDir"],
+        cfg["clusterStudies"]["dataFolder"],
         pile_up_dir,
         plot_filename,
     )
@@ -193,7 +193,7 @@ def plot_norm(
     dict_keys = ["photons", "pions"]
     normed_dist = dict(zip(dict_keys, normed_dist.values()))
 
-    start, end, tot = cl_cfg["clusterSize"]["coeffs"]
+    start, end, tot = cfg["clusterStudies"]["coeffs"]
     coefs = np.linspace(start, end, tot)
 
     coef_labels = [round(coef, 3) for coef in coefs]

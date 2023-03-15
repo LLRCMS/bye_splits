@@ -16,7 +16,6 @@ import logging
 
 from utils import params, common
 
-
 class InputData:
     """Storage class for input strings required to access ROOT files and trees."""
 
@@ -57,14 +56,14 @@ class InputData:
 class BaseData(abc.ABC):
     """Base data management class."""
 
-    def __init__(self, inname, tag, reprocess, logger, is_tc, cfgkey):
-        with open(params.CfgPaths[cfgkey], "r") as afile:
-            _cfg = yaml.safe_load(afile)
+    def __init__(self, inname, tag, reprocess, logger, is_tc):
+        with open(params.CfgPath, "r") as afile:
+            self.cfg = yaml.safe_load(afile)
 
         self.indata = InputData()
         self.indata.path = inname
-        self.indata.adir = _cfg["io"]["dir"]
-        self.indata.tree = _cfg["io"]["tree"]
+        self.indata.adir = self.cfg["io"]["dir"]
+        self.indata.tree = self.cfg["io"]["tree"]
 
         self.tag = tag
         self.reprocess = reprocess
