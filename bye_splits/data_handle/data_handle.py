@@ -16,12 +16,11 @@ from data_handle.geometry import GeometryData
 from data_handle.event import EventData
 
 
-def get_data_reco_chain_start(prod_key, nevents=500, reprocess=False):
+def get_data_reco_chain_start(prod_key="prod", nevents=500, reprocess=False):
     """Access event data."""
     data_part_opt = dict(
         prod_key=prod_key, tag="chain", reprocess=reprocess, debug=True
     )
-    # data_particle = EventDataParticle(particles="photons", **data_part_opt)
     data_particle = EventDataParticle(**data_part_opt)
     ds_all, events = data_particle.provide_random_events(n=nevents, seed=42)
     # ds_all = data_particle.provide_events(events=[170004, 170015, 170017, 170014])
@@ -69,7 +68,6 @@ def get_data_reco_chain_start(prod_key, nevents=500, reprocess=False):
     return ds_gen, ds_cl, ds_tc
 
 
-# def EventDataParticle(particles, prod_key, tag, reprocess, logger=None, debug=False):
 def EventDataParticle(prod_key, tag, reprocess, logger=None, debug=False):
     """Factory for EventData instances of different particle types"""
     with open(params.CfgPaths[prod_key], "r") as afile:
@@ -86,4 +84,4 @@ def EventDataParticle(prod_key, tag, reprocess, logger=None, debug=False):
         cfgdata = yaml.safe_load(afile)
         defevents = cfgdata["defaultEvents"][particles]
 
-    return EventData(prod_key, path, tag, defevents, reprocess, logger)
+    return EventData(path, prod_key, tag, defevents, reprocess, logger)
