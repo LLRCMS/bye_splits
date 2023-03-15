@@ -49,8 +49,6 @@ cluster:
     CoeffB: 0
     MidRadius: 2.3
     PtC3dThreshold: 0.5
-    GenerateClusterSize: False
-    ClusterSizePath: None
 
 valid:
   ClusterOutValidation: 'cluster_valid'

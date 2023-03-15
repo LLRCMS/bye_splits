@@ -65,11 +65,13 @@ The above skims the input files, applying:
 **** Data sources
 This framework relies on photon-, electron- and pion-gun samples produced via CRAB. The most up to date versions are currently stored under:
 
-| Photons PU(0)   | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoublePhoton_FlatPt-1To100/GammaGun_Pt1_100_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221025_153226/0000/~        |
-| Electrons (PU0) | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoubleElectron_FlatPt-1To100/ElectronGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_102633/0000/~ |
-| Pions (PU0)     | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/SinglePion_PT0to200/SinglePion_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_103211/0000~              |
+| Photons (PU0)     | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoublePhoton_FlatPt-1To100/GammaGun_Pt1_100_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221025_153226/0000/~        |
+| Electrons (PU0)   | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoubleElectron_FlatPt-1To100/ElectronGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_102633/0000/~ |
+| Pions (PU0)       | ~/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/SinglePion_PT0to200/SinglePion_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_103211/0000~              |
+| Photons (PU200)   | ~/eos/user/i/iehle/data/PU200/photons/ntuples~                                                                                                                                                    |
+| Electrons (PU200) | ~/eos/user/i/iehle/data/PU200/electrons/ntuples~                                                                                                                                                  |
 
-The files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users and under =/eos/user/b/bfontana/FPGAs/new_algos/=, accessible to all lxplus and LLR users. The latter is used since it is well interfaced with CERN services.
+The ~PU0~ files above were merged and are stored under =/data_CMS/cms/alves/L1HGCAL/=, accessible to LLR users and under =/eos/user/b/bfontana/FPGAs/new_algos/=, accessible to all lxplus and LLR users. The latter is used since it is well interfaced with CERN services. The ~PU200~ files were merged and stored under =/eos/user/i/iehle/data/PU200/<particle>/=.
 
 *** Reconstruction Chain
 The reconstruction chain is implemented in Python. To run it:
@@ -172,7 +174,7 @@ We are currently running a pod at https://viz2-hgcal-event-display.app.cern.ch/.
 + [[https://cloud.google.com/kubernetes-engine/docs/concepts/pod][What is a pod]]?
 + [[https://paas.docs.cern.ch/3._Storage/eos/][How to mount =/eos= at CERN so that it is accessible by a pod?]]
 
-*** DashApp For Cluster Radii Studies
+*** Cluster Radii Studies
 A DashApp has been built to interactively explore the effect of cluster size on various cluster properties, which is currently hosted at https://bye-splits-app-hgcal-cl-size-studies.app.cern.ch/.
 To run the app locally, you can do:
 
@@ -180,9 +182,9 @@ To run the app locally, you can do:
 bash run_cluster_app.sh <username>
 #+END_SRC
 
-where =<username>= is your lxplus username. The app reads the configuration file =bye_splits/plot/display_clusters/config.yaml= and assumes that you have a directory structure equivalent to the =eos/= directory described in the cluster size step.
+where =<username>= is your lxplus username. The app reads the configuration file =bye_splits/plot/display_clusters/config.yaml= and assumes that you have a directory structure equivalent to the directories described in the cluster size step (depending on your choice of ```Local```).
 
-If you have run the cluster size study yourself, the generated files that the Dash App takes as input will be under either the =PU0/= or =PU200/=, depending on the boolean 'PileUp' in the configuration file. It then performs the necessary analysis on these files to generate the data for each page, which are themselves written to files in this directory. In order to minimize duplication and greatly speed up the user experience, if one of these files does not exist in your own directory, it looks for it under =/eos/user/i/iehle/data/<pile_up>= where a large number of the possible files already exist. The same procedure is used for reading the generated cluster size files, so you can use the app without having had to run the study yourself.
+It performs the necessary analysis on the files in the specified directory to generate the data for each page, which are themselves written to files in this directory. In order to minimize duplication and greatly speed up the user experience, if one of these files does not exist in your own directory, it looks for it under the appropriate directories (listed in our Data Sources), where a large number of the possible files already exist. The same procedure is used for reading the generated cluster size files, so you can use the app without having had to run the study yourself.
 
 *** Merging =plotly= and =bokeh= with =flask=
 **** Introduction

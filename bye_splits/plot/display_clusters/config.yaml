@@ -1,12 +1,12 @@
 dirs:
-  Local: False
-  LocalDir: '/home/llr/cms/ehle/NewRepos/bye_splits/data/new_algos/'
-  EhleDir: '/eos/user/i/iehle/'
-  DataFolder: 'data/'
+  local: False
+  localDir: "/home/llr/cms/ehle/NewRepos/bye_splits/data/new_algos/"
+  ehleDir: "/eos/user/i/iehle/"
+  dataFolder: "data/"
 
-ClusterSize:
-  PileUp: False
-  Tree: 'FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple'
-  Coeffs: [0.0, 0.05, 50]
-  #FileBaseName: 'cluster_size'
-  FileBaseName: 'energy_out'
+clusterSize:
+  pileUp: False
+  tree: "FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple"
+  coeffs: [0.0, 0.05, 50]
+  #fileBaseName: "cluster_size"
+  fileBaseName: "energy_out"
