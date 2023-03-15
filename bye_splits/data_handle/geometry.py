@@ -107,7 +107,7 @@ class GeometryData(BaseData):
         # cells_conversion = (lambda cu,cv: (1.5*(cv-cu)+0.5) * self.R,
         #                     lambda cu,cv: (cv+cu-2*self.N+1) * self.r) #orientation 6
         cells_conversion = (lambda cu,cv: (1.5*(cv-self.N)+1) * self.R,
-                            lambda cu,cv: (2*cu-cv-self.N) * self.r) #orientation 7pu
+                            lambda cu,cv: (2*cu-cv-self.N) * self.r) #orientation 7
   
         univ_wcenterx = cells_conversion[0](3,3) + self.cellDistX
         univ_wcentery = cells_conversion[1](3,3) + 3*self.cellDistY/2
@@ -269,14 +269,14 @@ class GeometryData(BaseData):
         cols = [x for x in d.fields if x not in cols_to_remove]
         return d[cols]
 
-    def _from_parquet_to_geometry(self, ds, section, region):
+    def _parquet_to_geom(self, ds, section, region, lrange):
         """
         Steps required for going from parquet format to full pandas geometry dataframe
         In principle all these steps could be done without using pandas,
         but the latter improves clarity.
         """
         ds = ak.to_dataframe(ds)
-        ds = self.region_selection(ds, section, region)
+        ds = self.region_selection(ds, section, region, lrange)
         ds = self.prepare_for_display(ds)
         return ds
 
@@ -294,18 +294,18 @@ class GeometryData(BaseData):
             #df = self._display_cells(df, library)
         return df
 
-    def provide(self, section='si', region=None):
+    def provide(self, section='si', region=None, lrange=None):
         """Provides a processed geometry dataframe to the client."""
         if not os.path.exists(self.outpath) or self.reprocess:
             if self.logger is not None:
                 self.logger.debug('Storing geometry data...')
-            self.store(section, region)
+            self.store(section, region, lrange)
 
         if self.dataset is None: # use cached dataset (currently will never happen)
             if self.logger is not None:
                 self.logger.debug('Retrieving geometry data...')
             ds = ak.from_parquet(self.outpath)
-            self.dataset = self._from_parquet_to_geometry(ds, section, region)
+            self.dataset = self._parquet_to_geom(ds, section, region, lrange)
         
         return self.dataset
 
@@ -318,14 +318,17 @@ class GeometryData(BaseData):
                 _vars.remove(k)
         return _vars
         
-    def region_selection(self, df, section=None, region=None):
+    def region_selection(self, df, section=None, region=None, lrange=None):
         """Select a specific geometry region. Used mostly for debugging."""
+        if lrange is not None:
+            df = df[(df.layer>=lrange[0]) & ((df.layer<=lrange[1]))]
+            
         if region is not None or (region is None and section is not None):
             regions = ('inside', 'periphery', 'wafer', None)
             assert region in regions
 
             if section == 'si':
-                df = df[df.subdet==2]
+                df = df[(df.subdet==1) | (df.subdet==2)]
 
             elif section == 'sci':
                 df = df[df.subdet==10]
@@ -381,8 +384,8 @@ class GeometryData(BaseData):
             data = data[sel][fields]
 
             nl = int(self.cfg['geometry']['nlayersCEE'])
-            subsel = (data.subdet==2) | (data.subdet==10)
-            data['layer'] = data.layer + nl*ak.values_astype(subsel, to=int)
+            ceh_sel = (data.subdet==2) | (data.subdet==10)
+            data['layer'] = data.layer + nl*ak.values_astype(ceh_sel, to=int)
             data = data[((data.layer<=nl) & (data.layer%2==1)) | (data.layer>nl)]
 
             #below is correct but much slower (no operator isin in awkward)
@@ -396,11 +399,11 @@ class GeometryData(BaseData):
 
         return data
 
-    def store(self, section, region):
+    def store(self, section, region, lrange):
         """Stores the data selection in a parquet file for quicker access."""
         ds = self.select()
         if os.path.exists(self.outpath):
             os.remove(self.outpath)
         ds = self.filter_columns(ds)
         ak.to_parquet(ds, self.outpath)
-        self.dataset = self._from_parquet_to_geometry(ds, section, region)
+        self.dataset = self._parquet_to_geom(ds, section, region, lrange)

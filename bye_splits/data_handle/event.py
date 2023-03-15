@@ -99,7 +99,7 @@ class EventData(BaseData):
             self.store()
         return ak.from_parquet(self.outpath)
 
-    def provide_event(self, event, merge):
+    def provide_event(self, event, merge=False):
         """
         Provide single event, checking if it is in cache.
         The event number is dropped due to redundancy.
