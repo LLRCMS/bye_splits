@@ -64,4 +64,3 @@ optimization:
   OptPosResOut: 'opt_posres'
   OptCSVOut: 'stats'
   FillOutPlot: 'fill_plot'
-  Pretrained: False

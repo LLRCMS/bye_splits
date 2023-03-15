@@ -45,11 +45,15 @@ def normalize_df(cl_df, gen_df):
 
 
 def combine_files_by_coef(in_dir, out_path):
-    pattern = r"coef_0p(\d+)"
-    files = os.listdir(in_dir)
+    file_pattern = os.path.basename(out_path).replace(".hdf5", "")
+    files = [
+        file for file in os.listdir(in_dir) if re.search(file_pattern, file) != None
+    ]
+
+    coef_pattern = r"coef_0p(\d+)"
     with pd.HDFStore(out_path, "w") as clusterSizeOut:
-        for file in tqdm(files, total=len(files)):
-            key = re.search(pattern, file).group()
+        for file in files:
+            key = re.search(coef_pattern, file).group()
             with pd.HDFStore(in_dir + "/" + file, "r") as clSizeCoef:
                 clusterSizeOut[key] = clSizeCoef["/data"]
 
@@ -60,9 +64,9 @@ def cluster_size(pars, cfg):
 
     cluster_d = params.read_task_params("cluster")
 
-    if cfgprod["clSize"]["reinit"]:
+    if cfg["clSize"]["reinit"]:
         df_gen, df_cl, df_tc = get_data_reco_chain_start(
-            "cluster_size", nevents=nevents, reprocess=True
+            nevents=nevents, reprocess=True
         )
 
         print("There are {} events in the input.".format(df_gen.shape[0]))
@@ -80,25 +84,22 @@ def cluster_size(pars, cfg):
             tasks.seed.seed(pars, **seed_d)
 
     if not pars.no_cluster:
-        start, end, tot = cfgprod["clSize"]["coeffs"]
+        start, end, tot = cfg["clSize"]["coeffs"]
 
         coefs = np.linspace(start, end, tot)
         print("\nIterating over cluster radii.\n")
         for coef in tqdm(coefs, total=len(coefs)):
             cl_size_coef = "{}_coef_{}".format(
-                cfgprod["clSize"]["clusterSizeBaseName"],
+                cfg["clSize"]["clusterSizeBaseName"],
                 str(round(coef, 3)).replace(".", "p"),
             )
             cluster_d["ClusterOutPlot"] = cl_size_coef
             cluster_d["CoeffA"] = [coef, 0] * 50
             nevents_end = tasks.cluster.cluster(pars, **cluster_d)
 
-        coef_dir = "data/new_algos/electrons/radii"
-        cl_size_out = common.fill_path(
-            cfgprod["clSize"]["clusterSizeBaseName"], data_dir=coef_dir
-        )
+        cl_size_out = common.fill_path(cfg["clSize"]["clusterSizeBaseName"])
 
-        combine_files_by_coef(coef_dir, cl_size_out)
+        combine_files_by_coef(params.LocalStorage, cl_size_out)
 
         with pd.HDFStore(cl_size_out, mode="a") as clSizeOut:
             df_gen, _, _ = get_data_reco_chain_start(
@@ -133,7 +134,7 @@ if __name__ == "__main__":
 
     FLAGS = parser.parse_args()
 
-    with open(params.CfgPaths["cluster_size"], "r") as afile:
-        cfgprod = yaml.safe_load(afile)
+    with open(params.CfgPaths["prod"], "r") as afile:
+        cfg = yaml.safe_load(afile)
 
-    cluster_size(common.dot_dict(vars(FLAGS)), cfgprod)
+    cluster_size(common.dot_dict(vars(FLAGS)), cfg)

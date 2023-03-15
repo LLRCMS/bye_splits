@@ -142,9 +142,7 @@ def cluster(pars, **kw):
         )
 
     if dfout is not None:
-        out = common.fill_path(
-            kw["ClusterOutPlot"], data_dir="data/new_algos/electrons/radii", **pars
-        )
+        out = common.fill_path(kw["ClusterOutPlot"], **pars)
         with pd.HDFStore(out, mode="w") as sout:
             dfout.event = dfout.event.astype(int)
             sout["data"] = dfout

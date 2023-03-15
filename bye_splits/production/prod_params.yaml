@@ -1,9 +1,9 @@
 io:
-    dir: hgcalTriggerNtuplizer
-    tree: HGCalTriggerNtuple
-    photons: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG_Thresh0.root
-    electrons: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG.root
-    pions: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG.root
+  dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+  tree: HGCalTriggerNtuple
+  photons: /eos/user/i/iehle/data/PU0/photons/skim_photons_0PU_bc_stc_hadd.root
+  electrons: /eos/user/i/iehle/data/PU0/electrons/skim_electrons_0PU_bc_stc_hadd.root
+  pions: /eos/user/i/iehle/data/PU0/pions/skim_pions_0PU_bc_stc_hadd.root
 
 selection:
     particles: photons
@@ -12,5 +12,8 @@ selection:
     deltarThreshold: 0.05
     mipThreshold: 0.5
 
-# dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
-# tree: HGCalTriggerNtuple
+clSize:
+  reinit: False
+  clusterSizeBaseName: cluster_size
+  coeffs: [0.0, 0.05, 50]
+  nevents: 100
