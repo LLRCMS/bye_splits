@@ -43,7 +43,7 @@ data_particle = {
     #'electrons': EventDataParticle(particles='electrons', **data_part_opt)
 }
 geom_data = GeometryData(reprocess=True, logger=log)
-mode = 'ev'
+mode = 'geom'
 
 def common_props(p):
     p.output_backend = 'svg'
@@ -107,7 +107,7 @@ def source_maxmin(src, cfg=None):
         yproxy_sci = zobj_sci[0]*np.sin(zobj_sci[1])
 
         # cut replicates the default `view_en`
-        if cfg is not None:
+        if cfg is None:
             encut = np.ones_like(xproxy_sci, dtype=np.int32)
         else:
             encut = zobj_sci[2] < cfg['selection']['mipThreshold']
@@ -271,7 +271,7 @@ def display():
                            active_drag='box_zoom')
             p_tc = figure(x_range=bmd.Range1d(cur_xmin, cur_xmax),
                           y_range=bmd.Range1d(cur_ymin, cur_ymax), **fig_opt)
-            #p_tc = figure(match_aspect=True, **fig_opt)
+            # p_tc = figure(match_aspect=True, **fig_opt)
 
             # p_mods.add_tools(*tool_list)
             common_props(p_tc)
@@ -365,8 +365,9 @@ def display():
 
         fig_opt = dict(width=width, height=height,
                        x_axis_label='X [cm]', y_axis_label='Y [cm]',
-                       tools='save,reset,undo,redo,pan',
-                       toolbar_location='right', output_backend='webgl')
+                       tools='save,reset,undo,redo,pan,box_zoom',
+                       toolbar_location='right', output_backend='webgl',
+                       active_drag='box_zoom')
 
         # p_tc = figure(x_range=bmd.Range1d(xmin, xmax),
         #               y_range=bmd.Range1d(ymin, ymax),
@@ -400,14 +401,14 @@ def display():
         hvr_si = bmd.HoverTool(tooltips=hvr_tt_si, renderers=[r_si])
         hvr_sci = bmd.HoverTool(tooltips=hvr_tt_sci, renderers=[r_sci])
         # hvr_xy = bmd.HoverTool(tooltips=hvr_tt_xy, renderers=[r_xy])
-        tool_list = (bmd.WheelZoomTool(), bmd.BoxZoomTool(match_aspect=True),)
+        tool_list = (bmd.WheelZoomTool(),)
         p_tc.add_tools(hvr_si, hvr_sci, *tool_list)
 
-        p_tc.circle(x='tc_x', y='tc_y', source=gsource['si'], view=view_si,
-                    size=5, color='blue', legend_label='u,v conversion')
-        p_tc.circle(x='x', y='y', source=gsource['si'], view=view_si,
-                    size=5, color='orange', legend_label='tc original')
-        p_tc.legend.click_policy='hide'
+        # p_tc.circle(x='tc_x', y='tc_y', source=gsource['si'], view=view_si,
+        #             size=5, color='blue', legend_label='u,v conversion')
+        # p_tc.circle(x='x', y='y', source=gsource['si'], view=view_si,
+        #             size=5, color='orange', legend_label='tc original')
+        # p_tc.legend.click_policy='hide'
                         
         ####### (x,y) plots ################################################################
         # p_xy = figure(width=width, height=height,

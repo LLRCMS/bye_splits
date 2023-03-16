@@ -57,7 +57,7 @@ def stats_plotter(pars, names_d):
 
 def resolution_plotter(df, pars, user):
     out = common.fill_path(os.path.join('/eos/user', user[0], user, 'www/L1/reco'),
-                           ext='hdf5', **pars)
+                           ext='html', **pars)
     bokeh.io.output_file(out)
 
     avars = ('enres', 'etares', 'phires')

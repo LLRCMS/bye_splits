@@ -103,6 +103,12 @@ class GeometryData(BaseData):
         """Displays silicon trigger cells"""
         df['wafer_shift_x'] = (-2*df[self.wu] + df[self.wv])*(self.waferWidth+self.sensorSeparation)/2
         df['wafer_shift_y'] = (self.c30*df[self.wv])*(self.waferWidth+self.sensorSeparation)
+
+        ceh_sel  = df.subdet==2
+        ceh_even = ceh_sel & (df.layer%2==0)
+        ceh_odd  = ceh_sel & (df.layer%2==1)
+        df['wafer_shift_y'][ceh_even] -= (self.waferWidth/2 + self.cellDistY)
+        df['wafer_shift_y'][ceh_odd]  += (self.waferWidth/2 + self.cellDistY)
         
         # cells_conversion = (lambda cu,cv: (1.5*(cv-cu)+0.5) * self.R,
         #                     lambda cu,cv: (cv+cu-2*self.N+1) * self.r) #orientation 6
