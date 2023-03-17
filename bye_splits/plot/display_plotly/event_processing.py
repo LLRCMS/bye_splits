@@ -46,7 +46,7 @@ def get_data(event, particles):
     if event is None:
         ds_ev, event = data_particle[particles].provide_random_event()
     else:
-        ds_ev = data_particle[particles].provide_event(event)
+        ds_ev = data_particle[particles].provide_event(event, merge=False)
      
     tc_keep = {'good_tc_waferu'     : 'waferu',
                'good_tc_waferv'     : 'waferv',

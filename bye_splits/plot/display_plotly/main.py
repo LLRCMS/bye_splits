@@ -63,7 +63,7 @@ def update_event(particle, n_click, submit_event, event, page):
     phi = gen_info['exphi'].values[0]
     if particle == 'photons 200PU':
         x_gen, y_gen = processing.sph2cart(eta, phi)
-        df = df[np.sqrt((x_gen-df.tc_x)**2+(y_gen-df.tc_y)**2)<20]
+        df = df[np.sqrt((x_gen-df.tc_x)**2+(y_gen-df.tc_y)**2)<100]
     
     if page == '3D':
         slider = dcc.RangeSlider(df['layer'].min(),df['layer'].max(), 
