@@ -49,7 +49,7 @@ def seed(pars, debug=False, **kw):
             # fill the rows with negative (unphysical) energy values
             # boundary conditions on the phi axis are satisfied by 'np.roll'
             phiPad = -1 * np.ones((1,kw['NbinsPhi']))
-            energies = np.concatenate( (phiPad,energies,phiPad) )
+            energies = np.concatenate((phiPad,energies,phiPad))
      
             #remove padding
             slc = slice(1,energies.shape[0]-1)

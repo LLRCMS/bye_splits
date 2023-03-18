@@ -3,10 +3,10 @@
 _all_ = []
 
 import os
-from pathlib import Path
 import sys
 
-sys.path.insert(0, Path(__file__).parents[2])
+parent_dir = os.path.abspath(__file__ + 2 * "/..")
+sys.path.insert(0, parent_dir)
 
 from utils import params
 
@@ -57,7 +57,7 @@ def fill_path(base_path, data_dir=params.LocalStorage, ext="hdf5", **kw):
         add_if_exists(k, v)
 
     base_path += "." + ext
-    return Path(data_dir) / base_path
+    return os.path.join(data_dir, base_path)
 
 
 class SupressSettingWithCopyWarning:
@@ -105,13 +105,6 @@ def get_detector_region_mask(df, region):
 
     df = df.drop(["subdet"], axis=1)
     return df, subdetCond
-
-
-def get_html_name(script_name, name=""):
-    f = Path(script_name).absolute().parents[1] / "out"
-    f /= name + ".html"
-    return f
-
 
 def print_histogram(arr):
     for i in range(arr.shape[0]):

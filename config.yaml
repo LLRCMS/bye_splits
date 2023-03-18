@@ -51,6 +51,7 @@ varEvents:
     idcl: 'good_tc_multicluster_id'
     pt: 'good_tc_pt'
     en: 'good_tc_mipPt'
+    en_gev: 'good_tc_energy'
   # tsum:
   #   event: 'event'
   #   wu: 'good_ts_waferu'

@@ -37,10 +37,10 @@ from data_handle.geometry import GeometryData
 def common_props(p):
     p.output_backend = 'svg'
     p.toolbar.logo = None
-    # p.grid.visible = False
-    # p.outline_line_color = None
-    # p.xaxis.visible = False
-    # p.yaxis.visible = False
+    p.grid.visible = False
+    p.outline_line_color = None
+    p.xaxis.visible = False
+    p.yaxis.visible = False
 
 with open(params.CfgPath, 'r') as afile:
     cfg = yaml.safe_load(afile)

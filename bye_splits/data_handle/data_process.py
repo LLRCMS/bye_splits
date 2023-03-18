@@ -81,6 +81,7 @@ def get_data_reco_chain_start(nevents=500, reprocess=False, tag='chain'):
         "good_tc_layer": "tc_layer",
         "good_tc_pt": "tc_pt",
         "good_tc_mipPt": "tc_mipPt",
+        "good_tc_energy": "tc_energy",
         "good_tc_x": "tc_x",
         "good_tc_y": "tc_y",
         "good_tc_z": "tc_z",
