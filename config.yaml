@@ -1,9 +1,13 @@
 io:
-  dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
-  tree: HGCalTriggerNtuple
-  photons: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG_Thresh0.root
-  electrons: /eos/user/i/iehle/data/PU0/electrons/skim_electrons_0PU_bc_stc_hadd.root
-  pions: /eos/user/i/iehle/data/PU0/pions/skim_pions_0PU_bc_stc_hadd.root
+  dirphotons: hgcalTriggerNtuplizer
+  treephotons: HGCalTriggerNtuple
+  filephotons: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG_Thresh0.root
+  direlectrons: hgcalTriggerNtuplizer
+  treeelectrons: HGCalTriggerNtuple
+  fileelectrons: /eos/user/i/iehle/data/PU0/electrons/skim_electrons_0PU_bc_stc_hadd.root
+  dirpions: hgcalTriggerNtuplizer
+  treepions: HGCalTriggerNtuple
+  filepions: /eos/user/i/iehle/data/PU0/pions/skim_pions_0PU_new_hadd.root
 
 geometry:
     dir: L1THGCaltriggergeomtester
@@ -12,6 +16,7 @@ geometry:
     waferSize: 16.64408
     sensorSeparation: 0.1
     nlayersCEE: 28
+    nlayersCEH: 22
   
 selection:
     particles: photons
@@ -23,14 +28,14 @@ selection:
 defaultEvents:
     photons: [170032, 170044]
     electrons: [92243, 92244]
-    pions: [5613]
+    pions: [9102, 9148]
 
 varEvents:
   gen:
     event: 'event'
-    geta: 'good_genpart_exeta'
-    gphi: 'good_genpart_exphi'
-    gen: 'good_genpart_energy'
+    # geta: 'good_genpart_exeta'
+    # gphi: 'good_genpart_exphi'
+    # gen: 'good_genpart_energy'
   tc:
     event: 'event'
     wu: 'good_tc_waferu'
@@ -43,7 +48,7 @@ varEvents:
     z: 'good_tc_z'
     phi: 'good_tc_phi'
     eta: 'good_tc_eta'
-    idcl: 'good_tc_cluster_id'
+    idcl: 'good_tc_multicluster_id'
     pt: 'good_tc_pt'
     en: 'good_tc_mipPt'
   # tsum:
@@ -100,15 +105,15 @@ base:
   MaxROverZ: 0.58
   MinPhi: -3.14159
   MaxPhi: +3.14159
-  FesAlgo: 'ThresholdDummyHistomaxnoareath20'
-
-fill:
   EtaMin: 1.7
   EtaMax: 2.8
   EtaMinStrict: 2.0
   EtaMaxStrict: 2.6
   EnResSplits: -0.35
   EnResNoSplits: -0.2
+  FesAlgo: 'ThresholdDummyHistomaxnoareath20'
+
+fill:
   FillOut: 'fill'
   FillOutComp: 'fill_comp'
   FillOutPlot: 'fill_plot'
@@ -159,3 +164,15 @@ optimization:
   OptPosResOut: 'opt_posres'
   OptCSVOut: 'stats'
   FillOutPlot: 'fill_plot'
+
+roi:
+  ROIclOut: 'roi3d'
+  ROIgenOut: 'roigen'
+  ROItcOut: 'roitc'
+  
+seed_roi:
+  SeedIn: 'roitc'
+  SeedOut: 'seed_roi'
+  histoThreshold: 20.
+  WindowUDim: 1
+  WindowVDim: 1

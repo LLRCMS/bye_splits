@@ -34,17 +34,6 @@ import data_handle
 from data_handle.data_handle import EventDataParticle
 from data_handle.geometry import GeometryData
 
-with open(params.CfgPath, 'r') as afile:
-    cfg = yaml.safe_load(afile)
-
-data_part_opt = dict(tag='mytag', reprocess=False, debug=True, logger=log)
-data_particle = {
-    'photons': EventDataParticle(particles='photons', **data_part_opt),
-    #'electrons': EventDataParticle(particles='electrons', **data_part_opt)
-}
-geom_data = GeometryData(reprocess=True, logger=log)
-mode = 'geom'
-
 def common_props(p):
     p.output_backend = 'svg'
     p.toolbar.logo = None
@@ -53,11 +42,22 @@ def common_props(p):
     # p.xaxis.visible = False
     # p.yaxis.visible = False
 
-def get_data(event, particles):
+with open(params.CfgPath, 'r') as afile:
+    cfg = yaml.safe_load(afile)
+
+data_part_opt = dict(tag='mytag', reprocess=False, debug=True, logger=log)
+myparticles = ('pions',)
+data_particle = {x: EventDataParticle(particles=x, **data_part_opt) for x in myparticles}
+geom_data = GeometryData(reprocess=False, logger=log)
+mode = 'ev'
+
+def get_data(particles, event=None):
     region, section, lrange = None, None, None
     if mode == event:
         assert region is None
     ds_geom = geom_data.provide(section=section, region=region, lrange=lrange)
+    # ds_geom = geom_data.provide(section=FLAGS.section, region=FLAGS.region,
+    #                             lrange=FLAGS.lrange)
     
     if mode=='ev':
         tc_keep = {'good_tc_waferu'     : 'waferu',
@@ -67,8 +67,12 @@ def get_data(event, particles):
                    'good_tc_layer'      : 'layer',
                    'good_tc_pt'         : 'tc_pt',
                    'good_tc_mipPt'      : 'tc_mipPt',
-                   'good_tc_cluster_id' : 'tc_cluster_id'}
-        ds_ev = data_particle[particles].provide_event(event)
+                   'good_tc_multicluster_id' : 'tc_multicluster_id'}
+        if event is None:
+            ds_ev, rand_ev = data_particle[particles].provide_random_event()
+        else:
+            ds_ev = data_particle[particles].provide_event(event)
+            rand_ev = -1
         ds_ev = ds_ev['tc']
         ds_ev = ds_ev.rename(columns=tc_keep)
         ds_ev = ds_ev[tc_keep.values()]
@@ -85,10 +89,38 @@ def get_data(event, particles):
         ds_ev_sci = pd.merge(left=ds_ev, right=ds_geom['sci'], how='inner',
                              on=['layer', 'triggercellu', 'triggercellv'])
         
-        return {'ev': {'si': ds_ev_si, 'sci': ds_ev_sci}, 'geom': ds_geom}
+        return {'ev': {'rand_ev': rand_ev, 'si': ds_ev_si, 'sci': ds_ev_sci}, 'geom': ds_geom}
 
     else:
         return ds_geom
+
+if mode=='ev':
+    def_evs = cfg['defaultEvents']
+    def_ev_text = {}
+    for k in def_evs:
+        drop_text = [(str(q),str(q)) for q in def_evs[k]]
+        def_ev_text[k] = drop_text
+    ev_txt = '<p style="width: 60px; padding: 10px; border: 1px solid black;">{}</p>'
+
+if mode=='ev':
+    evsource, widg = ({k:None for k in myparticles} for _ in range(2))
+    for k in myparticles:
+        evs = def_evs[k][0]
+        evdata = get_data(k, evs)[mode]
+        evsource[k] = {'si': bmd.ColumnDataSource(data=evdata['si']),
+                       'sci': bmd.ColumnDataSource(data=evdata['sci'])}
+
+        wopt = dict(height=40,)
+        widg[k] = {'textinput': bmd.TextInput(placeholder=str(def_evs[k][0]),
+                                              sizing_mode='stretch_width', **wopt),
+                   'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
+                                            menu=def_ev_text[k], **wopt),
+                   'button': bmd.Button(label='Random Event', button_type='danger', **wopt),
+                   'text': bmd.Div(text=ev_txt.format(str(def_evs[k][0])), **wopt)}
+else:
+    geomdata = get_data('Geometry', '')
+    gsource = {'si': bmd.ColumnDataSource(data=geomdata['si']),
+               'sci': bmd.ColumnDataSource(data=geomdata['sci'])}
 
 def source_maxmin(src, cfg=None):
     # find dataset minima and maxima
@@ -110,7 +142,7 @@ def source_maxmin(src, cfg=None):
         if cfg is None:
             encut = np.ones_like(xproxy_sci, dtype=np.int32)
         else:
-            encut = zobj_sci[2] < cfg['selection']['mipThreshold']
+            encut = zobj_sci[2] > cfg['selection']['mipThreshold']
         xproxy_sci = xproxy_sci[encut]
         yproxy_sci = yproxy_sci[encut]
 
@@ -148,62 +180,66 @@ def source_maxmin(src, cfg=None):
     ymax += (ymax-ymin)*0.05
     ymin -= (ymax-ymin)*0.05
     return xmin, xmax, ymin, ymax
-
     
-if mode=='ev':
-    def_evs = cfg['defaultEvents']
-    def_ev_text = {}
-    for k in def_evs:
-        drop_text = [(str(q),str(q)) for q in def_evs[k]]
-        def_ev_text[k] = drop_text
+def range_callback(fig, src_si, xsi, ysi, src_sci, xsci, ysci, shift):
+    """adapt figure range to data being displayed"""
+    if len(src_si.data[xsi])==0:
+        mode = 0
+    elif len(src_sci.data[xsci])==0:
+        mode = 1
+    else:
+        mode = 2
+ 
+    if mode==0:
+        fig.x_range.start = min(src_sci.data[xsci]) - shift
+        fig.x_range.end   = max(src_sci.data[xsci]) + shift 
+        fig.y_range.start = min(src_sci.data[ysci]) - shift 
+        fig.y_range.end   = max(src_sci.data[ysci]) + shift
+    elif mode==1:
+        fig.x_range.start = min(src_si.data[xsi]) - shift
+        fig.x_range.end   = max(src_si.data[xsi]) + shift 
+        fig.y_range.start = min(src_si.data[ysi]) - shift 
+        fig.y_range.end   = max(src_si.data[ysi]) + shift
+    elif mode==2:
+        fig.x_range.start = min(min(src_si.data[xsi]), min(src_sci.data[xsci])) - shift
+        fig.x_range.end   = max(max(src_si.data[xsi]), max(src_sci.data[xsci])) + shift 
+        fig.y_range.start = min(min(src_si.data[ysi]), min(src_sci.data[ysci])) - shift 
+        fig.y_range.end   = max(max(src_si.data[ysi]), max(src_sci.data[ysci])) + shift
 
-if mode=='ev':
-    evsource, elements = ({k:None for k in data_particle.keys()} for _ in range(2))
-    for k in data_particle.keys():
-        evs = def_evs[k][0]
-        evdata = get_data(evs, k)[mode]
-        evsource[k] = {'si': bmd.ColumnDataSource(data=evdata['si']),
-                       'sci': bmd.ColumnDataSource(data=evdata['sci'])}
-        elements[k] = {'textinput': bmd.TextInput(placeholder=str(def_evs[k][0]), height=40,
-                                                  sizing_mode='stretch_width'),
-                       'dropdown': bmd.Dropdown(label='Default Events', button_type='primary',
-                                                menu=def_ev_text[k], height=40)}
-else:
-    geomdata = get_data('', 'Geometry')
-    gsource = {'si': bmd.ColumnDataSource(data=geomdata['si']),
-               'sci': bmd.ColumnDataSource(data=geomdata['sci'])}
-    
-def range_callback(fig, src_si, src_sci, xvar, yvar):
-    """18 (centimeters) makes sures entire modules are always within the area shown"""
-    fig.x_range.start = min(min(src_si.data[xvar]), min(src_sci.data[xvar])) - 18
-    fig.x_range.end   = max(max(src_si.data[xvar]), max(src_sci.data[xvar])) + 18
-    fig.y_range.start = min(min(src_si.data[yvar]), min(src_sci.data[yvar])) - 18
-    fig.y_range.end   = max(max(src_si.data[yvar]), max(src_sci.data[yvar])) + 18
-
-def text_callback(attr, old, new, src_si, src_sci, figs, particles):
+def text_callback(attr, old, new, src_si, src_sci, figs, particles, border):
     print('text callback ', particles, new)
     if not new.isdecimal():
         print('Wrong format!')
     else:
-        dobj = get_data(int(new), particles)[mode]
+        dobj = get_data(particles, int(new))[mode]
         src_si.data = dobj['si']
         src_sci.data = dobj['sci']
     for fig in figs:
-        range_callback(fig, src_si, src_sci, 'tc_x', 'tc_y')
+        range_callback(fig, src_si, 'tc_x', 'tc_y', src_sci, 'x', 'y', border)
 
-def dropdown_callback(event, src_si, src_sci, figs, particles):
+def dropdown_callback(event, src_si, src_sci, figs, particles, border):
     print('dropdown callback', particles, int(event.__dict__['item']))
-    dobj = get_data(int(event.__dict__['item']), particles)[mode]
+    dobj = get_data(particles, int(event.__dict__['item']))[mode]
     src_si.data = dobj['si']
     src_sci.data = dobj['sci']
     for fig in figs:
-        range_callback(fig, src_si, src_sci, 'tc_x', 'tc_y')
+        range_callback(fig, src_si, 'tc_x', 'tc_y', src_sci, 'x', 'y', border)
 
+def button_callback(event, pretext, src_si, src_sci, figs, particles, border):
+    print('button callback', particles)
+    dobj = get_data(particles)[mode]
+    src_si.data = dobj['si']
+    src_sci.data = dobj['sci']
+    rand_ev = dobj['rand_ev']
+    pretext.text = ev_txt.format(str(rand_ev))
+    for fig in figs:
+        range_callback(fig, src_si, 'tc_x', 'tc_y', src_sci, 'x', 'y', border)
+        
 def display():
     doc = curdoc()
     doc.title = 'HGCal Visualization'
     
-    width, height   = 600, 600
+    width, height   = 800, 800
     width2, height2 = 300, 200
     ven, vl = 'tc_mipPt', 'layer'
     
@@ -214,8 +250,8 @@ def display():
             mapper_diams = bmd.LinearColorMapper(palette=mypalette, low=enmin, high=enmax)
             # mapper_mods = bmd.LinearColorMapper(palette=mypalette, low=enmin, high=enmax)
 
-            lmax = max(vsrc['si'].data[vl].max(), vsrc['sci'].data[vl].max())
-            lmin = min(vsrc['si'].data[vl].min(), vsrc['sci'].data[vl].min())
+            lmax = 50#max(vsrc['si'].data[vl].max(), vsrc['sci'].data[vl].max())
+            lmin = 1#min(vsrc['si'].data[vl].min(), vsrc['sci'].data[vl].min())
             sld_opt = dict(bar_color='red', width=width, background='white')
             sld_layers = bmd.Slider(start=lmin, end=lmax, value=lmin, step=1, title='Layer', **sld_opt)
             sld_layers_cb = bmd.CustomJS(args=dict(s1=vsrc['si'], s2=vsrc['sci']),
@@ -266,12 +302,14 @@ def display():
 
             fig_opt = dict(width=width, height=height,
                            x_axis_label='X [cm]', y_axis_label='Y [cm]',
-                           tools='save,reset,undo,redo,pan,box_zoom',
+                           tools='save,reset,undo,redo,pan',
                            toolbar_location='right', output_backend='webgl',
-                           active_drag='box_zoom')
-            p_tc = figure(x_range=bmd.Range1d(cur_xmin, cur_xmax),
-                          y_range=bmd.Range1d(cur_ymin, cur_ymax), **fig_opt)
-            # p_tc = figure(match_aspect=True, **fig_opt)
+                           #active_drag='box_zoom'
+                           )
+            border = 18
+            #p_tc = figure(x_range=bmd.Range1d(cur_xmin-border, cur_xmax+border),
+            #              y_range=bmd.Range1d(cur_ymin-border, cur_ymax+border), **fig_opt)
+            p_tc = figure(match_aspect=True, **fig_opt)
 
             # p_mods.add_tools(*tool_list)
             common_props(p_tc)
@@ -301,8 +339,8 @@ def display():
                            '@{} (@triggercelliphi,@triggercellieta)'.format(ven))]
             hvr_si = bmd.HoverTool(tooltips=hvr_tt_si, renderers=[r_si])
             hvr_sci = bmd.HoverTool(tooltips=hvr_tt_sci, renderers=[r_sci])
-            # tool_list = (bmd.WheelZoomTool(), bmd.BoxZoomTool(match_aspect=True),)
-            tool_list = ()
+            tool_list = (bmd.WheelZoomTool(), bmd.BoxZoomTool(match_aspect=True),)
+            #tool_list = ()
             p_tc.add_tools(hvr_si, hvr_sci, *tool_list)
 
             cbar_opt = dict(ticker=bmd.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
@@ -313,13 +351,12 @@ def display():
             # p_tc.x_range.callback = bmd.CustomJS(args=dict(xrange=myplot.x_range), code="""
             # xrange.set({"start": 10, "end": 20})
             # """)
-            
-            elements[ksrc]['textinput'].on_change('value', partial(text_callback,
-                                                                   src_si=vsrc['si'], src_sci=vsrc['sci'],
-                                                                   figs=(p_tc,), particles=ksrc))
-            elements[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback,
-                                                                           src_si=vsrc['si'], src_sci=vsrc['sci'],
-                                                                           figs=(p_tc,), particles=ksrc))
+
+            wopt = dict(src_si=vsrc['si'], src_sci=vsrc['sci'],
+                        figs=(p_tc,), particles=ksrc, border=border)
+            widg[ksrc]['textinput'].on_change('value', partial(text_callback, **wopt))
+            widg[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, **wopt))
+            widg[ksrc]['button'].on_event('button_click', partial(button_callback, pretext=widg[ksrc]['text'], **wopt))
 
 
     elif mode == 'geom':
@@ -367,7 +404,8 @@ def display():
                        x_axis_label='X [cm]', y_axis_label='Y [cm]',
                        tools='save,reset,undo,redo,pan,box_zoom',
                        toolbar_location='right', output_backend='webgl',
-                       active_drag='box_zoom')
+                       #active_drag='box_zoom'
+                       )
 
         # p_tc = figure(x_range=bmd.Range1d(xmin, xmax),
         #               y_range=bmd.Range1d(ymin, ymax),
@@ -401,13 +439,13 @@ def display():
         hvr_si = bmd.HoverTool(tooltips=hvr_tt_si, renderers=[r_si])
         hvr_sci = bmd.HoverTool(tooltips=hvr_tt_sci, renderers=[r_sci])
         # hvr_xy = bmd.HoverTool(tooltips=hvr_tt_xy, renderers=[r_xy])
-        tool_list = (bmd.WheelZoomTool(),)
+        tool_list = (bmd.WheelZoomTool(), bmd.BoxZoomTool(match_aspect=True))
         p_tc.add_tools(hvr_si, hvr_sci, *tool_list)
 
         # p_tc.circle(x='tc_x', y='tc_y', source=gsource['si'], view=view_si,
         #             size=5, color='blue', legend_label='u,v conversion')
-        # p_tc.circle(x='x', y='y', source=gsource['si'], view=view_si,
-        #             size=5, color='orange', legend_label='tc original')
+        p_tc.circle(x='x', y='y', source=gsource['si'], view=view_si,
+                    size=5, color='orange')
         # p_tc.legend.click_policy='hide'
                         
         ####### (x,y) plots ################################################################
@@ -444,7 +482,8 @@ def display():
     if mode == 'ev':
         tabs = []
         for ksrc,vsrc in [(k,v) for k,v in evsource.items()]:
-            first_row = [elements[ksrc]['dropdown'], elements[ksrc]['textinput']]
+            first_row = [widg[ksrc]['dropdown'], widg[ksrc]['textinput'],
+                         widg[ksrc]['button'], widg[ksrc]['text'],]
             lay = layout([first_row,
                           sld_layers,
                           sld_en,
@@ -465,7 +504,28 @@ def display():
                       ])
         doc.add_root(lay)
             
-parser = argparse.ArgumentParser(description='')
-FLAGS = parser.parse_args()
-logging.basicConfig()
+
+# if __name__ == "__main__":
+    # parser = argparse.ArgumentParser(description='')
+    # parser.add_argument(
+    #     '--section',
+    #     default='si',
+    #     choices=('si', 'sci', None),
+    #     help='Section of the detector to display.',
+    # )
+    # parser.add_argument(
+    #     '--region',
+    #     default='module',
+    #     choices=('inside', 'periphery', 'module', None),
+    #     help='Region of the detector to display.',
+    # )
+    # parser.add_argument(
+    #     '--lrange',
+    #     default=None,
+    #     nargs=2,
+    #     help='Layer range of the detector to display.',
+    # )
+    # FLAGS = parser.parse_args()
+    # logging.basicConfig()
+
 display()

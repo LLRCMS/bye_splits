@@ -20,13 +20,14 @@ from utils import params
 from data_handle.base import BaseData
 
 class EventData(BaseData):
-    def __init__(self, inname, tag="v0", default_events=[], reprocess=False,
+    def __init__(self, indata, tag="v0", default_events=[], reprocess=False,
                  logger=None, is_tc=True, set_default_events=False):
-        super().__init__(inname, tag, reprocess, logger, is_tc)
+        super().__init__(tag, reprocess, logger, is_tc)
 
         with open(params.CfgPath, "r") as afile:
             self.var = yaml.safe_load(afile)["varEvents"]
 
+        self.indata = indata
         self.cache = None
         self.events = []
         if set_default_events:
@@ -143,7 +144,8 @@ class EventData(BaseData):
 
     def provide_random_event(self, seed=None):
         """Provide a random event"""
-        return self.provide_random_events(n=1, seed=seed)
+        ev = self.provide_random_events(n=1, seed=seed)
+        return ev[0], ev[1][0]
 
     def provide_random_events(self, n, seed=None):
         """Provide 'n' random events ('n=-1' means all). """

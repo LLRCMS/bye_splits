@@ -16,54 +16,11 @@ import logging
 
 from utils import params, common
 
-class InputData:
-    """Storage class for input strings required to access ROOT files and trees."""
-
-    def __init__(self):
-        self._path = None
-        self._adir = None
-        self._tree = None
-
-    @property
-    def path(self):
-        return self._path
-
-    @path.setter
-    def path(self, path):
-        self._path = path
-
-    @property
-    def adir(self):
-        return self._adir
-
-    @adir.setter
-    def adir(self, adir):
-        self._adir = adir
-
-    @property
-    def tree(self):
-        return self._tree
-
-    @tree.setter
-    def tree(self, tree):
-        self._tree = tree
-
-    @property
-    def tree_path(self):
-        return self._adir + "/" + self._tree
-
-
 class BaseData(abc.ABC):
     """Base data management class."""
-
-    def __init__(self, inname, tag, reprocess, logger, is_tc):
+    def __init__(self, tag, reprocess, logger, is_tc):
         with open(params.CfgPath, "r") as afile:
             self.cfg = yaml.safe_load(afile)
-
-        self.indata = InputData()
-        self.indata.path = inname
-        self.indata.adir = self.cfg["io"]["dir"]
-        self.indata.tree = self.cfg["io"]["tree"]
 
         self.tag = tag
         self.reprocess = reprocess
@@ -72,6 +29,7 @@ class BaseData(abc.ABC):
 
         loc = str(params.LocalStorage)
         os.makedirs(loc, exist_ok=True)
+
         self.outpath = os.path.join(loc, self.tag + ".parquet")
         self.var = common.dot_dict({})
         self.newvar = common.dot_dict({})

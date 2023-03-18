@@ -17,6 +17,7 @@ import logging
 
 from utils import params, common
 from data_handle.base import BaseData
+from data_handle.data_input import InputData
 
 class GeometryData(BaseData):
     """
@@ -25,7 +26,9 @@ class GeometryData(BaseData):
     https://indico.cern.ch/event/1111846/contributions/4675223/attachments/2372915/4052852/PartialsRotation.pdf
     """
     def __init__(self, reprocess=False, logger=None, is_tc=True):        
-        super().__init__('', 'geom', reprocess, logger, is_tc)
+        super().__init__('geom', reprocess, logger, is_tc)
+
+        self.indata = InputData()
         self.indata.path = self.cfg['geometry']['file']
         self.indata.adir = self.cfg['geometry']['dir']
         self.indata.tree = self.cfg['geometry']['tree']
@@ -360,7 +363,7 @@ class GeometryData(BaseData):
                     df = df[df[self.ceta]>16]
                     df = df[(df[self.cphi]>20) & (df[self.cphi]<40)]
 
-            elif region == 'module':
+            elif region == 'wafer':
                 if section == 'si':
                     df = df[((df[self.wu]==3) & (df[self.wv]==3))]
                 elif section == 'sci':
