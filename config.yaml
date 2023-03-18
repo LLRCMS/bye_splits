@@ -1,0 +1,161 @@
+io:
+  dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+  tree: HGCalTriggerNtuple
+  photons: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG_Thresh0.root
+  electrons: /eos/user/i/iehle/data/PU0/electrons/skim_electrons_0PU_bc_stc_hadd.root
+  pions: /eos/user/i/iehle/data/PU0/pions/skim_pions_0PU_bc_stc_hadd.root
+
+geometry:
+    dir: L1THGCaltriggergeomtester
+    tree: TreeTriggerCells
+    file: /data_CMS/cms/alves/L1HGCAL/test_triggergeom_12_5_2_patch1_FIXED_v2.root
+    waferSize: 16.64408
+    sensorSeparation: 0.1
+    nlayersCEE: 28
+  
+selection:
+    particles: photons
+    disconnectedTriggerLayers: [2,4,6,8,10,12,14,16,18,20,22,24,26,28]
+    reachedEE: 2
+    deltarThreshold: 0.05
+    mipThreshold: 0.5
+
+defaultEvents:
+    photons: [170032, 170044]
+    electrons: [92243, 92244]
+    pions: [5613]
+
+varEvents:
+  gen:
+    event: 'event'
+    geta: 'good_genpart_exeta'
+    gphi: 'good_genpart_exphi'
+    gen: 'good_genpart_energy'
+  tc:
+    event: 'event'
+    wu: 'good_tc_waferu'
+    wv: 'good_tc_waferv'
+    l:  'good_tc_layer'
+    cv: 'good_tc_cellu'
+    cu: 'good_tc_cellv'
+    x: 'good_tc_x'
+    y: 'good_tc_y'
+    z: 'good_tc_z'
+    phi: 'good_tc_phi'
+    eta: 'good_tc_eta'
+    idcl: 'good_tc_cluster_id'
+    pt: 'good_tc_pt'
+    en: 'good_tc_mipPt'
+  # tsum:
+  #   event: 'event'
+  #   wu: 'good_ts_waferu'
+  #   wv: 'good_ts_waferv'
+  #   l:  'good_ts_layer'
+  #   en: 'good_ts_mipPt'
+  cl:
+    event: 'event'
+    eta: 'good_cl3d_eta'
+    phi: 'good_cl3d_phi'
+    en: 'good_cl3d_energy'
+    id: 'good_cl3d_id'
+    # matches: 'matches'
+    # dR: 'deltaR'
+    
+varGeometry:
+    wu: 'waferu'
+    wv: 'waferv'
+    l: 'layer'
+    cu: 'triggercellu'
+    cv: 'triggercellv'
+    ieta: 'triggercellieta'
+    iphi: 'triggercelliphi'
+    x: 'x'
+    y: 'y'
+    z: 'z'
+    side: 'zside'
+    subd: 'subdet'
+    wvs: 'waferv_shift'
+    c: 'color'
+    orient: 'waferorient'
+    part: 'waferpart'
+
+clusterStudies:
+  localDir: /home/llr/cms/ehle/NewRepos/bye_splits/data/new_algos/
+  ehleDir: /eos/user/i/iehle/
+  dataFolder: data/
+  reinit: False
+  clusterSizeBaseName: cluster_size
+  coeffs: [0.0, 0.05, 50]
+  nevents: 100
+  pileUp: False
+  tree: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple
+  coeffs: [0.0, 0.05, 50]
+  fileBaseName: energy_out
+  local: False
+
+base:
+  NbinsRz: 42
+  NbinsPhi: 216
+  MinROverZ: 0.076
+  MaxROverZ: 0.58
+  MinPhi: -3.14159
+  MaxPhi: +3.14159
+  FesAlgo: 'ThresholdDummyHistomaxnoareath20'
+
+fill:
+  EtaMin: 1.7
+  EtaMax: 2.8
+  EtaMinStrict: 2.0
+  EtaMaxStrict: 2.6
+  EnResSplits: -0.35
+  EnResNoSplits: -0.2
+  FillOut: 'fill'
+  FillOutComp: 'fill_comp'
+  FillOutPlot: 'fill_plot'
+
+smooth:
+  # copied from L1Trigger/L1THGCal/python/hgcalBackEndLayer2Producer_cfi.py
+  BinSums: [13, 11, 11, 11, 9, 9, 9, 7, 7, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+  SeedsNormByArea: False
+  AreaPerTriggerCell: 4.91E-05
+  SmoothIn: 'fill'
+  SmoothOut: 'smooth'
+
+seed:
+  SeedIn: 'smooth'
+  SeedOut: 'seed'
+  histoThreshold: 20.
+  WindowPhiDim: 1
+
+cluster:
+    ClusterInTC: 'fill'
+    ClusterInSeeds: 'seed'
+    ClusterOutPlot: 'cluster_plot'
+    ClusterOutValidation: 'cluster_valid'
+    CoeffA: [
+    0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015,
+    0.020, 0.020, 0.020, 0.020, 0.020, 0.020, 0.020,
+    0.030, 0.030, 0.030, 0.030, 0.030, 0.030, 0.030,
+    0.040, 0.040, 0.040, 0.040, 0.040, 0.040, 0.040, #EM
+    0.040, 0.040, 0.040, 0.040, 0.040, 0.040,
+    0.050, 0.050, 0.050, 0.050, 0.050, 0.050, # FH
+    0.050, 0.050, 0.050, 0.050, 0.050, 0.050,
+    0.050, 0.050, 0.050, 0.050, 0.050, 0.050] # BH
+    CoeffB: 0
+    MidRadius: 2.3
+    PtC3dThreshold: 0.5
+
+valid:
+  ClusterOutValidation: 'cluster_valid'
+  FillOutComp: 'fill_comp'
+  FillOut: 'fill'
+
+optimization:
+  Epochs: 99999
+  KernelSize: 10
+  WindowSize: 3
+  OptIn: 'triggergeom_condensed'
+  OptEnResOut: 'opt_enres'
+  OptPosResOut: 'opt_posres'
+  OptCSVOut: 'stats'
+  FillOutPlot: 'fill_plot'
