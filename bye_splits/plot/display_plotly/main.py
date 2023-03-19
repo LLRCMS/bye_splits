@@ -63,7 +63,7 @@ def update_event(particle, n_click, submit_event, event, page):
     phi = gen_info['exphi'].values[0]
     if particle == 'photons 200PU':
         x_gen, y_gen = processing.sph2cart(eta, phi)
-        df = df[np.sqrt((x_gen-df.tc_x)**2+(y_gen-df.tc_y)**2)<100]
+        df = df[np.sqrt((x_gen-df.tc_x)**2+(y_gen-df.tc_y)**2)<60]
     
     if page == '3D':
         slider = dcc.RangeSlider(df['layer'].min(),df['layer'].max(), 
@@ -79,7 +79,7 @@ def update_event(particle, n_click, submit_event, event, page):
                              id = 'slider')
 
 
-    return u'Event {} selected. Gen Particle (\u03B7={:.2f}, \u03C6={:.2f}), {} GeV.'.format(int(event),gen_info['exeta'].values[0],gen_info['exphi'].values[0],int(gen_info['gen_energy'].values[0])), slider, df.reset_index().to_json(date_format='iso'), ''
+    return u'Event {} selected. Gen Particle (\u03B7={:.2f}, \u03C6={:.2f}), {:.2f} GeV.'.format(int(event),eta,phi,processing.get_pt(int(gen_info['gen_energy'].values[0]), eta)), slider, df.reset_index().to_json(date_format='iso'), ''
 
 
 @app.callback(Output('plot', 'figure'),  Output('slider-container', 'style'),

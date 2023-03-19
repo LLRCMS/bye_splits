@@ -7,6 +7,8 @@ import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
+import yaml
+from utils import params
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -31,6 +33,10 @@ data_particle = {
 geom_data = GeometryData(inname='/eos/user/m/mchiusi/visualization/test_triggergeom.root',
                          reprocess=False, logger=log)
 
+with open(params.CfgPaths['prod'], 'r') as afile:
+        cfgdata = yaml.safe_load(afile)
+        availLayers = [x-1 for x in cfgdata["selection"]["disconnectedTriggerLayers"]]
+
 axis = dict(backgroundcolor="rgba(0,0,0,0)", gridcolor="white", showbackground=True, zerolinecolor="white",)
 
 def sph2cart(eta, phi, z=322.):
@@ -39,6 +45,9 @@ def sph2cart(eta, phi, z=322.):
     x = r * np.sin(theta) * np.cos(phi)
     y = r * np.sin(theta) * np.sin(phi)
     return x,y
+
+def get_pt(energy, eta):
+    return energy/np.cosh(eta)
 
 def get_data(event, particles):
     ds_geom = geom_data.provide(library='plotly')
@@ -97,26 +106,49 @@ def update_3dfigure(fig, df):
         fig.add_trace(list_scatter[index])
     return fig
 
+def roi_finder(input_df, threshold=30, nearby=False):
+    module_sums = input_df.groupby(['waferu','waferv']).energy.sum()
+    module_ROI = list(module_sums[module_sums.values >= threshold].index)
+
+    if nearby:
+        selected_modules = []
+        for module in module_ROI:
+            nearby_modules = [(module[0]+i, module[1]+j) for i in [-1, 0, 1] for j in [-1, 0, 1] if i*j >= 0]
+            
+            skim = (module_sums.index.isin(nearby_modules)) & (module_sums.values > 0.3 * module_sums[module]) & (module_sums.values > 10)
+            skim_nearby_module = list(module_sums[skim].index)
+            selected_modules.extend(skim_nearby_module)
+        module_ROI = selected_modules
+    
+    roi_df = input_df[input_df.set_index(['waferu','waferv']).index.isin(module_ROI)]
+    return roi_df.drop_duplicates(['waferu', 'waferv', 'layer']), module_ROI
+
 def add_ROI(fig, df, k=4):
-    ''' Choose k-layers window based on energy deposited in each layer '''
-    layer_sums = df.groupby(['layer']).mipPt.sum() 
-    initial_layer = (layer_sums.rolling(window=k).sum().shift(-k+1)).idxmax()
-    
-    mask = (df.layer>=initial_layer) & (df.layer<(initial_layer+2*k))
+    #''' Choose k-layers window based on energy deposited in each layer '''
+    #layer_sums = df.groupby(['layer']).mipPt.sum() 
+    #initial_layer = (layer_sums.rolling(window=k).sum().shift(-k+1)).idxmax()
+    #
+    #mask = (df.layer>=initial_layer) & (df.layer<(initial_layer+2*k))
+    #input_df = df[mask]
+    #
+    #''' Choose the (u,v) coordinates of the module corresponding to max dep-energy.
+    #This choice is performed by grouping modules beloging to different layers, having the same coordinates.
+    #Extend the selection to the nearby modules with at least 30% max energy and 10 mipT. '''
+    #module_sums = input_df.groupby(['waferu','waferv']).mipPt.sum()
+    #module_max = module_sums[module_sums.values == module_sums.max()].index[0]
+    #nearby_modules = [(module_max[0]+i, module_max[1]+j) for i in [-1, 0, 1] for j in [-1, 0, 1] if i*j >= 0]
+    #
+    #skim = (module_sums.index.isin(nearby_modules)) & (module_sums.values > 0.3 * module_sums.max()) & (module_sums.values > 10)
+    #skim_module_sums = module_sums[skim]
+    #
+    #roi_df = input_df[input_df.set_index(['waferu','waferv']).index.isin(skim_module_sums.index)]
+    #roi_df = roi_df.drop_duplicates(['waferu', 'waferv', 'layer'])
+
+    initial_layer = 9
+    mask = (df.layer>=initial_layer) & (df.layer<(availLayers[availLayers.index(initial_layer)+k]))
     input_df = df[mask]
-    
-    ''' Choose the (u,v) coordinates of the module corresponding to max dep-energy.
-    This choice is performed by grouping modules beloging to different layers, having the same coordinates.
-    Extend the selection to the nearby modules with at least 30% max energy and 10 mipT. '''
-    module_sums = input_df.groupby(['waferu','waferv']).mipPt.sum()
-    module_max = module_sums[module_sums.values == module_sums.max()].index[0]
-    nearby_modules = [(module_max[0]+i, module_max[1]+j) for i in [-1, 0, 1] for j in [-1, 0, 1] if i*j >= 0]
-    
-    skim = (module_sums.index.isin(nearby_modules)) & (module_sums.values > 0.3 * module_sums.max()) & (module_sums.values > 10)
-    skim_module_sums = module_sums[skim]
-    
-    roi_df = input_df[input_df.set_index(['waferu','waferv']).index.isin(skim_module_sums.index)]
-    roi_df = roi_df.drop_duplicates(['waferu', 'waferv', 'layer'])
+
+    roi_df, module_ROI = roi_finder(input_df, threshold=20, nearby=True)
 
     list_scatter = plot_modules(roi_df)
     for index in range(len(list_scatter)):
