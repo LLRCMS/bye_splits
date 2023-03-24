@@ -148,7 +148,7 @@ def add_ROI(fig, df, k=4):
     mask = (df.layer>=initial_layer) & (df.layer<(availLayers[availLayers.index(initial_layer)+k]))
     input_df = df[mask]
 
-    roi_df, module_ROI = roi_finder(input_df, threshold=20, nearby=True)
+    roi_df, module_ROI = roi_finder(input_df, threshold=20, nearby=False)
 
     list_scatter = plot_modules(roi_df)
     for index in range(len(list_scatter)):
