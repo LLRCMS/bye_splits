@@ -26,11 +26,11 @@ log = logging.getLogger(__name__)
 
 data_part_opt = dict(tag='v2', reprocess=False, debug=True, logger=log)
 data_particle = {
-    'photons 0PU': EventDataParticle(particles='photons', **data_part_opt),
-    'photons 200PU': EventDataParticle(particles='photons_PU', **data_part_opt),
-    'electrons 0PU': EventDataParticle(particles='electrons', **data_part_opt),
-    'pions': EventDataParticle(particles='pions', **data_part_opt)}
-geom_data = GeometryData(inname='/eos/user/m/mchiusi/visualization/test_triggergeom.root',
+    'photons 0PU': EventDataParticle('prod', particles='photons', **data_part_opt),
+    'photons 200PU': EventDataParticle('prod', particles='photons_PU', **data_part_opt),
+    'electrons 0PU': EventDataParticle('prod', particles='electrons', **data_part_opt),
+    'pions': EventDataParticle('prod', particles='pions', **data_part_opt)}
+geom_data = GeometryData(inname='/eos/user/m/mchiusi/visualization/test_triggergeom.root', 
                          reprocess=False, logger=log)
 
 with open(params.CfgPaths['prod'], 'r') as afile:
