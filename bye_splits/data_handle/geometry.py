@@ -303,7 +303,7 @@ class GeometryData(BaseData):
             #df = self._display_cells(df, library)
         return df
 
-    def provide(self, section='si', region=None, lrange=None):
+    def provide(self, section=None, region=None, lrange=None):
         """Provides a processed geometry dataframe to the client."""
         if not os.path.exists(self.outpath) or self.reprocess:
             if self.logger is not None:

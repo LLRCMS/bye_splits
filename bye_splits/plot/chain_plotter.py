@@ -200,9 +200,3 @@ if __name__ == "__main__":
 
     lay = bokeh.layouts.layout(lay_list)
     bokeh.io.save(lay)
-
-
-##Latex equations
-# \Delta R \equiv  \sqrt{(\Delta \phi)^2+(\Delta \eta)^2}, \: \Delta \phi  \equiv \phi_{\text{Cluster}}-\phi_{\text{Gen}},  \: \Delta \eta  \equiv \eta_{\text{Cluster}}-\eta_{\text{Gen}}
-
-#  \frac{E_{\text{Cluster}} - E_{\text{Gen}}}{E_{\text{Gen}}} < -0.35

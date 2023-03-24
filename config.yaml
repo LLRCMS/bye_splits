@@ -33,9 +33,9 @@ defaultEvents:
 varEvents:
   gen:
     event: 'event'
-    # geta: 'good_genpart_exeta'
-    # gphi: 'good_genpart_exphi'
-    # gen: 'good_genpart_energy'
+    geta: 'good_genpart_exeta'
+    gphi: 'good_genpart_exphi'
+    gen: 'good_genpart_energy'
   tc:
     event: 'event'
     wu: 'good_tc_waferu'

@@ -26,9 +26,7 @@ def run_chain(pars):
     """Run the backend stage 2 reconstruction chain for a single event."""
     df_out = None
 
-    df_gen, df_cl, df_tc = get_data_reco_chain_start(
-        "prod", nevents=100, reprocess=True
-    )
+    df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=100, reprocess=True)
 
     print("There are {} events in the input.".format(df_gen.shape[0]))
 
@@ -64,8 +62,7 @@ def run_chain(pars):
             else:
                 df_out = pd.concat((df_out, stats_out), axis=0)
 
-    # chain_plotter.resolution_plotter(df_out, pars, user='bfontana')
-    chain_plotter.resolution_plotter(df_out, pars, user="iehle")
+    chain_plotter.resolution_plotter(df_out, pars, user='bfontana')
 
     return None
 

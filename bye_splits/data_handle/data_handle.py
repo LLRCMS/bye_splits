@@ -116,9 +116,6 @@ def get_data_reco_chain_start(nevents=500, reprocess=False, tag='chain'):
 
 def EventDataParticle(tag, reprocess, logger=None, debug=False, particles=None):
     """Factory for EventData instances of different particle types"""
-    tag = particles + "_" + tag
-    tag += "_debug" * debug
-
     with open(params.CfgPath, "r") as afile:
         cfg = yaml.safe_load(afile)
         if particles is None:
@@ -131,5 +128,9 @@ def EventDataParticle(tag, reprocess, logger=None, debug=False, particles=None):
         indata.path = cfg["io"]["file" + particles]
         indata.adir = cfg["io"]["dir" + particles]
         indata.tree = cfg["io"]["tree" + particles]
+
+    tag = particles + "_" + tag
+    tag += "_debug" * debug
+
 
     return EventData(indata, tag, defevents, reprocess, logger)
