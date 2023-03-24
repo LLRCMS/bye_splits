@@ -17,6 +17,7 @@ import logging
 
 from utils import params, common
 from data_handle.base import BaseData
+from data_handle.data_input import InputData
 
 class GeometryData(BaseData):
     """
@@ -24,27 +25,29 @@ class GeometryData(BaseData):
     Uses the orientation #1 of bottom row of slide 4 in
     https://indico.cern.ch/event/1111846/contributions/4675223/attachments/2372915/4052852/PartialsRotation.pdf
     """
-    def __init__(self, inname, reprocess=False, logger=None, is_tc=True):        
-        super().__init__(inname, 'geom', reprocess, logger, is_tc)
-        self.indata.tree = 'TreeTriggerCells' if self.is_tc else 'TreeCellsBH'
-        self.indata.adir = 'hgcaltriggergeomtester'
+    def __init__(self, reprocess=False, logger=None, is_tc=True):        
+        super().__init__('geom', reprocess, logger, is_tc)
+
+        self.indata = InputData()
+        self.indata.path = self.cfg['geometry']['file']
+        self.indata.adir = self.cfg['geometry']['dir']
+        self.indata.tree = self.cfg['geometry']['tree']
 
         self.dataset = None
         self.dname = 'tc'
-        with open(params.CfgPaths['data'], 'r') as afile:
-            cfg = yaml.safe_load(afile)
-            self.var = common.dot_dict(cfg['varGeometry'])
+        self.var = common.dot_dict(self.cfg['varGeometry'])
 
         self.readvars = self._readvars()
         self.readvars.remove(self.var.wvs)
         self.readvars.remove(self.var.c)
 
         self.cu, self.cv = 'triggercellu', 'triggercellv'
+        self.ceta, self.cphi = 'triggercellieta', 'triggercelliphi'
         self.wu, self.wv = 'waferu', 'waferv'
 
         ## geometry-specific parameters
-        self.waferWidth = cfg['geometry']['waferSize'] #this defines all other sizes
-        self.sensorSeparation = cfg['geometry']['sensorSeparation']
+        self.waferWidth = self.cfg['geometry']['waferSize'] #this defines all other sizes
+        self.sensorSeparation = self.cfg['geometry']['sensorSeparation']
         self.N = 4 #number of cells per wafer side
         self.c30 = np.sqrt(3)/2 #cossine of 30 degrees
         self.t30 = 1/np.sqrt(3) #tangent of 30 degrees
@@ -91,8 +94,24 @@ class GeometryData(BaseData):
         Display silicon trigger cells (groups of cells) and
         scintillator trigger tiles (groups of tiles).
         """
+        df_si = df[(df.subdet==1) | (df.subdet==2)]
+        df_si = self._display_silicon_tcs(df_si)
+
+        df_sci = df[(df.subdet==10)]
+        df_sci = self._display_scintillator_tcs(df_sci)
+
+        return {'si': df_si, 'sci': df_sci}
+
+    def _display_silicon_tcs(self, df):
+        """Displays silicon trigger cells"""
         df['wafer_shift_x'] = (-2*df[self.wu] + df[self.wv])*(self.waferWidth+self.sensorSeparation)/2
         df['wafer_shift_y'] = (self.c30*df[self.wv])*(self.waferWidth+self.sensorSeparation)
+
+        ceh_sel  = df.subdet==2
+        ceh_even = ceh_sel & (df.layer%2==0)
+        ceh_odd  = ceh_sel & (df.layer%2==1)
+        df['wafer_shift_y'][ceh_even] -= (self.waferWidth/2 + self.cellDistY)
+        df['wafer_shift_y'][ceh_odd]  += (self.waferWidth/2 + self.cellDistY)
         
         # cells_conversion = (lambda cu,cv: (1.5*(cv-cu)+0.5) * self.R,
         #                     lambda cu,cv: (cv+cu-2*self.N+1) * self.r) #orientation 6
@@ -196,10 +215,6 @@ class GeometryData(BaseData):
         df['diamond_x'] = pd.concat(xaxis.values())
         df['diamond_y'] = pd.concat(yaxis.values())
   
-        # scintillator tiles
-        # as per TDR; deltaPhi=1degree for the first four layers, 1.25 for the remaining ones (page 35)
-        # cells inner edge: 4cm^2, outer edge: 32cm^2
-        
         # define module corners' coordinates
         xcorners_str = ['corner1x','corner2x','corner3x','corner4x','corner5x','corner6x']
         assert len(xcorners_str) == len(xcorners)
@@ -215,23 +230,62 @@ class GeometryData(BaseData):
         df['hex_y'] = df[ycorners_str].values.tolist()
         df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
 
-        df = df.drop(xcorners_str + ycorners_str + ['tc_x_center', 'tc_y_center'], axis=1)
+        remove = ['tc_x_center', 'tc_y_center', 'wx_center', 'wy_center',
+                  'cloc', 'wafer_shift_x', 'wafer_shift_y',
+                  'triggercellieta', 'triggercelliphi', 'subdet']
+        df = df.drop(xcorners_str + ycorners_str + remove, axis=1)
         return df
 
+    def _display_scintillator_tcs(self, df):
+        df = df.drop(['subdet', 'waferu', 'waferv', 'waferorient', 'waferpart',
+                      'triggercellu', 'triggercellv', 'z',], axis=1)
+        ops = ['max', 'min']
+        minmax = df.groupby(['layer'], sort=False).agg({'triggercellieta': ops})
+        minmax.columns = [x + '_ieta' for x in ops]
+        df = df.merge(minmax, on='layer', how='inner')
+
+        df['R'] = np.sqrt(df.x*df.x + df.y*df.y)
+        df['phi'] = np.arctan2(df.y, df.x)
+
+        # phi-adjacent trigger tiles have a phi separation of 2.5 degrees,
+        # for all layers
+        conv_to_radians = lambda k : k*np.pi/180.
+        df['phimin'] = df.phi - conv_to_radians(1.25)
+        df['phimax'] = df.phi + conv_to_radians(1.25)
+
+        # assume the tiles are squared; their arclength (equal to the width
+        # for small values) is equal to their height
+        df['arc']  = df.R * conv_to_radians(2.5)
+        arc_dist = df.arc/2
+        df['rmin'] = df.R - arc_dist
+        df['rmax'] = df.R + arc_dist
+
+        # correct ieta boundaries (smaller trigger cells, 2 cells instead of 4)
+        # to avoid physical overlap with adjacent ieta rings
+        # corrections are layer dependent
+        sel_lay_out = [38, 39, 50]
+        df.loc[~(df.layer.isin(sel_lay_out)) &
+               (df.triggercellieta==df.max_ieta), 'rmin'] += arc_dist/2
+        df.loc[~(df.layer>=41) &
+               (df.triggercellieta==df.min_ieta), 'rmax'] -= arc_dist/2
+        
+        df = df.drop(['R', 'arc', 'phi', 'min_ieta', 'max_ieta'], axis=1)
+        return df
+        
     def filter_columns(self, d):
         """Filter some columns to reduce memory usage"""
         cols_to_remove = ['color']
         cols = [x for x in d.fields if x not in cols_to_remove]
         return d[cols]
 
-    def _from_parquet_to_geometry(self, ds, region):
+    def _parquet_to_geom(self, ds, section, region, lrange):
         """
         Steps required for going from parquet format to full pandas geometry dataframe
         In principle all these steps could be done without using pandas,
         but the latter improves clarity.
         """
         ds = ak.to_dataframe(ds)
-        ds = self.region_selection(ds, region)
+        ds = self.region_selection(ds, section, region, lrange)
         ds = self.prepare_for_display(ds)
         return ds
 
@@ -249,18 +303,18 @@ class GeometryData(BaseData):
             #df = self._display_cells(df, library)
         return df
 
-    def provide(self, region=None):
+    def provide(self, section=None, region=None, lrange=None):
         """Provides a processed geometry dataframe to the client."""
         if not os.path.exists(self.outpath) or self.reprocess:
             if self.logger is not None:
                 self.logger.debug('Storing geometry data...')
-            self.store(region)
+            self.store(section, region, lrange)
 
         if self.dataset is None: # use cached dataset (currently will never happen)
             if self.logger is not None:
                 self.logger.debug('Retrieving geometry data...')
             ds = ak.from_parquet(self.outpath)
-            self.dataset = self._from_parquet_to_geometry(ds, region)
+            self.dataset = self._parquet_to_geom(ds, section, region, lrange)
         
         return self.dataset
 
@@ -273,31 +327,48 @@ class GeometryData(BaseData):
                 _vars.remove(k)
         return _vars
         
-    def region_selection(self, df, region=None):
+    def region_selection(self, df, section=None, region=None, lrange=None):
         """Select a specific geometry region. Used mostly for debugging."""
-        if region is not None:
-            regions = ('inside', 'periphery', 'wafer')
+        if lrange is not None:
+            df = df[(df.layer>=lrange[0]) & ((df.layer<=lrange[1]))]
+            
+        if region is not None or (region is None and section is not None):
+            regions = ('inside', 'periphery', 'wafer', None)
             assert region in regions
+
+            if section == 'si':
+                df = df[(df.subdet==1) | (df.subdet==2)]
+
+            elif section == 'sci':
+                df = df[df.subdet==10]
+                
             if region == 'inside':
-                df = df[((df[self.wu]==3) & (df[self.wv]==3)) |
-                        ((df[self.wu]==3) & (df[self.wv]==4)) |
-                        ((df[self.wu]==4) & (df[self.wv]==3)) |
-                        ((df[self.wu]==4) & (df[self.wv]==4))]
+                if section == 'si':
+                    df = df[((df[self.wu]==3) & (df[self.wv]==3)) |
+                            ((df[self.wu]==3) & (df[self.wv]==4)) |
+                            ((df[self.wu]==4) & (df[self.wv]==3)) |
+                            ((df[self.wu]==4) & (df[self.wv]==4))]
+                elif section == 'sci':
+                    df = df[df[self.ceta]<4]
      
             elif region == 'periphery':
-                df = df[((df[self.wu]==-6) & (df[self.wv]==3)) |
-                        ((df[self.wu]==-6) & (df[self.wv]==4)) |
-                        ((df[self.wu]==-7) & (df[self.wv]==3)) |
-                        ((df[self.wu]==-8) & (df[self.wv]==2)) |
-                        ((df[self.wu]==-8) & (df[self.wv]==1)) |
-                        ((df[self.wu]==-7) & (df[self.wv]==2))
-                        ]
+                if section == 'si':
+                    df = df[((df[self.wu]==-6) & (df[self.wv]==3)) |
+                            ((df[self.wu]==-6) & (df[self.wv]==4)) |
+                            ((df[self.wu]==-7) & (df[self.wv]==3)) |
+                            ((df[self.wu]==-8) & (df[self.wv]==2)) |
+                            ((df[self.wu]==-8) & (df[self.wv]==1)) |
+                            ((df[self.wu]==-7) & (df[self.wv]==2))]
+                elif section == 'sci':
+                    df = df[df[self.ceta]>16]
+                    df = df[(df[self.cphi]>20) & (df[self.cphi]<40)]
 
             elif region == 'wafer':
-                df = df[((df[self.wu]==3) & (df[self.wv]==3))]
+                if section == 'si':
+                    df = df[((df[self.wu]==3) & (df[self.wv]==3))]
+                elif section == 'sci':
+                    df = df[(df[self.ceta]==15) & (df[self.cphi]==45)]
 
-        # df = df[df.layer<9]
-        # df = df[df.waferpart==0]
         return df
 
     def rotate(self, angle, x, y, cx, cy):
@@ -314,13 +385,18 @@ class GeometryData(BaseData):
             if self.logger is not None:
                 self.logger.info(tree.show())
             data = tree.arrays(self.readvars)
-            sel = (data.zside==1) & (data.subdet==1)
+            sel = data.zside==1
             fields = data.fields[:]
 
-            for v in (self.var.side, self.var.subd):
+            for v in (self.var.side,):
                 fields.remove(v)
             data = data[sel][fields]
-            data = data[data.layer%2==1]
+
+            nl = int(self.cfg['geometry']['nlayersCEE'])
+            ceh_sel = (data.subdet==2) | (data.subdet==10)
+            data['layer'] = data.layer + nl*ak.values_astype(ceh_sel, to=int)
+            data = data[((data.layer<=nl) & (data.layer%2==1)) | (data.layer>nl)]
+
             #below is correct but much slower (no operator isin in awkward)
             #this cut is anyways implemented in the skimmer
             #data = data[ak.Array([x not in params.disconnectedTriggerLayers for x in data.layer])]
@@ -329,13 +405,14 @@ class GeometryData(BaseData):
             # data[self.var.wv] = data.waferv
             # data[self.var.wvs] = -1 * data.waferv
             #data[self.var.c] = "#8a2be2"
+
         return data
 
-    def store(self, region):
+    def store(self, section, region, lrange):
         """Stores the data selection in a parquet file for quicker access."""
         ds = self.select()
         if os.path.exists(self.outpath):
             os.remove(self.outpath)
         ds = self.filter_columns(ds)
         ak.to_parquet(ds, self.outpath)
-        self.dataset = self._from_parquet_to_geometry(ds, region)
+        self.dataset = self._parquet_to_geom(ds, section, region, lrange)

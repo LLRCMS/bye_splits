@@ -162,20 +162,20 @@ def get_output_files(cfg):
 
     output_files = {"photons": [], "pions": [], "electrons": []}
     template = os.path.basename(
-        common.fill_path(cfg["clusterSize"]["fileBaseName"], **vars(FLAGS))
+        common.fill_path(cfg["clusterStudies"]["fileBaseName"], **vars(FLAGS))
     )
     template = re.split("_", template)
-    if cfg["dirs"]["local"]:
-        base_path = cfg["dirs"]["localDir"]
+    if cfg["clusterStudies"]["local"]:
+        base_path = cfg["clusterStudies"]["localDir"]
     else:
         base_path = (
             params.EOSStorage(FLAGS.user, "data/PU0/")
-            if not cfg["clusterSize"]["pileUp"]
+            if not cfg["clusterStudies"]["pileUp"]
             else params.EOSStorage(FLAGS.user, "data/PU200/")
         )
     for particles in output_files.keys():
         particle_dir = (
-            base_path + particles + "/" if cfg["dirs"]["local"] else base_path
+            base_path + particles + "/" if cfg["clusterStudies"]["local"] else base_path
         )
         files = [re.split("_", file) for file in os.listdir(particle_dir)]
         for filename in files:

@@ -29,17 +29,17 @@ FLAGS = parser.parse_args()
 phot_color = "#AFB8FF"
 el_color = "#EDA2A8"
 
-with open(params.CfgPaths["cluster_app"], "r") as afile:
-    cfg_cl = yaml.safe_load(afile)
+with open(params.CfgPath, "r") as afile:
+    cfg = yaml.safe_load(afile)
 
-if cfg_cl["dirs"]["local"]:
-    data_dir = cfg_cl["dirs"]["localDir"]
+if cfg["clusterStudies"]["local"]:
+    data_dir = cfg["clusterStudies"]["localDir"]
 else:
     data_dir = params.EOSStorage(FLAGS.user, "data/")
 
 input_files = cl_helpers.get_input_files(data_dir, pile_up=True)
 
-tree_name = cfg_cl["clusterSize"]["tree"]
+tree_name = cfg["clusterStudies"]["tree"]
 
 common_branches = ["event", "deltaR", "matches"]
 

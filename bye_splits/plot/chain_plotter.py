@@ -57,7 +57,7 @@ def stats_plotter(pars, names_d):
 
 def resolution_plotter(df, pars, user):
     out = common.fill_path(os.path.join('/eos/user', user[0], user, 'www/L1/reco'),
-                           ext='hdf5', **pars)
+                           ext='html', **pars)
     bokeh.io.output_file(out)
 
     avars = ('enres', 'etares', 'phires')
@@ -200,9 +200,3 @@ if __name__ == "__main__":
 
     lay = bokeh.layouts.layout(lay_list)
     bokeh.io.save(lay)
-
-
-##Latex equations
-# \Delta R \equiv  \sqrt{(\Delta \phi)^2+(\Delta \eta)^2}, \: \Delta \phi  \equiv \phi_{\text{Cluster}}-\phi_{\text{Gen}},  \: \Delta \eta  \equiv \eta_{\text{Cluster}}-\eta_{\text{Gen}}
-
-#  \frac{E_{\text{Cluster}} - E_{\text{Gen}}}{E_{\text{Gen}}} < -0.35
