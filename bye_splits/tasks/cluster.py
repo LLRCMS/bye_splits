@@ -23,9 +23,7 @@ def cluster(pars, **kw):
     in_seeds = common.fill_path(kw["ClusterInSeeds"], **pars)
     in_tc = common.fill_path(kw["ClusterInTC"], **pars)
     out_valid = common.fill_path(kw["ClusterOutValidation"], **pars)
-    with h5py.File(in_seeds, mode="r") as sin_seeds, h5py.File(
-        in_tc, mode="r"
-    ) as sin_tc, pd.HDFStore(out_valid, mode="w") as sout:
+    with h5py.File(in_seeds, mode="r") as sin_seeds, h5py.File(in_tc, mode="r") as sin_tc, pd.HDFStore(out_valid, mode="w") as sout:
         seed_keys = [x for x in sin_seeds.keys() if "_group" in x]
         tc_keys = [x for x in sin_tc.keys() if "_tc" in x]
         assert len(seed_keys) == len(tc_keys)
@@ -37,15 +35,10 @@ def cluster(pars, **kw):
             tc = sin_tc[tck]
             tc_cols = list(tc.attrs["columns"])
 
-            radiusCoeffA = np.array(
-                [
-                    kw["CoeffA"][int(xi) - 1]
-                    for xi in tc[:, common.get_column_idx(tc_cols, "tc_layer")]
-                ]
-            )
+            radiusCoeffA = np.array([kw["CoeffA"][int(xi) - 1]
+                                     for xi in tc[:, common.get_column_idx(tc_cols, "tc_layer")]])
             minDist = radiusCoeffA + radiusCoeffB * (
-                kw["MidRadius"]
-                - np.abs(tc[:, common.get_column_idx(tc_cols, "tc_eta")])
+                kw["MidRadius"] - np.abs(tc[:, common.get_column_idx(tc_cols, "tc_eta")])
             )
 
             seedEn, seedX, seedY = sin_seeds[seedk]

@@ -87,10 +87,15 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
         if roi_tcs.empty:
             continue
 
-        keep_tc = ['tc_wu', 'tc_wv', 'tc_cu', 'tc_cv',
+        keep_tc = ['tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_x', 'tc_y', 'tc_z',
                    'tc_layer', 'tc_mipPt', 'tc_pt']
         roi_tcs = roi_tcs.filter(items=keep_tc)
+
+        divz = lambda pos: ev_tc.tc_mipPt*pos/np.abs(ev_tc.tc_z)
+        roi_tcs['wght_x'] = divz(ev_tc.tc_x)
+        roi_tcs['wght_y'] = divz(ev_tc.tc_y)
         store_tc['ev'+str(ev)] = roi_tcs
+
     nout = len(store_tc.keys())
     store_tc.close()
 
