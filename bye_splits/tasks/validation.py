@@ -37,10 +37,10 @@ def validation(pars, **kw):
             locPhi = local['phi'].to_numpy()
             locRz  = local['Rz'].to_numpy()
             locEn  = local['en'].to_numpy()
-            cmsswEta = cmssw[:][common.get_column_idx(cmssw_cols, 'cl3d_eta')]
-            cmsswPhi = cmssw[:][common.get_column_idx(cmssw_cols, 'cl3d_phi')]
-            cmsswRz  = cmssw[:][common.get_column_idx(cmssw_cols, 'cl3d_rz')]
-            cmsswEn  = cmssw[:][common.get_column_idx(cmssw_cols, 'cl3d_en')]
+            cmsswEta = cmssw[:][cmssw_cols.index('cl3d_eta')]
+            cmsswPhi = cmssw[:][cmssw_cols.index('cl3d_phi')]
+            cmsswRz  = cmssw[:][cmssw_cols.index('cl3d_rz')]
+            cmsswEn  = cmssw[:][cmssw_cols.index('cl3d_en')]
      
             if (len(locEta) != len(cmsswEta) or len(locPhi) != len(cmsswPhi) or
                 len(locRz) != len(cmsswRz) or len(locEn) != len(cmsswEn)):
@@ -110,16 +110,16 @@ def stats_collector(pars, mode='resolution', debug=True, **kw):
             locRz  = local['Rz'].to_numpy()
             locEn  = local['en'].to_numpy()
 
-            cmsswEta  = cmssw[:][ common.get_column_idx(cmssw_cols, 'cl3d_eta') ]
-            cmsswPhi  = cmssw[:][ common.get_column_idx(cmssw_cols, 'cl3d_phi') ]
-            cmsswRz   = cmssw[:][ common.get_column_idx(cmssw_cols, 'cl3d_rz')  ]
-            cmsswEn   = cmssw[:][ common.get_column_idx(cmssw_cols, 'cl3d_en')  ]
+            cmsswEta  = cmssw[:][cmssw_cols.index('cl3d_eta')]
+            cmsswPhi  = cmssw[:][cmssw_cols.index('cl3d_phi')]
+            cmsswRz   = cmssw[:][cmssw_cols.index('cl3d_rz')]
+            cmsswEn   = cmssw[:][cmssw_cols.index('cl3d_en')]
 
             event_number = re.search(search_str, key1).group(1)
 
-            gen_en  = df_gen.loc[ int(event_number) ]['gen_en']
-            gen_eta = df_gen.loc[ int(event_number) ]['gen_eta']
-            gen_phi = df_gen.loc[ int(event_number) ]['gen_phi']
+            gen_en  = df_gen.loc[int(event_number)]['gen_en']
+            gen_eta = df_gen.loc[int(event_number)]['gen_eta']
+            gen_phi = df_gen.loc[int(event_number)]['gen_phi']
 
             #when the cluster is split we will have two rows
             if not isinstance(gen_en, (float, np.float32)):

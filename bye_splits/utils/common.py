@@ -11,6 +11,7 @@ sys.path.insert(0, parent_dir)
 from utils import params
 
 import os
+import yaml
 import numpy as np
 import pandas as pd
 
@@ -40,6 +41,10 @@ class dot_dict(dict):
 def fill_path(base_path, data_dir=params.LocalStorage, ext="hdf5", **kw):
     """Create unique file name base on user input parameters."""
 
+    with open(params.CfgPath, 'r') as afile:
+        cfg = yaml.safe_load(afile)
+        base_path += '_' + cfg['base']['FesAlgo']
+    
     def add_if_exists(s, prefix):
         nonlocal base_path
         if s in kw:
@@ -79,10 +84,6 @@ class SupressSettingWithCopyWarning:
 
     def __exit__(self, *args):
         pd.options.mode.chained_assignment = self.saved_swcw
-
-
-def get_column_idx(columns, col):
-    return columns.index(col)
 
 
 def get_detector_region_mask(df, region):

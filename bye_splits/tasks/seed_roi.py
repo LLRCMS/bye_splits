@@ -48,8 +48,8 @@ def create_histo_uv(arr, fill):
     return h
 
 def seed_roi(pars, debug=False, **kw):
-    in_tcs = common.fill_path(kw['SeedIn']+'_'+kw['FesAlgo'], **pars)
-    out_seeds = common.fill_path(kw['SeedOut']+'_'+kw['FesAlgo'], **pars)
+    in_tcs = common.fill_path(kw['SeedIn'], **pars)
+    out_seeds = common.fill_path(kw['SeedOut'], **pars)
     uv_vars = ['univ_u', 'univ_v', 'tc_cu', 'tc_cv', 'tc_wu', 'tc_wv']
     
     window_u, window_v = kw['WindowUDim'], kw['WindowVDim']
@@ -58,7 +58,6 @@ def seed_roi(pars, debug=False, **kw):
     store_seeds = h5py.File(out_seeds, mode='w')
     unev = store_roi.keys()
     for key in unev:
-        store_seeds.create_group(key)
         roi_ev = store_roi[key]
         roi_ev = calc_universal_coordinates(roi_ev, varu=uv_vars[0], varv=uv_vars[1])
 
@@ -106,6 +105,7 @@ def seed_roi(pars, debug=False, **kw):
             print('Seeds bins: {}'.format(seeds_idx))
             print('NSeeds={}\tMipPt={}\tX={}\tY={}'.format(len(res[0]),res[0],res[1],res[2])) 
 
+        store_seeds[key] = res
         store_seeds[key].attrs['columns'] = ['seedEn', 'seedXdivZ', 'seedYdivZ']
         store_seeds[key].attrs['doc'] = "Seeds' nergies and projected positions in {}.".format(key)
 

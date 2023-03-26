@@ -26,6 +26,16 @@ def find_initial_layer(df_tc):
     """Find the first layer of the region of interest"""
     #layer_sums = tcs.groupby(['tc_layer']).tc_mipPt.sum()
     return 9 #(layer_sums.rolling(window=k).sum().shift(-k+1)).idxmax()
+
+def get_roi_cylinder(ev_tc, roi_tcs):
+    uniqueu = roi_tcs.tc_wu.unique()
+    uniquev = roi_tcs.tc_wv.unique()
+    with open(params.CfgPath, 'r') as afile:
+        cfg = yaml.safe_load(afile)
+        ncee = cfg['geometry']['nlayersCEE']
+    return ev_tc[(ev_tc.tc_wu.isin(uniqueu)) & (ev_tc.tc_wv.isin(uniquev)) &
+                 (ev_tc.tc_layer <= ncee)]
+
     
 def roi(pars, df_gen, df_cl, df_tc, **kw):
     pass
@@ -55,7 +65,6 @@ def roi_dummy_calculator(tcs, k=4, threshold=20, nearby=True):
         module_ROI = selected_modules
     
     roi_df = input_df[input_df.set_index(['tc_wu','tc_wv']).index.isin(module_ROI)]
-
     return roi_df
 
 def roi_calculator():
@@ -69,13 +78,15 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
     assert(df_cl[df_cl.cl3d_eta<0].shape[0] == 0)
     df_cl.set_index('event')
 
-    out_cl = common.fill_path(kw['ROIclOut']+'_'+kw['FesAlgo'], **pars)
-    out_tc = common.fill_path(kw['ROItcOut']+'_'+kw['FesAlgo'], **pars)
+    out_cl = common.fill_path(kw['ROIclOut'], **pars)
+    out_tc = common.fill_path(kw['ROItcOut'], **pars)
+    out_cylinder = common.fill_path(kw['ROIcylinderOut'], **pars)
     with pd.HDFStore(out_cl, mode='w') as store_cl:
         store_cl['df'] = df_cl
 
     ## Event-by-event processing
     store_tc = pd.HDFStore(out_tc, mode='w')
+    store_cylinder = h5py.File(out_cylinder, mode='w')
     unev = df_tc['event'].unique().astype('int')
     for ev in unev:
         ev_tc = df_tc[df_tc.event == ev]
@@ -87,17 +98,30 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
         if roi_tcs.empty:
             continue
 
-        keep_tc = ['tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_x', 'tc_y', 'tc_z',
-                   'tc_layer', 'tc_mipPt', 'tc_pt']
-        roi_tcs = roi_tcs.filter(items=keep_tc)
+        roi_keep = ['tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_x', 'tc_y', 'tc_z',
+                    'tc_layer', 'tc_mipPt', 'tc_pt']
+        roi_tcs = roi_tcs.filter(items=roi_keep)
 
         divz = lambda pos: ev_tc.tc_mipPt*pos/np.abs(ev_tc.tc_z)
         roi_tcs['wght_x'] = divz(ev_tc.tc_x)
         roi_tcs['wght_y'] = divz(ev_tc.tc_y)
-        store_tc['ev'+str(ev)] = roi_tcs
+
+        keybase = kw['FesAlgo'] + '_' + str(ev) + '_'
+        keytc = keybase + 'group'
+        store_tc[keytc] = roi_tcs
+        store_tc[keytc].attrs['columns'] = roi_keep
+        
+        keycyl = keybase + 'tc'
+        cylinder_tcs = get_roi_cylinder(ev_tc, roi_tcs)
+        cyl_keep = ['tc_layer', 'tc_mipPt', 'tc_pt',
+                    'tc_x', 'tc_y', 'tc_z', 'tc_eta', 'tc_phi']
+        cylinder_tcs = cylinder_tcs.filter(items=cyl_keep)
+        store_cylinder[keycyl] = cylinder_tcs.to_numpy()
+        store_cylinder[keycyl].attrs['columns'] = cyl_keep
 
     nout = len(store_tc.keys())
     store_tc.close()
+    store_cylinder.close()
 
     print('ROI event balance: {} in, {} out.'.format(len(unev), nout))
                    

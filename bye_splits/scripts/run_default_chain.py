@@ -46,7 +46,7 @@ def run_chain(pars):
     for _ in range(nparameters):  # clustering optimization studies
         if not pars.no_cluster:
             cluster_d = params.read_task_params("cluster")
-            nevents_end = tasks.cluster.cluster(pars, **cluster_d)
+            nevents_end = tasks.cluster.cluster_default(pars, **cluster_d)
             print("There are {} events in the output.".format(nevents_end))
 
         if not pars.no_validation:

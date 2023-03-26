@@ -33,10 +33,10 @@ def run_roi_chain(pars):
         seed_d = params.read_task_params('seed_roi')
         tasks.seed_roi.seed_roi(pars, **seed_d)
 
-    # if not pars.no_cluster:
-    #     cluster_d = params.read_task_params('cluster')
-    #     nevents_end = tasks.cluster.cluster(pars, **cluster_d)
-    #     print('There are {} events in the output.'.format(nevents_end))
+    if not pars.no_cluster:
+        cluster_d = params.read_task_params('cluster')
+        nevents_end = tasks.cluster.cluster_roi(pars, **cluster_d)
+        print('There are {} events in the output.'.format(nevents_end))
 
     # new_chain_plotter.resolution_plotter(df_out, pars, user='iehle')
 

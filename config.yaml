@@ -135,9 +135,13 @@ seed:
 
 cluster:
     ClusterInTC: 'fill'
+    ClusterInTCROI: 'roicylinder'
     ClusterInSeeds: 'seed'
+    ClusterInSeedsROI: 'seed_roi'
     ClusterOutPlot: 'cluster_plot'
     ClusterOutValidation: 'cluster_valid'
+    ClusterOutPlotROI: 'cluster_plot_roi'
+    ClusterOutValidationROI: 'cluster_valid_roi'
     CoeffA: [
     0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015,
     0.020, 0.020, 0.020, 0.020, 0.020, 0.020, 0.020,
@@ -170,6 +174,7 @@ roi:
   ROIclOut: 'roi3d'
   ROIgenOut: 'roigen'
   ROItcOut: 'roitc'
+  ROIcylinderOut: 'roicylinder'
   
 seed_roi:
   SeedIn: 'roitc'

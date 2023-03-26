@@ -103,7 +103,7 @@ def seed(pars, debug=False, **kw):
                 print('NSeeds={}\tMipPt={}\tX={}\tY={}'.format(len(res[0]),res[0],res[1],res[2])) 
      
             storeOut[key] = res
-            storeOut[key].attrs['columns'] = ['seedEn', 'seedXdivZ', 'seedYdivZ']
+            storeOut[key].attrs['coliumns'] = ['seedEn', 'seedXdivZ', 'seedYdivZ']
             storeOut[key].attrs['doc'] = 'Smoothed energies and projected bin positions of seeds'
 
 if __name__ == "__main__":
