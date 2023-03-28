@@ -54,9 +54,7 @@ def run_chain(pars):
             valid_d = params.read_task_params("valid")
             tasks.validation.validation(pars, **valid_d)
 
-            stats_out = tasks.validation.stats_collector(
-                pars, mode="resolution", **valid_d
-            )
+            stats_out = tasks.validation.stats_collector(pars, mode="resolution", **valid_d)
             if df_out is not None:
                 df_out = stats_out
             else:

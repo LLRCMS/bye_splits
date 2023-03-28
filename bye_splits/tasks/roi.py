@@ -38,6 +38,7 @@ def get_roi_cylinder(ev_tc, roi_tcs):
 
     
 def roi(pars, df_gen, df_cl, df_tc, **kw):
+    """Waiting for ROI future algorithms..."""
     pass
 
 def roi_dummy_calculator(tcs, k=4, threshold=20, nearby=True):
@@ -78,6 +79,9 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
     assert(df_cl[df_cl.cl3d_eta<0].shape[0] == 0)
     df_cl.set_index('event')
 
+    # match the cluster/gen dataset with the trigger cell dataset
+    df_tc = df_tc[df_tc.event.isin(df_cl.event.unique())]
+
     out_cl = common.fill_path(kw['ROIclOut'], **pars)
     out_tc = common.fill_path(kw['ROItcOut'], **pars)
     out_cylinder = common.fill_path(kw['ROIcylinderOut'], **pars)
@@ -113,7 +117,7 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
         
         keycyl = keybase + 'tc'
         cylinder_tcs = get_roi_cylinder(ev_tc, roi_tcs)
-        cyl_keep = ['tc_layer', 'tc_mipPt', 'tc_pt',
+        cyl_keep = ['tc_layer', 'tc_mipPt', 'tc_pt', 'tc_energy',
                     'tc_x', 'tc_y', 'tc_z', 'tc_eta', 'tc_phi']
         cylinder_tcs = cylinder_tcs.filter(items=cyl_keep)
         store_cylinder[keycyl] = cylinder_tcs.to_numpy()

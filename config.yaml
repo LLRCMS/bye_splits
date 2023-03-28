@@ -48,7 +48,7 @@ varEvents:
     z: 'good_tc_z'
     phi: 'good_tc_phi'
     eta: 'good_tc_eta'
-    idcl: 'good_tc_cluster_id'
+    idcl: 'good_tc_multicluster_id'
     pt: 'good_tc_pt'
     en: 'good_tc_mipPt'
     en_gev: 'good_tc_energy'
@@ -131,7 +131,6 @@ seed:
   SeedIn: 'smooth'
   SeedOut: 'seed'
   histoThreshold: 20.
-  WindowPhiDim: 1
 
 cluster:
     ClusterInTC: 'fill'
@@ -154,11 +153,18 @@ cluster:
     CoeffB: 0
     MidRadius: 2.3
     PtC3dThreshold: 0.5
-
+  
 valid:
   ClusterOutValidation: 'cluster_valid'
   FillOutComp: 'fill_comp'
   FillOut: 'fill'
+
+valid_roi:
+  ClusterOutForValidation: 'cluster_valid_roi'
+  ROIclOut: 'roi3d'
+  ROIgenOut: 'roigen'
+  ROItcOut: 'roitc'
+  ROIregionOut: 'roicylinder'
 
 optimization:
   Epochs: 99999
@@ -180,5 +186,3 @@ seed_roi:
   SeedIn: 'roitc'
   SeedOut: 'seed_roi'
   histoThreshold: 20.
-  WindowUDim: 1
-  WindowVDim: 1

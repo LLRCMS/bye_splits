@@ -8,7 +8,7 @@ parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
 import bye_splits
-from bye_splits.utils import common
+from bye_splits.utils import common, params
 
 import re
 import numpy as np
@@ -48,11 +48,11 @@ def create_histo_uv(arr, fill):
     return h
 
 def seed_roi(pars, debug=False, **kw):
+    uv_vars = ['univ_u', 'univ_v', 'tc_cu', 'tc_cv', 'tc_wu', 'tc_wv']
     in_tcs = common.fill_path(kw['SeedIn'], **pars)
     out_seeds = common.fill_path(kw['SeedOut'], **pars)
-    uv_vars = ['univ_u', 'univ_v', 'tc_cu', 'tc_cv', 'tc_wu', 'tc_wv']
-    
-    window_u, window_v = kw['WindowUDim'], kw['WindowVDim']
+    window_u = pars['seed_window']
+    window_v = pars['seed_window']
 
     store_roi = pd.HDFStore(in_tcs, mode='r')
     store_seeds = h5py.File(out_seeds, mode='w')

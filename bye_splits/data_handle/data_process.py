@@ -8,6 +8,7 @@ import sys
 parent_dir = os.path.abspath(__file__ + 2 * "/..")
 sys.path.insert(0, parent_dir)
 
+import numpy as np
 import pandas as pd
 import yaml
 

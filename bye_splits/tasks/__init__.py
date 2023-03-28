@@ -6,3 +6,4 @@ import tasks.validation
 
 import tasks.roi
 import tasks.seed_roi
+import tasks.validation_roi
