@@ -13,18 +13,17 @@ import pandas as pd
 import plotly.graph_objects as go
 
 def produce_3dplot(df, opacity=1, surfaceaxis=0):
-    array_data = df[['diamond_x','diamond_y','z','waferu', 'waferv','colors','mipPt','energy']].to_numpy()
+    array_data = df[['diamond_x','diamond_y','z','waferu', 'waferv','colors','mipPt']].to_numpy()
     listdata = []
     for j,i in enumerate(array_data):
         x1 = np.append(i[0],i[0][0])
         y1 = np.append(i[1],i[1][0])
         z1 = np.full_like(x1,i[2])
         datum = go.Scatter3d(x=z1, y=y1, z=x1, opacity=opacity,mode="lines", 
-                            customdata=np.stack((5*[i[7]],5*[i[6]],5*[i[3]],5*[i[4]]), axis=-1),
-                            hovertemplate='<b>Enegy[GeV]</b>: %{customdata[0]:,.2f}<br>' +
-                                          '<b>mip\u209c</b>: %{customdata[1]:,.2f}<br>'+
-                                          '<b>Wafer u</b>: %{customdata[2]}<br>'+
-                                          '<b>Wafer v</b>: %{customdata[3]}<br>'+
+                            customdata=np.stack((5*[i[6]],5*[i[3]],5*[i[4]]), axis=-1),
+                            hovertemplate='<b>mip\u209c</b>: %{customdata[0]:,.2f}<br>'+
+                                          '<b>Wafer u</b>: %{customdata[1]}<br>'+
+                                          '<b>Wafer v</b>: %{customdata[2]}<br>'+
                                           '<extra></extra>',
                             surfaceaxis=surfaceaxis,surfacecolor=i[5],marker=dict(color="black", showscale=True),
                             )

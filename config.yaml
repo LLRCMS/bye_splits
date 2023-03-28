@@ -1,8 +1,11 @@
 io:
-  dirphotons: hgcalTriggerNtuplizer
+  dirphotons: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
   treephotons: HGCalTriggerNtuple
-  filephotons: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG_Thresh0.root
-  direlectrons: hgcalTriggerNtuplizer
+  filephotons: /eos/user/i/iehle/data/PU0/photons/skim_photons_0PU_bc_stc_hadd.root
+  dirphotons_PU: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple #hgcalTriggerNtuplizer
+  treephotons_PU: HGCalTriggerNtuple
+  filephotons_PU: /eos/user/m/mchiusi/visualization/skim_photons_hadd.root
+  direlectrons: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
   treeelectrons: HGCalTriggerNtuple
   fileelectrons: /eos/user/i/iehle/data/PU0/electrons/skim_electrons_0PU_bc_stc_hadd.root
   dirpions: hgcalTriggerNtuplizer
@@ -27,6 +30,7 @@ selection:
 
 defaultEvents:
     photons: [170032, 170044]
+    photons_PU: [62878, 55896]
     electrons: [92243, 92244]
     pions: [9102, 9148]
 
