@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <tuple>
 #include "include/skim.h"
 
@@ -87,13 +88,13 @@ po::variables_map process_program_options(int argc, char **argv)
 tuple<string, string, string, string> read_config(YAML::Node config)
 {
   string root_dir = "", root_tree = "", input_path = "", out_dir = "", outfile_base_name = "";
-  if (config["io"]["dir"])
+  if (config["skim"]["dir"])
   {
-    root_dir = config["io"]["dir"].as<string>();
+    root_dir = config["skim"]["rootDir"].as<string>();
   }
-  if (config["io"]["tree"])
+  if (config["skim"]["tree"])
   {
-    root_tree = config["io"]["tree"].as<string>();
+    root_tree = config["skim"]["tree"].as<string>();
   }
   if (config["skim"]["infilePath"])
   {
@@ -141,7 +142,7 @@ string get_particles(string inpath)
 int main(int argc, char **argv)
 {
   // read input parameters
-  YAML::Node config = YAML::LoadFile("bye_splits/production/prod_params.yaml");
+  YAML::Node config = YAML::LoadFile("config.yaml");
 
   string tree_name, input_path, out_dir, outfile_base_name;
   tie(tree_name, input_path, out_dir, outfile_base_name) = read_config(config);
@@ -173,6 +174,18 @@ int main(int argc, char **argv)
   std::string outfile = outfile_base_name + "_" + events_str + infile;
   std::string outpath = out_dir + outfile;
 
-  skim(tree_name, inpath, outpath, particles, nevents);
+  ifstream file;
+  file.open(outpath);
+
+  if (!file)
+  {
+    skim(tree_name, inpath, outpath, particles, nevents);
+  }
+  else
+  {
+    std::cout << "\n"
+              << outfile << " already exists, skipping.\n";
+  }
+
   return 0;
 }

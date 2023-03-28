@@ -25,7 +25,7 @@ ROOT::VecOps::RVec<float> calcDeltaR(ROOT::VecOps::RVec<float> geta, ROOT::VecOp
   return deltaR;
 }
 
-template<typename T>
+template <typename T>
 std::vector<T> tcMatch(std::vector<T> tc_col, ROOT::VecOps::RVec<int> tc_matches)
 {
   std::vector<T> matched_tcs;
@@ -54,7 +54,7 @@ void skim(string tn, string inf, string outf, string particle, int nevents)
 {
 
   // read input parameters
-  YAML::Node config = YAML::LoadFile("bye_splits/production/prod_params.yaml");
+  YAML::Node config = YAML::LoadFile("config.yaml");
   vector<int> discLayers;
   if (config["selection"]["disconnectedTriggerLayers"])
   {
@@ -67,7 +67,7 @@ void skim(string tn, string inf, string outf, string particle, int nevents)
     deltarThreshold = config["selection"]["deltarThreshold"].as<string>();
   if (config["selection"]["mipThreshold"])
     mipThreshold = config["selection"]["mipThreshold"].as<string>();
-  
+
   string tcDeltaRThresh = "";
   if (config["skim"]["tcDeltaRThresh"])
   {
