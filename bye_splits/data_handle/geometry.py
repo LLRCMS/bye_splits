@@ -322,7 +322,7 @@ class GeometryData(BaseData):
                 self.logger.debug('Retrieving geometry data...')
             ds = ak.from_parquet(self.outpath)
             self.dataset = self._parquet_to_geom(ds, section, region, lrange, library)
-       
+         
         return self.dataset
 
     def _readvars(self):

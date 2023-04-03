@@ -45,6 +45,11 @@ def sph2cart(eta, phi, z=322.):
     y = r * np.sin(theta) * np.sin(phi)
     return x,y
 
+def cil2cart(r, phi):
+    x = r * np.cos(phi)
+    y = r * np.sin(phi)
+    return x,y
+
 def get_pt(energy, eta):
     return energy/np.cosh(eta)
 
@@ -69,6 +74,9 @@ def get_data(event, particles):
                'good_genpart_exphi' : 'exphi',
                'good_genpart_energy': 'gen_energy'} 
    
+    sci_update = {'triggercellieta': 'triggercellu',
+                  'triggercelliphi': 'triggercellv'}
+    
     gen_info = ds_ev['gen']
     gen_info = gen_info.rename(columns=gen_keep)
 
@@ -76,13 +84,18 @@ def get_data(event, particles):
     ds_ev = ds_ev.rename(columns=tc_keep)
     ds_ev = ds_ev[tc_keep.values()]
    
-    print(ds_geom['sci']) 
     ds_ev = pd.merge(left=ds_ev, right=ds_geom['si'], how='inner',
                      on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
+    
+    ds_geom['sci'] = ds_geom['sci'].rename(columns=sci_update)
+    ds_ev_sci = pd.merge(left=ds_ev, right=ds_geom['sci'], how='inner',
+                         on=['layer', 'triggercellu', 'triggercellv'])
 
-    color = sample_colorscale('viridis', (ds_ev.mipPt-ds_ev.mipPt.min())/(ds_ev.mipPt.max()-ds_ev.mipPt.min()))
-    ds_ev = ds_ev.assign(colors=color)
-    return ds_ev, event, gen_info
+    color     = sample_colorscale('viridis', (ds_ev.mipPt-ds_ev.mipPt.min())/(ds_ev.mipPt.max()-ds_ev.mipPt.min()))
+    color_sci = sample_colorscale('viridis', (ds_ev_sci.mipPt-ds_ev.mipPt.min())/(ds_ev.mipPt.max()-ds_ev.mipPt.min()))
+    ds_ev     = ds_ev.assign(colors=color)
+    ds_ev_sci = ds_ev_sci.assign(colors=color_sci)
+    return ds_ev, ds_ev_sci, event, gen_info
 
 def set_3dfigure(df):
     fig = go.Figure(produce_3dplot(df))
@@ -103,7 +116,23 @@ def update_3dfigure(fig, df):
     list_scatter = produce_3dplot(df, opacity=.2)
     for index in range(len(list_scatter)):
         fig.add_trace(list_scatter[index])
-    return fig
+
+def add_3dscintillators(fig, df):
+    cart_coord = []
+    x0, y0 = cil2cart(df['rmin'], df['phimin'])
+    x1, y1 = cil2cart(df['rmax'], df['phimin'])
+    x2, y2 = cil2cart(df['rmax'], df['phimax'])
+    x3, y3 = cil2cart(df['rmin'], df['phimax'])
+
+    d = np.array([x0.values, x1.values, x2.values, x3.values,
+                  y0.values, y1.values, y2.values, y3.values]).T
+    df_sci = pd.DataFrame(data=d, columns=['x1','x2','x3','x4','y1','y2','y3','y4'])
+    df['diamond_y']= df_sci[['x1','x2','x3','x4']].values.tolist()
+    df['diamond_x']= df_sci[['y1','y2','y3','y4']].values.tolist()
+
+    list_scatter = produce_3dplot(df)
+    for index in range(len(list_scatter)):
+        fig.add_trace(list_scatter[index])
 
 def roi_finder(input_df, threshold=30, nearby=False):
     ''' Choose the (u,v) coordinates of the module corresponding to max dep-energy.
@@ -136,7 +165,6 @@ def add_ROI(fig, df, k=4):
     list_scatter = plot_modules(roi_df)
     for index in range(len(list_scatter)):
         fig.add_trace(list_scatter[index])
-    return fig
 
 def set_2dfigure(df):
     fig = go.Figure(produce_2dplot(df))
@@ -150,20 +178,18 @@ def set_2dfigure(df):
                       showlegend=False,
                       margin=dict(l=0, r=0, t=10, b=10),
                       )
-
     return fig
 
 def update_2dfigure(fig, df):
     list_scatter = produce_2dplot(df, opacity=.2)
     for index in range(len(list_scatter)):
         fig.add_trace(list_scatter[index])
-    return fig
 
 
 def layout(**options):
     return dbc.Container([html.Div([
         html.Div([
-            html.Div([dcc.Dropdown(['photons 0PU', 'photons 200PU', 'electrons', 'pions'], 'photons 0PU', id='particle')], style={'width':'15%'}),
+            html.Div([dcc.Dropdown(['photons 0PU', 'photons 200PU', 'electrons', 'pions'], 'pions', id='particle')], style={'width':'15%'}),
             html.Div([dbc.Checklist(options['checkbox'], [], inline=True, id='checkbox', switch=True)], style={"margin-left": "15px"}),
             html.Div(id='slider-container', children=html.Div(id='out_slider', style={'width':'99%'}), style= {'display': 'block', 'width':'55%'}),
         ], style={'display': 'flex', 'flex-direction': 'row'}),
@@ -181,5 +207,6 @@ def layout(**options):
 
         dcc.Graph(id='plot'),
         dcc.Store(id='dataframe'),
+        dcc.Store(id='dataframe_sci'),
         html.Div(id='page', key=options['page']),
         ]), ])
