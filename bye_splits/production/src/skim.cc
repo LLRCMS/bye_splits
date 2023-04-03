@@ -25,6 +25,37 @@ ROOT::VecOps::RVec<float> calcDeltaR(ROOT::VecOps::RVec<float> geta, ROOT::VecOp
   return deltaR;
 }
 
+ROOT::VecOps::RVec<float> calcDeltaRxy(ROOT::VecOps::RVec<float> geta, ROOT::VecOps::RVec<float> gphi,
+                                       ROOT::VecOps::RVec<float> tcx, ROOT::VecOps::RVec<float> tcy, ROOT::VecOps::RVec<float> tcz)
+{
+  if (geta.size() == 0) // empty event (filtered before)
+    return ROOT::VecOps::RVec<float>();
+
+  assert(geta.size() == 1); // consistency check
+
+  // Calculate gen (x/z0, y/z0) from (geta, gphi) where z0 is the first layer of the HGCAL
+  float gen_theta = 2 * atan(exp(-geta[0]));
+  float gen_x_over_z = 1 / tan(gphi[0]);
+  float gen_y_over_z = cos(gen_theta) / sin(gphi[0]);
+
+  unsigned ntc = tcx.size();
+  ROOT::VecOps::RVec<float> deltaR(ntc);
+  float dx, dy;
+
+  for (unsigned j = 0; j < ntc; ++j)
+  {
+    float tc_x_over_z = tcx[j] / tcz[j];
+    float tc_y_over_z = tcy[j] / tcz[j];
+
+    dx = fabs(tc_x_over_z - gen_x_over_z);
+    dy = fabs(tc_y_over_z - gen_y_over_z);
+
+    deltaR[j] = sqrtf(dx * dx + dy * dy);
+  }
+
+  return deltaR;
+}
+
 template <typename T>
 std::vector<T> tcMatch(std::vector<T> tc_col, ROOT::VecOps::RVec<int> tc_matches)
 {
@@ -33,10 +64,17 @@ std::vector<T> tcMatch(std::vector<T> tc_col, ROOT::VecOps::RVec<int> tc_matches
   unsigned tc_match_size = tc_matches.size();
   for (unsigned i = 0; i < tc_size; ++i)
   {
+
     if (i < tc_match_size && tc_matches[i] == 1)
     {
       matched_tcs.push_back(tc_col[i]);
     }
+    /*
+    if (tc_matches[i] == 1)
+    {
+      matched_tcs.push_back(tc_col[i]);
+    }
+    */
   }
   return matched_tcs;
 }
@@ -126,7 +164,7 @@ void skim(string tn, string inf, string outf, string particle, int nevents)
   // tighter tc selection, applying a deltaR threshold between the cells and gens
   vector<string> tc_matchvars = {"tc_deltaR", "tc_matches"};
   string tc_deltaR = tc_matchvars[0] + " <= " + tcDeltaRThresh;
-  dd1 = dd1.Define(tc_matchvars[0], calcDeltaR, {vtmp + "_genpart_exeta", vtmp + "_genpart_exphi", vtmp + "_tc_eta", vtmp + "_tc_phi"}).Define(tc_matchvars[1], tc_deltaR);
+  dd1 = dd1.Define(tc_matchvars[0], calcDeltaRxy, {vtmp + "_genpart_exeta", vtmp + "_genpart_exphi", vtmp + "_tc_x", vtmp + "_tc_y", vtmp + "_tc_z"}).Define(tc_matchvars[1], tc_deltaR);
 
   vector<string> tc_cut_uints = {};
   dd1 = dd1.Define("tc_multicluster_id_cut", tcMatch<unsigned>, {"tc_multicluster_id", "tc_matches"});

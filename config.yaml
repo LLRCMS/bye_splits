@@ -35,8 +35,8 @@ skim:
   infilePath: /data_CMS/cms/ehle/L1HGCAL/PU200/photons/ntuples/ntuple_1.root
   rootDir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
   tree: HGCalTriggerNtuple
-  outfileBaseName: skim_tightTC
-  tcDeltaRThresh: 0.1
+  outfileBaseName: skim_tightTC_dRxy
+  tcDeltaRThresh: 0.5
 
 varEvents:
   gen:
@@ -103,8 +103,6 @@ clusterStudies:
   nevents: 100
   pileUp: False
   tree: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple
-  coeffs: [0.0, 0.05, 50]
-  fileBaseName: energy_out
   local: False
 
 base:
