@@ -15,25 +15,23 @@
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
-using namespace std;
-
-void skim(string, string, string, string, int);
+void skim(std::string, std::string, std::string, std::string, int);
 
 template <class U>
-auto internal_join_vars(vector<U>& dest, const vector<U>& vec) -> void {
+auto internal_join_vars(std::vector<U>& dest, const std::vector<U>& vec) -> void {
   dest.insert(dest.end(), vec.begin(), vec.end());
 }
 template <class U, class ... RestArgs>
-auto internal_join_vars(vector<U>& dest, const vector<U>& vec, RestArgs... args) -> void
+auto internal_join_vars(std::vector<U>& dest, const std::vector<U>& vec, RestArgs... args) -> void
 {
   dest.insert(dest.end(), vec.begin(), vec.end());
   internal_join_vars(dest, args...);
 }  
 // required for compatibility issues between uproot and RDataFrame
 template <class ... Ts>
-auto join_vars(const vector<string>& val, Ts... args) -> vector<string>
+auto join_vars(const std::vector<std::string>& val, Ts... args) -> std::vector<std::string>
 {
-  vector<string> tmp;
+  std::vector<std::string> tmp;
   internal_join_vars<std::string>(tmp, val, args...);
   return tmp;
 }

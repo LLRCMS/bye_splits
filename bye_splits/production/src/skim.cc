@@ -1,5 +1,3 @@
-#include <vector>
-
 #include "include/skim.h"
 
 ROOT::VecOps::RVec<float> calcDeltaR(ROOT::VecOps::RVec<float> geta, ROOT::VecOps::RVec<float> gphi,
@@ -10,7 +8,7 @@ ROOT::VecOps::RVec<float> calcDeltaR(ROOT::VecOps::RVec<float> geta, ROOT::VecOp
 
   assert(geta.size() == 1); // consistency check
   unsigned ncl = cleta.size();
-  ROOT::VecOps::RVec<float> deltaR(ncl);
+  ROOT::VecOps::RVec<float> deltaRsq(ncl);
   float deta, dphi;
 
   for (unsigned j = 0; j < ncl; ++j)
@@ -18,11 +16,13 @@ ROOT::VecOps::RVec<float> calcDeltaR(ROOT::VecOps::RVec<float> geta, ROOT::VecOp
     deta = fabs(cleta[j] - geta[0]);
     dphi = fabs(clphi[j] - gphi[0]);
     if (dphi > M_PI)
+    {
       dphi -= (2 * M_PI);
-    deltaR[j] = sqrtf(dphi * dphi + deta * deta);
+    }
+    deltaRsq[j] = dphi * dphi + deta * deta;
   }
 
-  return deltaR;
+  return deltaRsq;
 }
 
 ROOT::VecOps::RVec<float> calcDeltaRxy(ROOT::VecOps::RVec<float> geta, ROOT::VecOps::RVec<float> gphi,
@@ -33,13 +33,13 @@ ROOT::VecOps::RVec<float> calcDeltaRxy(ROOT::VecOps::RVec<float> geta, ROOT::Vec
 
   assert(geta.size() == 1); // consistency check
 
-  // Calculate gen (x/z0, y/z0) from (geta, gphi) where z0 is the first layer of the HGCAL
+  // Calculate gen (x/z0, y/z0) from (geta, gphi) where z0 is the z-coordinate of the first layer of the HGCAL
   float gen_theta = 2 * atan(exp(-geta[0]));
   float gen_x_over_z = 1 / tan(gphi[0]);
   float gen_y_over_z = cos(gen_theta) / sin(gphi[0]);
 
   unsigned ntc = tcx.size();
-  ROOT::VecOps::RVec<float> deltaR(ntc);
+  ROOT::VecOps::RVec<float> deltaRsq(ntc);
   float dx, dy;
 
   for (unsigned j = 0; j < ntc; ++j)
@@ -50,22 +50,21 @@ ROOT::VecOps::RVec<float> calcDeltaRxy(ROOT::VecOps::RVec<float> geta, ROOT::Vec
     dx = fabs(tc_x_over_z - gen_x_over_z);
     dy = fabs(tc_y_over_z - gen_y_over_z);
 
-    deltaR[j] = sqrtf(dx * dx + dy * dy);
+    deltaRsq[j] = dx * dx + dy * dy;
   }
 
-  return deltaR;
+  return deltaRsq;
 }
 
 template <typename T>
 std::vector<T> tcMatch(std::vector<T> tc_col, ROOT::VecOps::RVec<int> tc_matches)
 {
+  // assert(tc_col.size() == tc_matches.size());
   std::vector<T> matched_tcs;
-  unsigned tc_size = tc_col.size();
-  unsigned tc_match_size = tc_matches.size();
-  for (unsigned i = 0; i < tc_size; ++i)
+  for (unsigned i = 0; i < tc_col.size(); ++i)
   {
 
-    if (i < tc_match_size && tc_matches[i] == 1)
+    if (i < tc_matches.size() and tc_matches[i] == 1)
     {
       matched_tcs.push_back(tc_col[i]);
     }
@@ -84,57 +83,57 @@ ROOT::RDF::RResultPtr<long long unsigned> addProgressBar(ROOT::RDF::RNode df)
   auto c = df.Count();
   c.OnPartialResult(/*every=*/100,
                     [](long long unsigned e)
-                    { cout << "Progress: " << e << endl; });
+                    { std::cout << "Progress: " << e << std::endl; });
   return c;
 }
 
-void skim(string tn, string inf, string outf, string particle, int nevents)
+void skim(std::string tn, std::string inf, std::string outf, std::string particle, int nevents)
 {
 
   // read input parameters
   YAML::Node config = YAML::LoadFile("config.yaml");
-  vector<int> discLayers;
+  std::vector<int> discLayers;
   if (config["selection"]["disconnectedTriggerLayers"])
   {
-    discLayers = config["selection"]["disconnectedTriggerLayers"].as<vector<int>>();
+    discLayers = config["selection"]["disconnectedTriggerLayers"].as<std::vector<int>>();
   }
-  string reachedEE = "", deltarThreshold = "", mipThreshold = "";
+  std::string reachedEE = "", mipThreshold = "";
   if (config["selection"]["reachedEE"])
-    reachedEE = config["selection"]["reachedEE"].as<string>();
-  if (config["selection"]["deltarThreshold"])
-    deltarThreshold = config["selection"]["deltarThreshold"].as<string>();
+    reachedEE = config["selection"]["reachedEE"].as<std::string>();
   if (config["selection"]["mipThreshold"])
-    mipThreshold = config["selection"]["mipThreshold"].as<string>();
+    mipThreshold = config["selection"]["mipThreshold"].as<std::string>();
 
-  string tcDeltaRThresh = "";
+  float tcDeltaRThresh = 0.0, deltarThreshold = 0.0;
+  if (config["selection"]["deltarThreshold"])
+    deltarThreshold = config["selection"]["deltarThreshold"].as<float>();
   if (config["skim"]["tcDeltaRThresh"])
   {
-    tcDeltaRThresh = config["skim"]["tcDeltaRThresh"].as<string>();
+    tcDeltaRThresh = config["skim"]["tcDeltaRThresh"].as<float>();
   }
   // variables
-  string vtmp = "tmp_good";
+  std::string vtmp = "tmp_good";
 
   if (nevents == -1)
   { // RDataFrame.Range() does not work with multithreading
     ROOT::EnableImplicitMT();
-    cout << "Multithreaded..." << endl;
+    std::cout << "Multithreaded..." << std::endl;
   }
   ROOT::RDataFrame dataframe(tn, inf);
 
   // gen-related variables
-  vector<string> gen_intv = {"genpart_pid"};
-  vector<string> gen_floatv = {"genpart_exphi", "genpart_exeta", "genpart_energy"};
-  // vector<string> gen_floatv2 = {"genpart_posx", "genpart_posy", "genpart_posz"};
-  // vector<string> gen_v = join_vars(gen_intv, gen_floatv, gen_floatv2);
-  vector<string> gen_v = join_vars(gen_intv, gen_floatv);
+  std::vector<std::string> gen_intv = {"genpart_pid"};
+  std::vector<std::string> gen_floatv = {"genpart_exphi", "genpart_exeta", "genpart_energy"};
+  // vector<std::string> gen_floatv2 = {"genpart_posx", "genpart_posy", "genpart_posz"};
+  // vector<std::string> gen_v = join_vars(gen_intv, gen_floatv, gen_floatv2);
+  std::vector<std::string> gen_v = join_vars(gen_intv, gen_floatv);
 
   // selection on generated particles (within each event)
-  unordered_map<string, string>
+  std::unordered_map<std::string, std::string>
       pmap = {
           {"photons", "22"},
           {"electrons", "11"},
           {"pions", "211"}};
-  string condgen = "genpart_gen != -1 && ";
+  std::string condgen = "genpart_gen != -1 && ";
   condgen += "genpart_reachedEE == " + reachedEE;
   condgen += " && genpart_pid == abs(" + pmap[particle] + ")";
   condgen += " && genpart_exeta > 0";
@@ -149,61 +148,60 @@ void skim(string tn, string inf, string outf, string particle, int nevents)
   auto dfilt = df.Filter(vtmp + "_genpart_pid.size()!=0");
 
   // trigger cells-related variables
-  vector<string> tc_uintv = {"tc_multicluster_id"};
-  vector<string> tc_intv = {"tc_layer", "tc_cellu", "tc_cellv", "tc_waferu", "tc_waferv"};
-  vector<string> tc_floatv = {"tc_energy", "tc_mipPt", "tc_pt",
-                              "tc_x", "tc_y", "tc_z", "tc_phi", "tc_eta"};
+  std::vector<std::string> tc_uintv = {"tc_multicluster_id"};
+  std::vector<std::string> tc_intv = {"tc_layer", "tc_cellu", "tc_cellv", "tc_waferu", "tc_waferv"};
+  std::vector<std::string> tc_floatv = {"tc_energy", "tc_mipPt", "tc_pt", "tc_x", "tc_y", "tc_z", "tc_phi", "tc_eta"};
 
   // selection on trigger cells (within each event)
-  vector<string> tc_v = join_vars(tc_uintv, tc_intv, tc_floatv);
-  string condtc = "tc_zside == 1 && tc_mipPt > " + mipThreshold + " && tc_layer <= 28";
+  std::vector<std::string> tc_v = join_vars(tc_uintv, tc_intv, tc_floatv);
+  std::string condtc = "tc_zside == 1 && tc_mipPt > " + mipThreshold + " && tc_layer <= 28";
   auto dd1 = dfilt.Define(vtmp + "_tcs", condtc);
   for (auto &v : tc_v)
     dd1 = dd1.Define(vtmp + "_" + v, v + "[" + vtmp + "_tcs]");
 
   // tighter tc selection, applying a deltaR threshold between the cells and gens
-  vector<string> tc_matchvars = {"tc_deltaR", "tc_matches"};
-  string tc_deltaR = tc_matchvars[0] + " <= " + tcDeltaRThresh;
+  std::vector<std::string> tc_matchvars = {"tc_deltaR", "tc_matches"};
+  std::string tc_deltaR = tc_matchvars[0] + " <= " + std::to_string(pow(tcDeltaRThresh, 2)); // Comparing dR^2 to avoid calculating sqrt
   dd1 = dd1.Define(tc_matchvars[0], calcDeltaRxy, {vtmp + "_genpart_exeta", vtmp + "_genpart_exphi", vtmp + "_tc_x", vtmp + "_tc_y", vtmp + "_tc_z"}).Define(tc_matchvars[1], tc_deltaR);
 
-  vector<string> tc_cut_uints = {};
-  dd1 = dd1.Define("tc_multicluster_id_cut", tcMatch<unsigned>, {"tc_multicluster_id", "tc_matches"});
+  std::vector<std::string> tc_cut_uints = {};
+  dd1 = dd1.Define("tc_multicluster_id_cut", tcMatch<unsigned>, {"tc_multicluster_id", tc_matchvars[1]});
   tc_cut_uints.push_back("tc_multicluster_id_cut");
 
-  vector<string> tc_cut_ints = {};
+  std::vector<std::string> tc_cut_ints = {};
   for (auto &v : tc_intv)
   {
-    dd1 = dd1.Define(v + "_cut", tcMatch<int>, {v, "tc_matches"});
+    dd1 = dd1.Define(v + "_cut", tcMatch<int>, {v, tc_matchvars[1]});
     tc_cut_ints.push_back(v + "_cut");
   }
 
-  vector<string> tc_cut_floats = {};
+  std::vector<std::string> tc_cut_floats = {};
   for (auto &v : tc_floatv)
   {
-    dd1 = dd1.Define(v + "_cut", tcMatch<float>, {v, "tc_matches"});
+    dd1 = dd1.Define(v + "_cut", tcMatch<float>, {v, tc_matchvars[1]});
     tc_cut_floats.push_back(v + "_cut");
   }
 
-  vector<string> tc_cut_v = join_vars(tc_cut_uints, tc_cut_ints, tc_cut_floats);
+  std::vector<std::string> tc_cut_v = join_vars(tc_cut_uints, tc_cut_ints, tc_cut_floats);
 
   // // module sums-related variables
-  // vector<string> tsum_intv = {"ts_layer", "ts_waferu", "ts_waferv"};
-  // vector<string> tsum_floatv = {"ts_energy", "ts_mipPt", "ts_pt"};
-  // vector<string> tsum_v = join_vars(tsum_intv, tsum_floatv);
+  // vector<std::string> tsum_intv = {"ts_layer", "ts_waferu", "ts_waferv"};
+  // vector<std::string> tsum_floatv = {"ts_energy", "ts_mipPt", "ts_pt"};
+  // vector<std::string> tsum_v = join_vars(tsum_intv, tsum_floatv);
 
   // // selection on module trigger sums (within each event)
-  // string condtsum = "ts_zside == 1 && ts_mipPt > " + mipThreshold;
+  // std::string condtsum = "ts_zside == 1 && ts_mipPt > " + mipThreshold;
   // dd1 = dd1.Define(vtmp + "_tsum", condtsum);
   // for(auto& v : tsum_v)
   // 	dd1 = dd1.Define(vtmp + "_" + v, v + "[" + vtmp + "_tsum]");
 
   // cluster-related variables
-  vector<string> cl_uintv = {"cl3d_id"};
-  vector<string> cl_floatv = {"cl3d_energy", "cl3d_pt", "cl3d_eta", "cl3d_phi"};
-  vector<string> cl_v = join_vars(cl_uintv, cl_floatv);
+  std::vector<std::string> cl_uintv = {"cl3d_id"};
+  std::vector<std::string> cl_floatv = {"cl3d_energy", "cl3d_pt", "cl3d_eta", "cl3d_phi"};
+  std::vector<std::string> cl_v = join_vars(cl_uintv, cl_floatv);
 
   // selection on clusters (within each event)
-  string condcl = "cl3d_eta > 0";
+  std::string condcl = "cl3d_eta > 0";
   dd1 = dd1.Define(vtmp + "_cl", condcl);
   for (auto &v : cl_v)
     dd1 = dd1.Define(vtmp + "_" + v, v + "[" + vtmp + "_cl]");
@@ -212,46 +210,46 @@ void skim(string tn, string inf, string outf, string particle, int nevents)
   auto dfilt2 = dd1.Filter(vtmp + "_cl3d_id.size()!=0");
 
   // matching
-  vector<string> matchvars = {"deltaR", "matches"};
-  string cond_deltaR = matchvars[0] + " <= " + deltarThreshold;
+  std::vector<std::string> matchvars = {"deltaR", "matches"};
+  std::string cond_deltaR = matchvars[0] + " <= " + std::to_string(pow(deltarThreshold, 2)); // Comparing dR^2 to avoid calculating sqrt
   auto dd2 = dfilt2.Define(matchvars[0], calcDeltaR, {vtmp + "_genpart_exeta", vtmp + "_genpart_exphi", vtmp + "_cl3d_eta", vtmp + "_cl3d_phi"})
                  .Define(matchvars[1], cond_deltaR);
 
   // convert root vector types to vector equivalents (uproot friendly)
-  // vector<string> intv = join_vars(gen_intv, tc_intv, tsum_intv);
-  vector<string> intv = join_vars(gen_intv, tc_intv);
+  // vector<std::string> intv = join_vars(gen_intv, tc_intv, tsum_intv);
+  std::vector<std::string> intv = join_vars(gen_intv, tc_intv);
   for (auto &var : intv)
   {
     dd2 = dd2.Define("good_" + var,
                      [](const ROOT::VecOps::RVec<int> &v)
                      {
-                       return vector<int>(v.begin(), v.end());
+                       return std::vector<int>(v.begin(), v.end());
                      },
                      {vtmp + "_" + var});
   }
-  vector<string> uintv = join_vars(cl_uintv, tc_uintv);
+  std::vector<std::string> uintv = join_vars(cl_uintv, tc_uintv);
   for (auto &var : uintv)
   {
     dd2 = dd2.Define("good_" + var,
                      [](const ROOT::VecOps::RVec<unsigned> &v)
                      {
-                       return vector<unsigned>(v.begin(), v.end());
+                       return std::vector<unsigned>(v.begin(), v.end());
                      },
                      {vtmp + "_" + var});
   }
-  // vector<string> floatv = join_vars(gen_floatv, tc_floatv, cl_floatv, tsum_floatv);
-  vector<string> floatv = join_vars(gen_floatv, tc_floatv, cl_floatv);
+  // vector<std::string> floatv = join_vars(gen_floatv, tc_floatv, cl_floatv, tsum_floatv);
+  std::vector<std::string> floatv = join_vars(gen_floatv, tc_floatv, cl_floatv);
   for (auto &var : floatv)
   {
     dd2 = dd2.Define("good_" + var,
                      [](const ROOT::VecOps::RVec<float> &v)
                      {
-                       return vector<float>(v.begin(), v.end());
+                       return std::vector<float>(v.begin(), v.end());
                      },
                      {vtmp + "_" + var});
   }
   /*
-  vector<string> floatv2 = join_vars(gen_floatv2);
+  vector<std::string> floatv2 = join_vars(gen_floatv2);
   for (auto &var : floatv2)
   {
     dd2 = dd2.Define("good_" + var,
@@ -269,9 +267,9 @@ void skim(string tn, string inf, string outf, string particle, int nevents)
   */
 
   // define stored variables (and rename some)
-  // vector<string> allvars = join_vars(gen_v, tc_v, cl_v, tsum_v);
-  vector<string> allvars = join_vars(gen_v, cl_v);
-  vector<string> good_allvars = {"event"};
+  // vector<std::string> allvars = join_vars(gen_v, tc_v, cl_v, tsum_v);
+  std::vector<std::string> allvars = join_vars(gen_v, cl_v);
+  std::vector<std::string> good_allvars = {"event"};
   good_allvars.insert(good_allvars.end(), matchvars.begin(), matchvars.end());
   good_allvars.insert(good_allvars.end(), tc_cut_v.begin(), tc_cut_v.end());
   for (auto &v : allvars)

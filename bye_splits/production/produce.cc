@@ -35,7 +35,7 @@ po::variables_map process_program_options(int argc, char **argv);
 /*
 void validate(po::variables_map args)
 {
-  std::string particles = args["particles"].as<string>();
+  std::string particles = args["particles"].as<std::string>();
   if (!(particles == "photons" || particles == "electrons" || particles == "pions"))
   {
     throw po::validation_error(po::validation_error::invalid_option_value, "particles");
@@ -57,10 +57,10 @@ po::variables_map process_program_options(int argc, char **argv)
 {
   po::options_description desc("Usage");
   desc.add_options()("help,h",
-                     po::value<string>()->implicit_value("")->notifier([&desc](const std::string &topic)
+                     po::value<std::string>()->implicit_value("")->notifier([&desc](const std::string &topic)
                                                                        { show_help(desc, topic); }),
                      "Show help. If given, show help on the specified topic.")("nevents", po::value<int>()->default_value(-1),
-                                                                               "number of entries to consider, useful for debugging (-1 means all)")("inpath", po::value<string>()->implicit_value(""),
+                                                                               "number of entries to consider, useful for debugging (-1 means all)")("inpath", po::value<std::string>()->implicit_value(""),
                                                                                                                                                      "full path to ROOT file");
   /*
   if (argc <= 1)
@@ -85,34 +85,27 @@ po::variables_map process_program_options(int argc, char **argv)
   return args;
 }
 
-tuple<string, string, string, string> read_config(YAML::Node config)
+std::tuple<std::string, std::string, std::string, std::string> read_config(std::string config_name)
 {
-  string root_dir = "", root_tree = "", input_path = "", out_dir = "", outfile_base_name = "";
-  if (config["skim"]["dir"])
+  YAML::Node config = YAML::LoadFile(config_name);
+  std::string root_dir = "", root_tree = "", input_path = "", out_dir = "", outfile_base_name = "";
+
+  if (!config["skim"]["dir"] or !config["skim"]["tree"] or !config["skim"]["infilePath"] or !config["skim"]["dir"] or !config["skim"]["outfileBaseName"] or !config["skim"]["tcDeltaRThresh"])
   {
-    root_dir = config["skim"]["rootDir"].as<string>();
+    throw std::runtime_error(std::string("The configuration file ") + config_name + std::string(" is missing one or more required parameters among (dir, rootDir, infilePath, tree, outfileBaseName, tcDeltaRThresh)"));
   }
-  if (config["skim"]["tree"])
-  {
-    root_tree = config["skim"]["tree"].as<string>();
-  }
-  if (config["skim"]["infilePath"])
-  {
-    input_path = config["skim"]["infilePath"].as<string>();
-  }
-  if (config["skim"]["dir"])
-  {
-    out_dir = config["skim"]["dir"].as<string>();
-  }
-  if (config["skim"]["outfileBaseName"])
-  {
-    outfile_base_name = config["skim"]["outfileBaseName"].as<string>();
-  }
-  string tree_name = root_dir + "/" + root_tree;
+
+  root_dir = config["skim"]["rootDir"].as<std::string>();
+  root_tree = config["skim"]["tree"].as<std::string>();
+  input_path = config["skim"]["infilePath"].as<std::string>();
+  out_dir = config["skim"]["dir"].as<std::string>();
+  outfile_base_name = config["skim"]["outfileBaseName"].as<std::string>();
+
+  std::string tree_name = root_dir + "/" + root_tree;
   return make_tuple(tree_name, input_path, out_dir, outfile_base_name);
 }
 
-string get_particles(string inpath)
+std::string get_particles(std::string inpath)
 {
   std::string phot_str = "photon";
   std::string el_str = "electron";
@@ -132,8 +125,7 @@ string get_particles(string inpath)
   }
   else
   {
-    std::cout << "\nInpath: " << inpath << "\n";
-    std::cout << "\nSub string: " << phot_str << "\n";
+    throw std::runtime_error(std::string("The input file: ") + inpath + std::string(" does not contain a particle name (options: photons | electrons | pions)."));
   }
   return particles;
 }
@@ -142,30 +134,27 @@ string get_particles(string inpath)
 int main(int argc, char **argv)
 {
   // read input parameters
-  YAML::Node config = YAML::LoadFile("config.yaml");
-
-  string tree_name, input_path, out_dir, outfile_base_name;
-  tie(tree_name, input_path, out_dir, outfile_base_name) = read_config(config);
+  std::string tree_name, input_path, out_dir, outfile_base_name;
+  tie(tree_name, input_path, out_dir, outfile_base_name) = read_config("config.yaml");
 
   po::variables_map args = process_program_options(argc, argv);
   if (args.count("help"))
   {
     return 1;
   }
-  string inpath;
+  std::string inpath;
   if (args.count("inpath"))
   {
-    inpath = args["inpath"].as<string>();
+    inpath = args["inpath"].as<std::string>();
   }
   else
   {
     inpath = input_path;
   }
 
-  // string inpath = args["inpath"].as<string>();
   int nevents = args["nevents"].as<int>();
 
-  string particles = get_particles(inpath);
+  std::string particles = get_particles(inpath);
   out_dir += particles + "/new_skims/";
 
   // Grab the file basename from the /full/path
@@ -174,7 +163,7 @@ int main(int argc, char **argv)
   std::string outfile = outfile_base_name + "_" + events_str + infile;
   std::string outpath = out_dir + outfile;
 
-  ifstream file;
+  std::ifstream file;
   file.open(outpath);
 
   if (!file)
