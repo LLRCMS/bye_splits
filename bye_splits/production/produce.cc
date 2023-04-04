@@ -106,27 +106,28 @@ std::tuple<std::string, std::string, std::string, std::string> read_config(std::
 }
 
 std::string get_particles(std::string inpath)
-{
-  std::string phot_str = "photon";
-  std::string el_str = "electron";
-  std::string pi_str = "pion";
+{  
+  bool phot_found = inpath.find("photon") != std::string::npos;
+  bool el_found = inpath.find("electron") != std::string::npos;
+  bool pi_found = inpath.find("pion") != std::string::npos;
+
+  // Assert that the file path contains one and only one particle type
+  assert(phot_found ^ el_found ^ pi_found);
+
   std::string particles;
-  if (inpath.find(phot_str) != std::string::npos)
+  if (phot_found)
   {
     particles = "photons";
   }
-  else if (inpath.find(el_str) != std::string::npos)
+  else if (el_found)
   {
     particles = "electrons";
   }
-  else if (inpath.find(pi_str) != std::string::npos)
+  else if (pi_found)
   {
     particles = "pions";
   }
-  else
-  {
-    throw std::runtime_error(std::string("The input file: ") + inpath + std::string(" does not contain a particle name (options: photons | electrons | pions)."));
-  }
+
   return particles;
 }
 
