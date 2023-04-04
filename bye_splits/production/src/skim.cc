@@ -57,15 +57,15 @@ ROOT::VecOps::RVec<float> calcDeltaRxy(ROOT::VecOps::RVec<float> geta, ROOT::Vec
 }
 
 template <typename T>
-std::vector<T> tcMatch(std::vector<T> tc_col, ROOT::VecOps::RVec<int> tc_matches)
+ROOT::VecOps::RVec<T> tcMatch(ROOT::VecOps::RVec<T> tc_col, ROOT::VecOps::RVec<int> tc_matches)
 {
   // assert(tc_col.size() == tc_matches.size());
-  std::vector<T> matched_tcs;
+  ROOT::VecOps::RVec<T> matched_tcs;
   for (unsigned i = 0; i < tc_col.size(); ++i)
   {
 
     if (i < tc_matches.size() and tc_matches[i] == 1)
-    {
+    { 
       matched_tcs.push_back(tc_col[i]);
     }
     /*
@@ -75,6 +75,17 @@ std::vector<T> tcMatch(std::vector<T> tc_col, ROOT::VecOps::RVec<int> tc_matches
     }
     */
   }
+
+  /*
+  if (matched_tcs.size() > 0)
+  {
+    std::cout << "\nTC Col Length: " << tc_col.size();
+    std::cout << "\nTC Match Length: " << tc_matches.size();
+    std::cout << "\nTotal Matches: " << matched_tcs.size();
+    std::cout << "\n=======================\n";
+  }
+  */
+
   return matched_tcs;
 }
 
