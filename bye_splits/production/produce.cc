@@ -177,5 +177,7 @@ int main(int argc, char **argv)
               << outfile << " already exists, skipping.\n";
   }
 
+  file.close();
+
   return 0;
 }

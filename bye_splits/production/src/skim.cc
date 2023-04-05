@@ -56,39 +56,6 @@ ROOT::VecOps::RVec<float> calcDeltaRxy(ROOT::VecOps::RVec<float> geta, ROOT::Vec
   return deltaRsq;
 }
 
-template <typename T>
-ROOT::VecOps::RVec<T> tcMatch(ROOT::VecOps::RVec<T> tc_col, ROOT::VecOps::RVec<int> tc_matches)
-{
-  // assert(tc_col.size() == tc_matches.size());
-  ROOT::VecOps::RVec<T> matched_tcs;
-  for (unsigned i = 0; i < tc_col.size(); ++i)
-  {
-
-    if (i < tc_matches.size() and tc_matches[i] == 1)
-    { 
-      matched_tcs.push_back(tc_col[i]);
-    }
-    /*
-    if (tc_matches[i] == 1)
-    {
-      matched_tcs.push_back(tc_col[i]);
-    }
-    */
-  }
-
-  /*
-  if (matched_tcs.size() > 0)
-  {
-    std::cout << "\nTC Col Length: " << tc_col.size();
-    std::cout << "\nTC Match Length: " << tc_matches.size();
-    std::cout << "\nTotal Matches: " << matched_tcs.size();
-    std::cout << "\n=======================\n";
-  }
-  */
-
-  return matched_tcs;
-}
-
 ROOT::RDF::RResultPtr<long long unsigned> addProgressBar(ROOT::RDF::RNode df)
 {
   auto c = df.Count();
@@ -165,35 +132,12 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
 
   // selection on trigger cells (within each event)
   std::vector<std::string> tc_v = join_vars(tc_uintv, tc_intv, tc_floatv);
-  std::string condtc = "tc_zside == 1 && tc_mipPt > " + mipThreshold + " && tc_layer <= 28";
-  auto dd1 = dfilt.Define(vtmp + "_tcs", condtc);
+
+  auto dd1 = dfilt.Define("tc_deltaR", calcDeltaRxy, {vtmp + "_genpart_exeta", vtmp + "_genpart_exphi", "tc_x", "tc_y", "tc_z"});
+  std::string condtc = "tc_zside == 1 && tc_mipPt > " + mipThreshold + " && tc_layer <= 28 && tc_deltaR <= " + std::to_string(pow(tcDeltaRThresh, 2)); // Comparing dR^2 to avoid calculating sqrt
+  dd1 = dd1.Define(vtmp + "_tcs", condtc);
   for (auto &v : tc_v)
     dd1 = dd1.Define(vtmp + "_" + v, v + "[" + vtmp + "_tcs]");
-
-  // tighter tc selection, applying a deltaR threshold between the cells and gens
-  std::vector<std::string> tc_matchvars = {"tc_deltaR", "tc_matches"};
-  std::string tc_deltaR = tc_matchvars[0] + " <= " + std::to_string(pow(tcDeltaRThresh, 2)); // Comparing dR^2 to avoid calculating sqrt
-  dd1 = dd1.Define(tc_matchvars[0], calcDeltaRxy, {vtmp + "_genpart_exeta", vtmp + "_genpart_exphi", vtmp + "_tc_x", vtmp + "_tc_y", vtmp + "_tc_z"}).Define(tc_matchvars[1], tc_deltaR);
-
-  std::vector<std::string> tc_cut_uints = {};
-  dd1 = dd1.Define("tc_multicluster_id_cut", tcMatch<unsigned>, {"tc_multicluster_id", tc_matchvars[1]});
-  tc_cut_uints.push_back("tc_multicluster_id_cut");
-
-  std::vector<std::string> tc_cut_ints = {};
-  for (auto &v : tc_intv)
-  {
-    dd1 = dd1.Define(v + "_cut", tcMatch<int>, {v, tc_matchvars[1]});
-    tc_cut_ints.push_back(v + "_cut");
-  }
-
-  std::vector<std::string> tc_cut_floats = {};
-  for (auto &v : tc_floatv)
-  {
-    dd1 = dd1.Define(v + "_cut", tcMatch<float>, {v, tc_matchvars[1]});
-    tc_cut_floats.push_back(v + "_cut");
-  }
-
-  std::vector<std::string> tc_cut_v = join_vars(tc_cut_uints, tc_cut_ints, tc_cut_floats);
 
   // // module sums-related variables
   // vector<std::string> tsum_intv = {"ts_layer", "ts_waferu", "ts_waferv"};
@@ -279,10 +223,9 @@ void skim(std::string tn, std::string inf, std::string outf, std::string particl
 
   // define stored variables (and rename some)
   // vector<std::string> allvars = join_vars(gen_v, tc_v, cl_v, tsum_v);
-  std::vector<std::string> allvars = join_vars(gen_v, cl_v);
+  std::vector<std::string> allvars = join_vars(gen_v, tc_v, cl_v);
   std::vector<std::string> good_allvars = {"event"};
   good_allvars.insert(good_allvars.end(), matchvars.begin(), matchvars.end());
-  good_allvars.insert(good_allvars.end(), tc_cut_v.begin(), tc_cut_v.end());
   for (auto &v : allvars)
     good_allvars.push_back("good_" + v);
 
