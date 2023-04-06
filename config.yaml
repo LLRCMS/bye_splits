@@ -48,7 +48,7 @@ varEvents:
     z: 'good_tc_z'
     phi: 'good_tc_phi'
     eta: 'good_tc_eta'
-    idcl: 'good_tc_multicluster_id'
+    idcl: 'good_tc_cluster_id'
     pt: 'good_tc_pt'
     en: 'good_tc_mipPt'
     en_gev: 'good_tc_energy'
@@ -134,7 +134,9 @@ seed:
 
 cluster:
     ClusterInTC: 'fill'
-    ClusterInTCROI: 'roicylinder'
+    ClusterInTCROI: 'roiall'
+    ClusterInTCROICylinder: 'roicylinder'
+    ROICylinder: False
     ClusterInSeeds: 'seed'
     ClusterInSeedsROI: 'seed_roi'
     ClusterOutPlot: 'cluster_plot'
@@ -159,12 +161,18 @@ valid:
   FillOutComp: 'fill_comp'
   FillOut: 'fill'
 
-valid_roi:
+valid_cluster:
   ClusterOutForValidation: 'cluster_valid_roi'
   ROIclOut: 'roi3d'
   ROIgenOut: 'roigen'
-  ROItcOut: 'roitc'
+  ROItcOut: 'roiall'
   ROIregionOut: 'roicylinder'
+
+valid_seed:
+  ROIclOut: 'roi3d'
+  ROIgenOut: 'roigen'
+  ROItcOut: 'roitc'
+  SeedOut: 'seed_roi'
 
 optimization:
   Epochs: 99999
@@ -180,9 +188,11 @@ roi:
   ROIclOut: 'roi3d'
   ROIgenOut: 'roigen'
   ROItcOut: 'roitc'
+  ROItcOut2: 'roiall'
   ROIcylinderOut: 'roicylinder'
   
 seed_roi:
   SeedIn: 'roitc'
   SeedOut: 'seed_roi'
   histoThreshold: 20.
+  hexDist: True
