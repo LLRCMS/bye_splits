@@ -36,7 +36,27 @@ skim:
   rootDir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
   tree: HGCalTriggerNtuple
   outfileBaseName: skim_tightTC_dRxy
-  tcDeltaRThresh: 0.5
+  tcDeltaRThresh: 0.1
+
+job:
+  user: iehle
+  proxy: ~/.t3/proxy.cert
+  queue: short
+  local: False
+  script: /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/production/submit_scripts/skim_pu_multicluster.sh
+  read_dir: True # If False, read the file paths stored on the .txt files below
+  photons:
+    submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU200/photons/
+    files: /data_CMS/cms/ehle/L1HGCAL/PU200/photons/photon_ntuples.txt
+    files_per_batch: 10
+  electrons:
+    submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU200/electrons/
+    files: /data_CMS/cms/ehle/L1HGCAL/PU200/electrons/electron_ntuples.txt
+    files_per_batch: 10
+  pions:
+    submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU200/pions/
+    files: /data_CMS/cms/ehle/L1HGCAL/PU200/pions/pion_ntuples.txt
+    files_per_batch: 10
 
 varEvents:
   gen:

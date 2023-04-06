@@ -94,6 +94,30 @@ The above skims the input files, applying:
 - positive endcap cut (reduces the amount of data processed by a factor of 2)
 - type conversion for `uproot` usage at later steps
 
+### HTCondor Jobs
+
+You can skim several files at once by sending them as jobs to [HTCondor](https://htcondor.readthedocs.io/en/latest/index.html). The parameters for job submission should be set in ```config.yaml``` under ```job```. In addition to general parameters (user, proxy, queue, etc), you should also set ```script``` as the full path to the script you wish to submit, and the boolean ```read_dir```, explained shortly. The following should be set for each particle type:
+
+- ```submit_dir```: the base directory where your submission scripts will be written to. If ```read_dir``` is ```True```, it assumes this contains a sub directory ```ntuples/``` where your ```ROOT``` files are located.
+- ```files```: a full path to a ```.txt``` file containing the paths to your ```ROOT``` files (line-delimited); will be read if ```read_dir``` is ```False```.
+- ```files_per_batch```: Multiple "batch files" will be written to ```<submit_dir>/batches```, containing this number of file paths to your ```ROOT``` files (again, line-delimted). These batch files are queued by HTCondor such that one condor job contains this number of input files.
+
+This requires that your script is structured in the following way:
+
+    batch_file=$1
+    while read -r line; do
+    <something> $line
+    done <$batch_file
+
+where ```<something>``` is a command that accepts a ```/full/path/to/file.root``` as an argument. A full (though short) example can be viewed in [skim_pu_multicluster.sh](bye_splits/production/submit_scripts/skim_pu_multicluster.sh).
+
+Finally, you run ```python bye_splits/production/submit_scripts/job_submit.py``` to launch the jobs.
+
+A few notes:
+
+- All submission related scripts will be created using the basename of your passed script, such that changing the script you run will not overwrite previous files and they will be easier to find.
+- In addition, version numbers will be appended to each script every time you run, so you are free to test different configurations without worry of overwriting existing scripts.
+
 <a id="orgfc86ff0"></a>
 
 ## Data sources

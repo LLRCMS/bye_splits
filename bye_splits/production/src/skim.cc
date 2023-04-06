@@ -35,8 +35,8 @@ ROOT::VecOps::RVec<float> calcDeltaRxy(ROOT::VecOps::RVec<float> geta, ROOT::Vec
 
   // Calculate gen (x/z0, y/z0) from (geta, gphi) where z0 is the z-coordinate of the first layer of the HGCAL
   float gen_theta = 2 * atan(exp(-geta[0]));
-  float gen_x_over_z = 1 / tan(gphi[0]);
-  float gen_y_over_z = cos(gen_theta) / sin(gphi[0]);
+  float gen_x_over_z = cos(gphi[0])*tan(gen_theta);
+  float gen_y_over_z = sin(gphi[0])*tan(gen_theta);
 
   unsigned ntc = tcx.size();
   ROOT::VecOps::RVec<float> deltaRsq(ntc);
