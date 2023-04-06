@@ -37,11 +37,14 @@ def validation(mipPts, event, infile, outfile, nbinsrz, nbinsphi):
 def seed(pars, debug=False, **kw):
     inseeding = common.fill_path(kw['SeedIn'], **pars)
     outseeding = common.fill_path(kw['SeedOut'], **pars)
+    with open(params.CfgPath, 'r') as afile:
+        cfg = yaml.safe_load(afile)
+
     with h5py.File(inseeding,  mode='r') as storeIn, h5py.File(outseeding, mode='w') as storeOut:
 
         for key in storeIn.keys():
             energies, wght_x, wght_y = storeIn[key]            
-            window_size_phi = kw['WindowPhiDim']
+            window_size_phi = pars['seed_window']
             window_size_Rz  = 1
             surroundings = []
      
@@ -49,7 +52,7 @@ def seed(pars, debug=False, **kw):
             # fill the rows with negative (unphysical) energy values
             # boundary conditions on the phi axis are satisfied by 'np.roll'
             phiPad = -1 * np.ones((1,kw['NbinsPhi']))
-            energies = np.concatenate( (phiPad,energies,phiPad) )
+            energies = np.concatenate((phiPad,energies,phiPad))
      
             #remove padding
             slc = slice(1,energies.shape[0]-1)
@@ -103,7 +106,7 @@ def seed(pars, debug=False, **kw):
                 print('NSeeds={}\tMipPt={}\tX={}\tY={}'.format(len(res[0]),res[0],res[1],res[2])) 
      
             storeOut[key] = res
-            storeOut[key].attrs['columns'] = ['seedEn', 'seedX', 'seedY']
+            storeOut[key].attrs['columns'] = ['seedEn', 'seedXdivZ', 'seedYdivZ']
             storeOut[key].attrs['doc'] = 'Smoothed energies and projected bin positions of seeds'
 
 if __name__ == "__main__":

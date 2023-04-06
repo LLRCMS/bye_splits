@@ -13,7 +13,7 @@ import tasks
 import utils
 from utils import params, common, parsing
 import data_handle
-from data_handle.data_handle import EventDataParticle, get_data_reco_chain_start
+from data_handle.data_process import EventDataParticle, get_data_reco_chain_start
 from data_handle.geometry import GeometryData
 import plot
 from plot import chain_plotter
@@ -46,7 +46,7 @@ def run_chain(pars):
     for _ in range(nparameters):  # clustering optimization studies
         if not pars.no_cluster:
             cluster_d = params.read_task_params("cluster")
-            nevents_end = tasks.cluster.cluster(pars, **cluster_d)
+            nevents_end = tasks.cluster.cluster_default(pars, **cluster_d)
             print("There are {} events in the output.".format(nevents_end))
 
         if not pars.no_validation:
@@ -54,9 +54,7 @@ def run_chain(pars):
             valid_d = params.read_task_params("valid")
             tasks.validation.validation(pars, **valid_d)
 
-            stats_out = tasks.validation.stats_collector(
-                pars, mode="resolution", **valid_d
-            )
+            stats_out = tasks.validation.stats_collector(pars, mode="resolution", **valid_d)
             if df_out is not None:
                 df_out = stats_out
             else:

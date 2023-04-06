@@ -17,15 +17,9 @@ import numpy as np
 import pandas as pd
 import h5py
 
-
-def cluster(pars, **kw):
+def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
     dfout = None
-    in_seeds = common.fill_path(kw["ClusterInSeeds"], **pars)
-    in_tc = common.fill_path(kw["ClusterInTC"], **pars)
-    out_valid = common.fill_path(kw["ClusterOutValidation"], **pars)
-    with h5py.File(in_seeds, mode="r") as sin_seeds, h5py.File(
-        in_tc, mode="r"
-    ) as sin_tc, pd.HDFStore(out_valid, mode="w") as sout:
+    with h5py.File(in_seeds, mode="r") as sin_seeds, h5py.File(in_tc, mode="r") as sin_tc, pd.HDFStore(out_valid, mode="w") as sout:
         seed_keys = [x for x in sin_seeds.keys() if "_group" in x]
         tc_keys = [x for x in sin_tc.keys() if "_tc" in x]
         assert len(seed_keys) == len(tc_keys)
@@ -37,25 +31,20 @@ def cluster(pars, **kw):
             tc = sin_tc[tck]
             tc_cols = list(tc.attrs["columns"])
 
-            radiusCoeffA = np.array(
-                [
-                    kw["CoeffA"][int(xi) - 1]
-                    for xi in tc[:, common.get_column_idx(tc_cols, "tc_layer")]
-                ]
-            )
+            radiusCoeffA = np.array([kw["CoeffA"][int(xi) - 1]
+                                     for xi in tc[:, tc_cols.index("tc_layer")]])
             minDist = radiusCoeffA + radiusCoeffB * (
-                kw["MidRadius"]
-                - np.abs(tc[:, common.get_column_idx(tc_cols, "tc_eta")])
+                kw["MidRadius"] - np.abs(tc[:, tc_cols.index("tc_eta")])
             )
 
-            seedEn, seedX, seedY = sin_seeds[seedk]
+            seedEn, seedXdivZ, seedYdivZ = sin_seeds[seedk]
 
             dRs = np.array([])
-            z_tmp = tc[:, common.get_column_idx(tc_cols, "tc_z")]
-            projx = tc[:, common.get_column_idx(tc_cols, "tc_x")] / z_tmp
-            projy = tc[:, common.get_column_idx(tc_cols, "tc_y")] / z_tmp
+            z_tmp = tc[:, tc_cols.index("tc_z")]
+            projx = tc[:, tc_cols.index("tc_x")] / z_tmp
+            projy = tc[:, tc_cols.index("tc_y")] / z_tmp
 
-            for _, (en, sx, sy) in enumerate(zip(seedEn, seedX, seedY)):
+            for _, (en, sx, sy) in enumerate(zip(seedEn, seedXdivZ, seedYdivZ)):
                 dR = np.sqrt((projx - sx) * (projx - sx) + (projy - sy) * (projy - sy))
                 if dRs.shape == (0,):
                     dRs = np.expand_dims(dR, axis=-1)
@@ -142,11 +131,9 @@ def cluster(pars, **kw):
         )
 
     if dfout is not None:
-        out = common.fill_path(kw["ClusterOutPlot"], **pars)
-        with pd.HDFStore(out, mode="w") as sout:
+        with pd.HDFStore(out_plot, mode="w") as sout:
             dfout.event = dfout.event.astype(int)
             sout["data"] = dfout
-
         nevents = dfout.event.unique().shape[0]
 
     else:
@@ -155,6 +142,19 @@ def cluster(pars, **kw):
 
     return nevents
 
+def cluster_default(pars, **kw):
+    in_seeds  = common.fill_path(kw["ClusterInSeeds"], **pars)
+    in_tc     = common.fill_path(kw["ClusterInTC"], **pars)
+    out_valid = common.fill_path(kw["ClusterOutValidation"], **pars)
+    out_plot  = common.fill_path(kw["ClusterOutPlot"], **pars)
+    return cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw)
+    
+def cluster_roi(pars, **kw):
+    in_seeds  = common.fill_path(kw["ClusterInSeedsROI"], **pars)
+    in_tc     = common.fill_path(kw["ClusterInTCROI"], **pars)
+    out_valid = common.fill_path(kw["ClusterOutValidationROI"], **pars)
+    out_plot  = common.fill_path(kw["ClusterOutPlotROI"], **pars)
+    return cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw)
 
 if __name__ == "__main__":
     import argparse
@@ -162,7 +162,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Clustering standalone step.")
     parsing.add_parameters(parser)
+    parser.add_argument('--roi', action='store_true',
+                        help='Cluster on ROI chain output.')
     FLAGS = parser.parse_args()
 
     cluster_d = params.read_task_params("cluster")
-    cluster(vars(FLAGS), **cluster_d)
+    if FLAGS.roi:
+        cluster_roi(vars(FLAGS), **cluster_d)
+    else:
+        cluster_default(vars(FLAGS), **cluster_d)

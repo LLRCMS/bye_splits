@@ -9,7 +9,7 @@ sys.path.insert(0, parent_dir)
 
 import bye_splits
 from bye_splits.utils import common
-from bye_splits.data_handle import data_handle
+from bye_splits.data_handle import data_process
 
 import random; random.seed(18)
 import numpy as np
@@ -20,55 +20,13 @@ def fill(pars, df_gen, df_cl, df_tc, **kw):
     """
     Fills split clusters information according to the Stage2 FPGA fixed binning.
     """
-    df1 = pd.merge(left=df_gen, right=df_cl, how='inner', on='event')
-
-    ### Data Processing ######################################################
     outfillplot = common.fill_path(kw['FillOutPlot'], **pars)
     outfillcomp = common.fill_path(kw['FillOutComp'], **pars)
     with pd.HDFStore(outfillplot, mode='w') as store, pd.HDFStore(outfillcomp, mode='w') as storeComp:
 
-        df1 = df1[(df1.gen_eta>kw['EtaMin']) & (df1.gen_eta<kw['EtaMax'])]
+        df1 = data_process.baseline_selection(df_gen, df_cl, pars['sel'], **kw)
         assert(df1[df1.cl3d_eta<0].shape[0] == 0)
-        
-        with common.SupressSettingWithCopyWarning():
-            df1['enres'] = df1.cl3d_en - df1.gen_en
-            df1.enres /= df1.gen_en
-
-        nansel = pd.isna(df1['enres'])
-        nandf = df1[nansel]
-        nandf['enres'] = 1.1
-        df1 = df1[~nansel]
-        df1 = pd.concat([df1,nandf], sort=False)
-        
-        if pars['sel'].startswith('above_eta_'):
-            df1 = df1[df.gen_eta > float(pars['sel'].split('above_eta_')[1])]
-
-        elif pars['sel'] == 'splits_only':
-            # select events with splitted clusters (enres < energy cut)
-            # if an event has at least one cluster satisfying the enres condition,
-            # all of its clusters are kept (this eases comparison with CMSSW)
-            evgrp = df1.groupby(['event'], sort=False)
-            multiplicity = evgrp.size()
-            bad_res = (evgrp.apply(lambda grp: np.any(grp['enres'] < kw['EnResSplits']))).values
-            bad_res_mask = np.repeat(bad_res, multiplicity.values)
-            df1 = df1[bad_res_mask]
-  
-        elif pars['sel'] == 'no_splits':
-            df1 = df1[(df1.gen_eta > kw['EtaMinStrict']) &
-                      (df1.gen_eta < kw['EtaMaxStrict'])]
-            evgrp = df1.groupby(['event'], sort=False)
-            multiplicity = evgrp.size()
-            good_res = (evgrp.apply(lambda grp: np.all(grp['enres'] > kw['EnResNoSplits']))).values
-            good_res_mask = np.repeat(good_res, multiplicity.values)
-            df1 = df1[good_res_mask]
-
-        elif pars['sel'] == 'all':
-            pass
-        
-        else:
-            m = 'Selection {} is not supported.'.format(pars['sel'])
-            raise ValueError(m)
-        
+                
         #df = df.drop(['matches', 'best_match', 'cl3d_layer_pt'], axis=1)
         storeComp[kw['FesAlgo'] + '_gen'] = df1.set_index('event').filter(regex='^gen.*')
 
@@ -174,6 +132,6 @@ if __name__ == "__main__":
     assert (FLAGS.sel in ('splits_only', 'no_splits', 'all') or
             FLAGS.sel.startswith('above_eta_'))
 
-    df_gen, df_cl, df_tc = data_handle.get_data_reco_chain_start(nevents=100)
+    df_gen, df_cl, df_tc = data_process.get_data_reco_chain_start(nevents=100)
     fill_d = params.read_task_params('fill')
     fill(vars(FLAGS), df_gen, df_cl, df_tc, **fill_d)

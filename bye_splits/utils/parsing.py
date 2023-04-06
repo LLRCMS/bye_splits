@@ -23,12 +23,13 @@ def add_parameters(parser):
         type=str,
         help="Z region in the detector for the trigger cell geometry.",
     )
-    seed_help = (
-        "Size of the window used for seeding in the phi "
-        + "direction. The size in R/z is always 1/. A larger size"
-        + "captures more information but consumes more "
-        + "firmware resources."
-    )
+    seed_help = ' '.join((
+        "Size of the window used for seeding.",
+        "The size refers either to the phi direction (in R/z is always 1)",
+        "or to cell u and v coordinates. A larger size",
+        "captures more information but consumes more ",
+        "firmware resources."
+    ))
     parser.add_argument("--seed_window", help=seed_help, default=1, type=int)
     parser.add_argument(
         "--smooth_kernel",
