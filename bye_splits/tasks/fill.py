@@ -8,7 +8,7 @@ parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
 from utils import common
-from data_handle import data_handle
+from data_handle import data_process
 
 import random; random.seed(18)
 import numpy as np

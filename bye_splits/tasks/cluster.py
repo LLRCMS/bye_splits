@@ -17,9 +17,14 @@ import numpy as np
 import pandas as pd
 import h5py
 
-def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
+def cluster(pars, **kw):
     dfout = None
-    with h5py.File(in_seeds, mode="r") as sin_seeds, h5py.File(in_tc, mode="r") as sin_tc, pd.HDFStore(out_valid, mode="w") as sout:
+    in_seeds = common.fill_path(kw["ClusterInSeeds"], **pars)
+    in_tc = common.fill_path(kw["ClusterInTC"], **pars)
+    out_valid = common.fill_path(kw["ClusterOutValidation"], **pars)
+    with h5py.File(in_seeds, mode="r") as sin_seeds, h5py.File(
+        in_tc, mode="r"
+    ) as sin_tc, pd.HDFStore(out_valid, mode="w") as sout:
         seed_keys = [x for x in sin_seeds.keys() if "_group" in x]
         tc_keys = [x for x in sin_tc.keys() if "_tc" in x]
         assert len(seed_keys) == len(tc_keys)
@@ -129,15 +134,16 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
         # print("[clustering step] There were {} events without seeds.".format(empty_seeds))
 
     if dfout is not None:
+        out_plot = common.fill_path(kw["ClusterOutPlot"], **pars)
         with pd.HDFStore(out_plot, mode="w") as sout:
             dfout.event = dfout.event.astype(int)
             sout["data"] = dfout
-        nevents = dfout.event.unique().shape[0]
-
+        events = dfout.event.unique()
     else:
         mes = "No output in the cluster."
         raise RuntimeError(mes)
-    return df, nevents
+
+    return df, events
 
 def cluster_default(pars, **kw):
     in_seeds  = common.fill_path(kw["ClusterInSeeds"], **pars)

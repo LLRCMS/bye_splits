@@ -16,11 +16,11 @@ from dash import Dash, dcc, html, Input, Output, State
 import dash_bootstrap_components as dbc
 
 import data_handle
-from data_handle.data_handle import EventDataParticle
+from data_handle.data_process import EventDataParticle
 from data_handle.geometry import GeometryData
 from plot_event import produce_2dplot, produce_3dplot, plot_modules
 from plotly.express.colors import sample_colorscale, qualitative
-from scripts.run_chain import run_chain_radii
+from scripts.run_default_chain import run_chain_radii
 import logging
 log = logging.getLogger(__name__)
 

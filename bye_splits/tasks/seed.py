@@ -8,8 +8,9 @@ parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
 import bye_splits
-from bye_splits.utils import common
+from bye_splits.utils import common, params
 
+import yaml
 import re
 import numpy as np
 import h5py
