@@ -22,10 +22,10 @@ geometry:
     nlayersCEH: 22
   
 selection:
-    particles: photons
+    particles: photons_PU
     disconnectedTriggerLayers: [2,4,6,8,10,12,14,16,18,20,22,24,26,28]
     reachedEE: 2
-    deltarThreshold: 0.05
+    deltarThreshold: 0.1
     mipThreshold: 0.5
 
 defaultEvents:
@@ -52,7 +52,7 @@ varEvents:
     z: 'good_tc_z'
     phi: 'good_tc_phi'
     eta: 'good_tc_eta'
-    idcl: 'good_tc_multicluster_id'
+    idcl: 'good_tc_cluster_id'
     pt: 'good_tc_pt'
     en: 'good_tc_mipPt'
     en_gev: 'good_tc_energy'
@@ -90,16 +90,16 @@ varGeometry:
     part: 'waferpart'
 
 clusterStudies:
-  localDir: /home/llr/cms/ehle/NewRepos/bye_splits/data/new_algos/
+  localDir: /home/llr/cms/mchiusi/event_display/bye_splits/data/new_algos/
   ehleDir: /eos/user/i/iehle/
   dataFolder: data/
-  reinit: False
+  reinit: True #False
   clusterSizeBaseName: cluster_size
-  coeffs: [0.0, 0.05, 50]
+  coeffs: [0.0, 0.5, 50]
   nevents: 100
   pileUp: False
   tree: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple
-  coeffs: [0.0, 0.05, 50]
+  #coeffs: [0.0, 0.05, 50]
   fileBaseName: energy_out
   local: False
 

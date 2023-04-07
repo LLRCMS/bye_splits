@@ -12,8 +12,12 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-def produce_3dplot(df, opacity=1, surfaceaxis=0):
-    array_data = df[['diamond_x','diamond_y','z','waferu', 'waferv','colors','mipPt']].to_numpy()
+def produce_3dplot(df, opacity=1, surfaceaxis=0, discrete=False):
+    if discrete:
+        array_data = df[['diamond_x','diamond_y','z','waferu','waferv','color_clusters','mipPt']].to_numpy()
+    else:
+        array_data = df[['diamond_x','diamond_y','z','waferu','waferv','color_energy','mipPt']].to_numpy()
+    
     listdata = []
     for j,i in enumerate(array_data):
         x1 = np.append(i[0],i[0][0])
@@ -28,7 +32,8 @@ def produce_3dplot(df, opacity=1, surfaceaxis=0):
                             surfaceaxis=surfaceaxis,surfacecolor=i[5],marker=dict(color="black", showscale=True),
                             )
         listdata.append(datum)
-    if opacity == 1:
+
+    if opacity == 1 and not discrete:
         datum = go.Scatter3d(x=[None], y=[None], z=[None], mode="markers", marker=dict(
                              colorscale='viridis',
                              cmin = df.mipPt.min(),

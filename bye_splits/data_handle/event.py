@@ -110,7 +110,7 @@ class EventData(BaseData):
 
         ret = {}
         for k in self.var.keys():
-            ret[k] = self._event_mask(self.cache[k], [event]).drop(["event"], axis=1)
+            ret[k] = self._event_mask(self.cache[k], [event])#.drop(["event"], axis=1)
 
         if merge:
             ret = functools.reduce(

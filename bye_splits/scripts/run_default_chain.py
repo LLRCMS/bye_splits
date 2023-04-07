@@ -9,6 +9,7 @@ import sys
 parent_dir = os.path.abspath(__file__ + 2 * "/..")
 sys.path.insert(0, parent_dir)
 
+import yaml
 import tasks
 import utils
 from utils import params, common, parsing
@@ -21,11 +22,44 @@ from plot import chain_plotter
 import argparse
 import pandas as pd
 
+with open(params.CfgPath, 'r') as afile:
+        cfg = yaml.safe_load(afile)
+
+def run_chain_radii(pars, cfg, particles, event, coefs):
+    cluster_d = params.read_task_params("cluster")
+
+    if cfg["clusterStudies"]["reinit"]:
+        df_gen, df_cl, df_tc = get_data_reco_chain_start(
+            nevents=1, reprocess=False, particles=particles, event=event
+        )
+
+        if not pars.no_fill:
+            fill_d = params.read_task_params("fill")
+            tasks.fill.fill(pars, df_gen, df_cl, df_tc, **fill_d)
+
+        if not pars.no_smooth:
+            smooth_d = params.read_task_params("smooth")
+            tasks.smooth.smooth(pars, **smooth_d)
+
+        if not pars.no_seed:
+            seed_d = params.read_task_params("seed")
+            tasks.seed.seed(pars, **seed_d)
+
+    if not pars.no_cluster:
+        df_tc_coefs = {}
+        for coef in coefs:
+            cluster_d["CoeffA"] = [coef, 0] * 50
+            df_out_tc, nevents_end = tasks.cluster.cluster(pars, **cluster_d)
+            df_out_tc = pd.merge(left=df_out_tc, right=df_tc[['tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_layer', 'tc_x', 'tc_y', 'tc_mipPt']], how='outer')
+            df_out_tc['seed_idx'] = df_out_tc['seed_idx'].fillna(df_out_tc['seed_idx'].max()+1)
+            df_tc_coefs[coef] = df_out_tc
+
+    return df_tc_coefs, df_gen, nevents_end
+
 
 def run_chain(pars):
     """Run the backend stage 2 reconstruction chain for a single event."""
     df_out = None
-
     df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=100, reprocess=True)
 
     print("There are {} events in the input.".format(df_gen.shape[0]))
@@ -78,4 +112,4 @@ if __name__ == "__main__":
         "above_eta_"
     )
 
-    run_chain(common.dot_dict(vars(FLAGS)))
+    run_chain_radii(common.dot_dict(vars(FLAGS)), cfg)

@@ -126,9 +126,7 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
             else:
                 dfout = pd.concat((dfout, cl3d[cl3d_cols + ["event"]]), axis=0)
 
-        print(
-            "[clustering step] There were {} events without seeds.".format(empty_seeds)
-        )
+        # print("[clustering step] There were {} events without seeds.".format(empty_seeds))
 
     if dfout is not None:
         with pd.HDFStore(out_plot, mode="w") as sout:
@@ -139,8 +137,7 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
     else:
         mes = "No output in the cluster."
         raise RuntimeError(mes)
-
-    return nevents
+    return df, nevents
 
 def cluster_default(pars, **kw):
     in_seeds  = common.fill_path(kw["ClusterInSeeds"], **pars)

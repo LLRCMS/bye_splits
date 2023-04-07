@@ -41,33 +41,26 @@ app.layout = html.Div([
 def render_content(*args):
     button_id = ctx.triggered_id
     if button_id == '3D view' or not ctx.triggered:
-        return processing.layout(checkbox=['Cluster trigger cells', 'ROI', 'Layer selection'], page='3D')
+        return processing.layout(checkbox=['ROI','Layer selection','Seed index'], page='3D')
     elif button_id == 'Layer view':
         return processing.layout(checkbox=['Cluster trigger cells','Layer selection'], page='2D')
 
 @app.callback([Output('event-display','children'),Output('out_slider','children'), 
-              Output('dataframe','data'), Output('dataframe_sci','data'), Output('event','value')],
+              Output('dataframe','data'), Output('event','value')],
              [Input('particle','value'),Input('event-val','n_clicks'),
               Input('submit-val','n_clicks')],
              [State('event','value'), State('page', 'key')])
 def update_event(particle, n_click, submit_event, event, page):
     button_clicked = ctx.triggered_id
-
+   
+    coefs = [0.002,0.004,0.006,0.008,0.01,.012,0.014,0.016,0.018,0.02,0.022,0.024,0.026,0.028,0.03] 
     if button_clicked != 'submit-val':
-        df, df_sci, event, gen_info = processing.get_data(event=None, particles=particle)
+        df_dict, event, gen_info = processing.get_data(event=None, particles=particle, coefs=coefs)
     else:
         assert event != None, '''Please select manually an event or click on 'Random event'.'''
-        df, df_sci, event, gen_info = processing.get_data(event, particle)
+        df_dict, event, gen_info = processing.get_data(event, particle, coefs=coefs)
 
-    print(df_sci)
-    eta = gen_info['exeta'].values[0]
-    phi = gen_info['exphi'].values[0]
-    if particle == 'photons 200PU':
-        x_gen, y_gen = processing.sph2cart(eta, phi)
-        df = df[np.sqrt((x_gen-df.tc_x)**2+(y_gen-df.tc_y)**2)<30]
-    
-    #if df_sci.empty:
-    #    df_sci = df
+    df = list(df_dict.values())[-1]
     if page == '3D':
         slider = dcc.RangeSlider(df['layer'].min(),df['layer'].max(), 
                              value=[df['layer'].min(), df['layer'].max()], step=None,
@@ -81,31 +74,30 @@ def update_event(particle, n_click, submit_event, event, page):
                                     layer in enumerate(sorted(df['layer'].unique()))}, 
                              id = 'slider')
 
-
-    return u'Event {} selected. Gen Particle (\u03B7={:.2f}, \u03C6={:.2f}), {:.2f} GeV.'.format(int(event),eta,phi,processing.get_pt(int(gen_info['gen_energy'].values[0]), eta)), slider, df.reset_index().to_json(date_format='iso'), df_sci.reset_index().to_json(date_format='iso'), ''
+    df_dict = {k: v.to_json() for k, v in df_dict.items()}
+    return u'Event {} selected. Gen Particle (\u03B7={:.2f}, \u03C6={:.2f}), {:.2f} GeV.'.format(int(event),gen_info['gen_eta'].values[0],gen_info['gen_phi'].values[0],processing.get_pt(int(gen_info['gen_en'].values[0]), gen_info['gen_eta'].values[0])), slider, df_dict, ''
 
 
 @app.callback(Output('plot', 'figure'),  Output('slider-container', 'style'),
-              [Input('dataframe', 'data'), Input('dataframe_sci', 'data'), Input('slider', 'value'), 
-               Input('mip', 'value'), Input('checkbox', 'value')],
+              [Input('dataframe', 'data'), Input('slider', 'value'), 
+               Input('slider_cluster', 'value'), Input('mip', 'value'), Input('checkbox', 'value')],
               [State('page', 'key')])
-def make_graph(data, data_sci, slider_value, mip, checkbox, page):
+def make_graph(data, slider_value, coef, mip, checkbox, page):
     assert float(mip) >= 0.5, 'mip\u209C value out of range. Minimum value 0.5 !'
-    df = pd.read_json(data, orient='records')
-    df_sci = pd.read_json(data_sci, orient='records')
+    df_dict = {k: pd.read_json(v) for k, v in data.items()}
+    df = df_dict[str(coef)]
     df_sel = df[df.mipPt >= mip]
-    
-    if page == '3D': 
+  
+    if page == '3D':
         if 'Layer selection' in checkbox:
             df_sel = df_sel[(df_sel.layer >= slider_value[0]) & (df_sel.layer <= slider_value[1])]
-    
-        if 'Cluster trigger cells' in checkbox:
-            df_no_cluster = df_sel[df_sel.tc_cluster_id == 0]
-            df_cluster    = df_sel[df_sel.tc_cluster_id != 0]
-            fig = processing.set_3dfigure(df_cluster)
-            processing.update_3dfigure(fig, df_no_cluster)
-        else:
-            fig = processing.set_3dfigure(df_sel)
+        
+        if 'Seed index' in checkbox: discrete = True
+        else: discrete = False
+        df_no_cluster = df_sel[df_sel['seed_idx'] == df_sel['seed_idx'].max()]
+        df_cluster    = df_sel[df_sel['seed_idx'] != df_sel['seed_idx'].max()]
+        fig = processing.set_3dfigure(df_cluster, discrete)
+        processing.update_3dfigure(fig, df_no_cluster, discrete)
 
         if 'ROI' in checkbox:
             processing.add_ROI(fig, df_sel) 
@@ -120,7 +112,7 @@ def make_graph(data, data_sci, slider_value, mip, checkbox, page):
         else:
             fig = processing.set_2dfigure(df_sel)
   
-    processing.add_3dscintillators(fig, df_sci) 
+    #processing.add_3dscintillators(fig, df_sci) 
     if 'Layer selection' not in checkbox and page != '2D':
         status_slider = {'display': 'none', 'width':'1'}
     else: 

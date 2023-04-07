@@ -8,7 +8,7 @@ parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
 import yaml
-from utils import params
+from utils import params, common
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -19,23 +19,25 @@ import data_handle
 from data_handle.data_handle import EventDataParticle
 from data_handle.geometry import GeometryData
 from plot_event import produce_2dplot, produce_3dplot, plot_modules
-from plotly.express.colors import sample_colorscale
-
+from plotly.express.colors import sample_colorscale, qualitative
+from scripts.run_chain import run_chain_radii
 import logging
 log = logging.getLogger(__name__)
 
 with open(params.CfgPath, 'r') as afile:
-        cfgdata = yaml.safe_load(afile)
-        availLayers = [x-1 for x in cfgdata["selection"]["disconnectedTriggerLayers"]]
+        cfg = yaml.safe_load(afile)
+        availLayers = [x-1 for x in cfg["selection"]["disconnectedTriggerLayers"]]
 
 data_part_opt = dict(tag='v2', reprocess=False, debug=True, logger=log)
 data_particle = {
-    'photons 0PU': EventDataParticle(particles='photons', **data_part_opt),
-    'photons 200PU': EventDataParticle(particles='photons_PU', **data_part_opt),
-    'electrons': EventDataParticle(particles='electrons', **data_part_opt),
-    'pions': EventDataParticle(particles='pions', **data_part_opt)}
+    'photons 0PU'  : 'photons',
+    'photons 200PU': 'photons_PU',
+    'electrons'    : 'electrons',
+    'pions'        : 'pions'}
+
 geom_data = GeometryData(reprocess=False, logger=log)
 
+pars = {'no_fill': False, 'no_smooth': False, 'no_seed': False, 'no_cluster': False, 'no_validation': False, 'sel': 'all', 'reg': 'Si', 'seed_window': 1, 'smooth_kernel': 'default', 'cluster_algo': 'min_distance', 'user': None, 'cluster_studies': False}
 axis = dict(backgroundcolor="rgba(0,0,0,0)", gridcolor="white", showbackground=True, zerolinecolor="white",)
 
 def sph2cart(eta, phi, z=322.):
@@ -53,52 +55,41 @@ def cil2cart(r, phi):
 def get_pt(energy, eta):
     return energy/np.cosh(eta)
 
-def get_data(event, particles):
+def get_data(event, particles, coefs):
     ds_geom = geom_data.provide(library='plotly')
-     
-    if event is None:
-        ds_ev, event = data_particle[particles].provide_random_event()
-    else:
-        ds_ev = data_particle[particles].provide_event(event, merge=False)
-     
-    tc_keep = {'good_tc_waferu'     : 'waferu',
-               'good_tc_waferv'     : 'waferv',
-               'good_tc_cellu'      : 'triggercellu',
-               'good_tc_cellv'      : 'triggercellv',
-               'good_tc_layer'      : 'layer',
-               'good_tc_pt'         : 'tc_pt',
-               'good_tc_mipPt'      : 'mipPt',
-               'good_tc_multicluster_id' : 'tc_cluster_id'}
-    
-    gen_keep = {'good_genpart_exeta': 'exeta',
-               'good_genpart_exphi' : 'exphi',
-               'good_genpart_energy': 'gen_energy'} 
    
-    sci_update = {'triggercellieta': 'triggercellu',
-                  'triggercelliphi': 'triggercellv'}
-    
-    gen_info = ds_ev['gen']
-    gen_info = gen_info.rename(columns=gen_keep)
+    ds_ev, gen_info, event = run_chain_radii(common.dot_dict(pars), cfg, data_particle[particles], event, coefs)
 
-    ds_ev = ds_ev['tc']
-    ds_ev = ds_ev.rename(columns=tc_keep)
-    ds_ev = ds_ev[tc_keep.values()]
-   
-    ds_ev = pd.merge(left=ds_ev, right=ds_geom['si'], how='inner',
-                     on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
-    
-    ds_geom['sci'] = ds_geom['sci'].rename(columns=sci_update)
-    ds_ev_sci = pd.merge(left=ds_ev, right=ds_geom['sci'], how='inner',
-                         on=['layer', 'triggercellu', 'triggercellv'])
+    tc_keep = {'seed_idx'  : 'seed_idx',
+               'tc_mipPt'  : 'mipPt',
+               'tc_wu'     : 'waferu',
+               'tc_wv'     : 'waferv',
+               'tc_cu'     : 'triggercellu',
+               'tc_cv'     : 'triggercellv',
+               'tc_layer'  : 'layer'}
 
-    color     = sample_colorscale('viridis', (ds_ev.mipPt-ds_ev.mipPt.min())/(ds_ev.mipPt.max()-ds_ev.mipPt.min()))
-    color_sci = sample_colorscale('viridis', (ds_ev_sci.mipPt-ds_ev.mipPt.min())/(ds_ev.mipPt.max()-ds_ev.mipPt.min()))
-    ds_ev     = ds_ev.assign(colors=color)
-    ds_ev_sci = ds_ev_sci.assign(colors=color_sci)
-    return ds_ev, ds_ev_sci, event, gen_info
+    for coef in coefs:    
+        if particles == 'photons 200PU':
+            eta = gen_info['gen_eta'].values[0]
+            phi = gen_info['gen_phi'].values[0]
+            x_gen, y_gen = sph2cart(eta, phi)
+            ds_ev[coef] = ds_ev[coef][np.sqrt((x_gen-ds_ev[coef].tc_x)**2+(y_gen-ds_ev[coef].tc_y)**2)<50]
+ 
+        ds_ev[coef] = ds_ev[coef].rename(columns=tc_keep)
+        ds_ev[coef] = ds_ev[coef][tc_keep.values()]
 
-def set_3dfigure(df):
-    fig = go.Figure(produce_3dplot(df))
+        ds_ev[coef] = pd.merge(left=ds_ev[coef], right=ds_geom['si'], how='inner',
+                               on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
+        color_continuous = sample_colorscale('viridis', (ds_ev[coef].mipPt-ds_ev[coef].mipPt.min())/(ds_ev[coef].mipPt.max()-ds_ev[coef].mipPt.min()))
+        color_discrete   = sample_colorscale(qualitative.Light24, (ds_ev[coef].seed_idx-ds_ev[coef].seed_idx.min())/(ds_ev[coef].seed_idx.max()-ds_ev[coef].seed_idx.min()))
+        ds_ev[coef] = ds_ev[coef].assign(color_energy   = color_continuous)
+        ds_ev[coef] = ds_ev[coef].assign(color_clusters = color_discrete)
+        ds_ev[coef].loc[ds_ev[coef]["seed_idx"] == ds_ev[coef].seed_idx.max(), "color_clusters"] = "rgb(255,255,255)"
+
+    return ds_ev, event, gen_info
+
+def set_3dfigure(df, discrete=False):
+    fig = go.Figure(produce_3dplot(df,discrete=discrete))
     
     fig.update_layout(autosize=False, width=1300, height=700,
                       scene_aspectmode='manual',
@@ -112,8 +103,8 @@ def set_3dfigure(df):
 
     return fig
 
-def update_3dfigure(fig, df):
-    list_scatter = produce_3dplot(df, opacity=.2)
+def update_3dfigure(fig, df, discrete=False):
+    list_scatter = produce_3dplot(df, opacity=.2, discrete=discrete)
     for index in range(len(list_scatter)):
         fig.add_trace(list_scatter[index])
 
@@ -160,7 +151,7 @@ def add_ROI(fig, df, k=4):
     mask = (df.layer>=initial_layer) & (df.layer<(availLayers[availLayers.index(initial_layer)+k]))
     input_df = df[mask]
 
-    roi_df, module_ROI = roi_finder(input_df, threshold=20, nearby=False)
+    roi_df, module_ROI = roi_finder(input_df, threshold=30, nearby=False)
 
     list_scatter = plot_modules(roi_df)
     for index in range(len(list_scatter)):
@@ -189,7 +180,7 @@ def update_2dfigure(fig, df):
 def layout(**options):
     return dbc.Container([html.Div([
         html.Div([
-            html.Div([dcc.Dropdown(['photons 0PU', 'photons 200PU', 'electrons', 'pions'], 'pions', id='particle')], style={'width':'15%'}),
+            html.Div([dcc.Dropdown(['photons 0PU', 'photons 200PU', 'electrons', 'pions'], 'photons 0PU', id='particle')], style={'width':'15%'}),
             html.Div([dbc.Checklist(options['checkbox'], [], inline=True, id='checkbox', switch=True)], style={"margin-left": "15px"}),
             html.Div(id='slider-container', children=html.Div(id='out_slider', style={'width':'99%'}), style= {'display': 'block', 'width':'55%'}),
         ], style={'display': 'flex', 'flex-direction': 'row'}),
@@ -199,6 +190,11 @@ def layout(**options):
             html.Div(["Select manually an event: ", dcc.Input(id='event', value=None, type='number')], style={'padding': 10, 'flex': 1}),
         ], style={'display':'flex', 'flex-direction':'row'}),
     
+        html.Div([
+            html.Div(["Select a particular clustering radius: "], style={'padding': 10}),
+            html.Div([dcc.Slider(0.002, 0.030, 0.002,value=0.030,id='slider_cluster')], style={'width':'60%'}),
+        ], style={'display':'flex', 'flex-direction':'row'}),
+
         html.Div([
             dbc.Button(children='Random event', id='event-val', n_clicks=0),
             dbc.Button(children='Submit selected event', id='submit-val', n_clicks=0, style={'display':'inline-block', "margin-left": "15px"}),
