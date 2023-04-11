@@ -44,6 +44,7 @@ job:
   queue: short
   local: False
   script: /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/production/submit_scripts/skim_pu_multicluster.sh
+  require_args: True
   read_dir: True # If False, read the file paths stored on the .txt files below
   photons:
     submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU200/photons/
