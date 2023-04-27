@@ -93,9 +93,9 @@ def stats_collector_roi(pars, mode='resolution', debug=True, **kw):
         cfg = yaml.safe_load(afile)
 
     if cfg['cluster']['ROICylinder']:
-        outcl = common.fill_path(kw['ClusterOutForValidation']  + '_cyl', **pars)
+        outcl = common.fill_path(kw['ClusterOutValidation']  + '_cyl', **pars)
     else:
-        outcl = common.fill_path(kw['ClusterOutForValidation'], **pars)
+        outcl = common.fill_path(kw['ClusterOutValidation'], **pars)
 
     if cfg['cluster']['ROICylinder']:
         outroi = common.fill_path(kw['ROIregionOut'], **pars)

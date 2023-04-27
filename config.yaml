@@ -48,7 +48,7 @@ varEvents:
     z: 'good_tc_z'
     phi: 'good_tc_phi'
     eta: 'good_tc_eta'
-    idcl: 'good_tc_cluster_id'
+    idcl: 'good_tc_multicluster_id'
     pt: 'good_tc_pt'
     en: 'good_tc_mipPt'
     en_gev: 'good_tc_energy'
@@ -162,7 +162,7 @@ valid:
   FillOut: 'fill'
 
 valid_cluster:
-  ClusterOutForValidation: 'cluster_valid_roi'
+  ClusterOutValidation: 'cluster_valid_roi'
   ROIclOut: 'roi3d'
   ROIgenOut: 'roigen'
   ROItcOut: 'roiall'
