@@ -26,7 +26,7 @@ def run_chain(pars):
     """Run the backend stage 2 reconstruction chain for a single event."""
     df_out = None
 
-    df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=100, reprocess=True)
+    df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=1000, reprocess=True)
 
     print("There are {} events in the input.".format(df_gen.shape[0]))
 
