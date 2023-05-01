@@ -99,6 +99,7 @@ def stats_collector(pars, mode='resolution', debug=True, **kw):
 
         c_loc1, c_loc2 = 0, 0
         c_cmssw1, c_cmssw2 = 0, 0
+        evsplits = {'local': [], 'cmssw': []}
 
         for key1, key2 in zip(local_keys, cmssw_keys):
             local = sloc[key1]
@@ -165,33 +166,39 @@ def stats_collector(pars, mode='resolution', debug=True, **kw):
             else:
                 phires_new.append(_phires_new - gen_phi)
 
-            if len(locEta) == 1:
-                c_loc1 += 1
-            elif len(locEta) == 2:
-                c_loc2 += 1
-            else:
+            if len(locEta) == 2:
+                evsplits['local'].append(event_number)
+            elif len(locEta) != 1:
                 print('Suprise')
                 raise ValueError()
 
-            if len(cmsswEta) == 1:
-                c_cmssw1 += 1
-            elif len(cmsswEta) == 2:
-                c_cmssw2 += 1
-            else:
+            if len(cmsswEta) == 2:
+                evsplits['cmssw'].append(event_number)
+            elif len(cmsswEta) != 1:
                 print('Suprise')
                 raise ValueError()
+
+        c_loc1 = ntotal-len(evsplits['local'])
+        c_loc2 = len(evsplits['local'])
+        c_cms1 = ntotal-len(evsplits['cmssw'])
+        c_cms2 = len(evsplits['cmssw'])
 
         locrat1 = float(c_loc1)/ntotal
         locrat2 = float(c_loc2)/ntotal
-        cmsswrat1 = float(c_cmssw1)/ntotal
-        cmsswrat2 = float(c_cmssw2)/ntotal
+        cmsrat1 = float(c_cms1)/ntotal
+        cmsrat2 = float(c_cms2)/ntotal
 
         if debug:
             print()
-            print('CMMSW ratio singletons: {} ({})'.format(cmsswrat1, c_cmssw1))
-            print('CMSSW ratio splits: {} ({})'.format(cmsswrat2, c_cmssw2))
-            print('Local ratio singletons: {} ({})'.format(locrat1, c_loc1))
-            print('Local ratio splits: {} ({})'.format(locrat2, c_loc2))
+            print('CMMSW/Custom non-split ratio:\t {}/{}'.format(cmsrat1, locrat1))
+            print('CMSSW/Custom split splits:\t {}/{}'.format(cmsrat2, locrat2))
+
+            print('CMSSW/Custom non-split count:\t {}/{}'.format(c_cms1, c_loc1))
+            print('CMSSW/Custom split count:\t {}/{}'.format(c_cms2, c_loc2))
+
+            print()
+            print('List of split local events: {}'.format(evsplits['local']))
+            print('List of split CMSSW events: {}'.format(evsplits['cmssw']))
 
         if mode == 'resolution':
             ret = pd.DataFrame({'enres_old': enres_old,
@@ -203,8 +210,8 @@ def stats_collector(pars, mode='resolution', debug=True, **kw):
         elif mode == 'ratios':
             ret = pd.DataFrame({'local1': c_loc1,
                                 'local2': c_loc2,
-                                'cmssw1': c_cmssw1,
-                                'cmssw2': c_cmssw2,
+                                'cmssw1': c_cms1,
+                                'cmssw2': c_cms2,
                                 'localrat1': locrat1,
                                 'localrat2': locrat2,
                                 'cmsswrat1': locrat1,

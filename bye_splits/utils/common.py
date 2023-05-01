@@ -29,6 +29,9 @@ def calcRzFromEta(eta):
     _theta = 2 * np.arctan(np.exp(-1 * eta))
     return np.tan(_theta)
 
+def create_dir(p):
+    if not os.path.exists(p):
+        os.makedirs(p)
 
 class dot_dict(dict):
     """dot.notation access to dictionary attributes"""
@@ -36,7 +39,6 @@ class dot_dict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
-
 
 def fill_path(base_path, data_dir=params.LocalStorage, ext="hdf5", **kw):
     """Create unique file name base on user input parameters."""

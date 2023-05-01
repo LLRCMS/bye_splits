@@ -8,24 +8,120 @@ parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
 import bye_splits
-from bye_splits.utils import common
+from bye_splits.utils import common, params
 
 import re
+import yaml
 import numpy as np
 import pandas as pd
 import h5py
 
+def get_gen_info(dfgen, event):
+    genEvent = dfgen[dfgen.event==event]
+
+    genEn  = genEvent['gen_en'].to_numpy()
+    genEta = genEvent['gen_eta'].to_numpy()
+    genPhi = genEvent['gen_phi'].to_numpy()
+    
+    #when the cluster is split we will have two rows
+    if len(genEn) > 1:
+        assert genEn[1]  == genEn[0]
+        assert genEta[1] == genEta[0]
+        assert genPhi[1] == genPhi[0]
+    genEn  = genEn[0]
+    genEta = genEta[0]
+    genPhi = genPhi[0]
+
+    return genEn, genEta, genPhi
+
+def stats_collector_seed(pars, debug=False, **kw):
+    """Statistics collector for ROI seeding results."""
+    if debug:
+        print('Running the seed validation...')
+
+    with open(params.CfgPath, 'r') as afile:
+        cfg = yaml.safe_load(afile)
+
+    extra_name = '_hexdist' if cfg['seed_roi']['hexDist'] else ''
+    outseed = common.fill_path(kw['SeedOut'] + extra_name, **pars)
+    outgen  = common.fill_path(kw['ROIclOut'], **pars)
+    outtc   = common.fill_path(kw['ROItcOut'], **pars)
+    sseed = h5py.File(outseed, mode='r')
+    sgen  = pd.HDFStore(outgen, mode='r')
+    stc   = pd.HDFStore(outtc, mode='r')
+
+    kseeds, ktc = sseed.keys(), stc.keys()
+    ktc = [x for x in ktc if 'central' not in x]
+    
+    ntotal = len(kseeds)
+
+    dfgen = sgen['/df']
+    data = {'nseeds': [], 'nrois': [], 'nseedsperroi': [],
+            'genen': [], 'geneta': [], 'genphi': [],}
+    
+    search_gr = '{}_([0-9]{{1,7}})_group'.format(kw['FesAlgo'])
+    
+    for ks,kt in zip(kseeds,ktc):
+        evn = re.search(search_gr, ks).group(1)
+        assert evn == re.search('/' + search_gr, kt).group(1)
+            
+        dftc = stc[kt]
+        dfseed = sseed[ks]
+        colsseed = list(dfseed.attrs['columns'])
+
+        nseeds = len(dfseed[:][colsseed.index('seedEn')])
+        nrois = len(dftc['roi_id'].unique())
+        genEn, genEta, genPhi = get_gen_info(dfgen, int(evn))
+
+        data['genen'].append(genEn)
+        data['geneta'].append(genEta)
+        data['genphi'].append(genPhi)
+        data['nseeds'].append(nseeds)
+        data['nrois'].append(nrois)
+        data['nseedsperroi'].append(float(nseeds) / nrois)
+
+    ret = pd.DataFrame(data)
+
+    stc.close()
+    sgen.close()
+    sseed.close()
+    return ret
+
 def stats_collector_roi(pars, mode='resolution', debug=True, **kw):
-    """Statistics collector used for phi bin optimization."""
-    outcl  = common.fill_path(kw['ClusterOutForValidation'], **pars)
-    outroi = common.fill_path(kw['ROIregionOut'], **pars)
+    """Statistics collector for ROI clustering results."""
+    with open(params.CfgPath, 'r') as afile:
+        cfg = yaml.safe_load(afile)
+
+    if cfg['cluster']['ROICylinder']:
+        outcl = common.fill_path(kw['ClusterOutValidation']  + '_cyl', **pars)
+    else:
+        outcl = common.fill_path(kw['ClusterOutValidation'], **pars)
+
+    if cfg['cluster']['ROICylinder']:
+        outroi = common.fill_path(kw['ROIregionOut'], **pars)
+    else:
+        outroi = common.fill_path(kw['ROItcOut'], **pars)
     outgen = common.fill_path(kw['ROIclOut'], **pars)
+
     scl    = pd.HDFStore(outcl, mode='r')
     sroi   = h5py.File(outroi, mode='r')
     sgen   = pd.HDFStore(outgen, mode='r')
 
     keysroi, keyscl = sroi.keys(), scl.keys()
-    assert(len(keysroi) == len(keyscl))
+    search_tc = '{}_([0-9]{{1,7}})_tc'.format(kw['FesAlgo'])
+    search_gr = '{}_([0-9]{{1,7}})_group'.format(kw['FesAlgo'])
+    
+    # remove ROI keys where no cluster exists
+    to_remove = []
+    for ik,k in enumerate(keysroi):
+        evn = re.search(search_tc, k).group(1)
+        if '/ThresholdDummyHistomaxnoareath20_' + evn + '_cl' not in keyscl:
+            to_remove.append(k)
+    keysroi = list(keysroi)
+    for i in to_remove:
+        keysroi.remove(i)
+    assert len(keysroi) == len(keyscl)
+
     ntotal = len(keyscl)
 
     dfgen = sgen['/df']
@@ -39,12 +135,15 @@ def stats_collector_roi(pars, mode='resolution', debug=True, **kw):
             'nclusters': []}
 
     c_cl1, c_cl2 = 0, 0
-    search_str = '{}_([0-9]{{1,7}})_tc'.format(kw['FesAlgo'])
     
-    for kroi, kcl in zip(keysroi, keyscl):    
+    for kroi, kcl in zip(keysroi, keyscl):
         dfroi = sroi[kroi]
         dfcl = scl[kcl]
+        if dfcl.empty:
+            continue
+
         colsroi = list(dfroi.attrs['columns'])
+
         roiEta  = dfroi[:, colsroi.index('tc_eta')].mean()
         roiPhi  = dfroi[:, colsroi.index('tc_phi')].mean()
         roiEn   = dfroi[:, colsroi.index('tc_energy')].sum()
@@ -53,22 +152,13 @@ def stats_collector_roi(pars, mode='resolution', debug=True, **kw):
         clPhi = dfcl['phi'].to_numpy()
         clEn  = dfcl['en'].to_numpy()
 
-        evn = re.search(search_str, kroi).group(1)
-        genEvent = dfgen[dfgen.event==int(evn)]
-        
-        genEn  = genEvent['gen_en'].to_numpy()
-        genEta = genEvent['gen_eta'].to_numpy()
-        genPhi = genEvent['gen_phi'].to_numpy()
-        
-        #when the cluster is split we will have two rows
-        if len(genEn) > 1:
-            assert genEn[1]  == genEn[0]
-            assert genEta[1] == genEta[0]
-            assert genPhi[1] == genPhi[0]
-        genEn  = genEn[0]
-        genEta = genEta[0]
-        genPhi = genPhi[0]
-                                    
+        evn = re.search(search_tc, kroi).group(1)
+        if evn not in kcl:
+            breakpoint()
+            print('Event {} was not in the cluster dataset.'.format(evn))
+            continue
+        genEn, genEta, genPhi = get_gen_info(dfgen, int(evn))
+
         # ignoring the lowest energy clusters when there is a splitting
         clEnMax = max(clEn)
         index_max_energy_cl = np.where(clEn==clEnMax)[0][0]
@@ -77,6 +167,11 @@ def stats_collector_roi(pars, mode='resolution', debug=True, **kw):
         clEtaMax = clEta[index_max_energy_cl]
         clPhiMax = clPhi[index_max_energy_cl]
 
+        # test if cluster multiplicity affects results (answer: no!)
+        # clEnMax = sum(clEn)
+        # if len(clEn) > 1:
+        #     print(max(clEn) / sum(clEn))
+            
         data['genen'].append(genEn)
         data['geneta'].append(genEta)
         data['genphi'].append(genPhi)
@@ -86,11 +181,11 @@ def stats_collector_roi(pars, mode='resolution', debug=True, **kw):
         data['clen'].append(clEnMax)
         data['cleta'].append(clEtaMax)
         data['clphi'].append(clPhiMax)
-        data['resroien'].append(roiEn/genEn - 1.)
-        data['resclen'].append(clEnMax/genEn - 1.)
-        data['resroieta'].append(roiEta/genEta - 1.)
+        data['resroien'].append(roiEn/genEn     - 1.)
+        data['resclen'].append(clEnMax/genEn    - 1.)
+        data['resroieta'].append(roiEta/genEta  - 1.)
         data['rescleta'].append(clEtaMax/genEta - 1.)
-        data['resroiphi'].append(roiEn/genPhi - 1.)
+        data['resroiphi'].append(roiPhi/genPhi  - 1.)
         data['resclphi'].append(clPhiMax/genPhi - 1.)
         data['nclusters'].append(len(clEn))
         # etares_old.append( etaClMax - genEta )
@@ -108,7 +203,7 @@ def stats_collector_roi(pars, mode='resolution', debug=True, **kw):
         #     phires['roi'].append(phiRoiMax + 2*np.pi - genPhi)
         # else:
         #     phires['roi'].append(phiRoiMax - genPhi)
-                        
+
     clrat1 = float(c_cl1) / ntotal
     clrat2 = float(c_cl2) / ntotal
 
@@ -123,7 +218,6 @@ def stats_collector_roi(pars, mode='resolution', debug=True, **kw):
     scl.close()
     sroi.close()
     sgen.close()
-
     return ret
 
 if __name__ == "__main__":

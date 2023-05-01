@@ -36,7 +36,6 @@ def get_roi_cylinder(ev_tc, roi_tcs):
     return ev_tc[(ev_tc.tc_wu.isin(uniqueu)) & (ev_tc.tc_wv.isin(uniquev)) &
                  (ev_tc.tc_layer <= ncee)]
 
-    
 def roi(pars, df_gen, df_cl, df_tc, **kw):
     """Waiting for ROI future algorithms..."""
     pass
@@ -52,21 +51,21 @@ def roi_dummy_calculator(tcs, k=4, threshold=20, nearby=True):
 
     mask = (tcs.tc_layer>=initial_layer) & (tcs.tc_layer<(availLayers[availLayers.index(initial_layer)+k]))
     input_df = tcs[mask]
-        
+    roi_df = pd.DataFrame()
+    
     module_sums = create_module_sums(input_df)
     module_ROI = list(module_sums[module_sums.values >= threshold].index)
-
     if nearby:
-        selected_modules = []
-        for module in module_ROI:
-            nearby_modules = [(module[0]+i, module[1]+j) for i in [-1, 0, 1] for j in [-1, 0, 1] if i*j >= 0]
-            skim = (module_sums.index.isin(nearby_modules)) & (module_sums.values > 0.3 * module_sums[module]) & (module_sums.values > 10)
-            skim_nearby_module = list(module_sums[skim].index)
-            selected_modules.extend(skim_nearby_module)
-        module_ROI = selected_modules
-    
-    roi_df = input_df[input_df.set_index(['tc_wu','tc_wv']).index.isin(module_ROI)]
-    return roi_df
+        for im, module in enumerate(module_ROI):
+            nearby_modules = [(module[0]+s, module[1]-r)
+                              for s in [-1,0,1] for r in [-1,0,1] for q in [-1,0,1]
+                              if s + r + q == 0]
+            tc_roi = input_df[input_df.set_index(['tc_wu','tc_wv']).index.isin(nearby_modules)]
+            with common.SupressSettingWithCopyWarning():
+                tc_roi['roi_id'] = im
+            roi_df = pd.concat((roi_df, tc_roi), axis=0)                
+
+    return roi_df, pd.DataFrame(module_ROI)
 
 def roi_calculator():
     pass
@@ -84,6 +83,7 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
 
     out_cl = common.fill_path(kw['ROIclOut'], **pars)
     out_tc = common.fill_path(kw['ROItcOut'], **pars)
+    out_tc2 = common.fill_path(kw['ROItcOut2'], **pars)
     out_cylinder = common.fill_path(kw['ROIcylinderOut'], **pars)
     with pd.HDFStore(out_cl, mode='w') as store_cl:
         store_cl['df'] = df_cl
@@ -91,6 +91,7 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
     ## Event-by-event processing
     store_tc = pd.HDFStore(out_tc, mode='w')
     store_cylinder = h5py.File(out_cylinder, mode='w')
+    store_all = h5py.File(out_tc2, mode='w') #duplication of information in non-pandas format
     unev = df_tc['event'].unique().astype('int')
     for ev in unev:
         ev_tc = df_tc[df_tc.event == ev]
@@ -98,12 +99,12 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
         if ev_tc.empty:
             continue
 
-        roi_tcs = roi_dummy_calculator(ev_tc) # roi_calculator()
+        roi_tcs, uvcentral = roi_dummy_calculator(ev_tc) # roi_calculator()
         if roi_tcs.empty:
             continue
 
         roi_keep = ['tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_x', 'tc_y', 'tc_z',
-                    'tc_layer', 'tc_mipPt', 'tc_pt']
+                    'tc_layer', 'tc_mipPt', 'tc_pt', 'tc_energy', 'roi_id']
         roi_tcs = roi_tcs.filter(items=roi_keep)
 
         divz = lambda pos: ev_tc.tc_mipPt*pos/np.abs(ev_tc.tc_z)
@@ -114,6 +115,8 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
         keytc = keybase + 'group'
         store_tc[keytc] = roi_tcs
         store_tc[keytc].attrs['columns'] = roi_keep
+        store_tc[keytc + 'central'] = uvcentral
+        store_tc[keytc + 'central'].attrs['columns'] = ['central_u', 'central_v']
         
         keycyl = keybase + 'tc'
         cylinder_tcs = get_roi_cylinder(ev_tc, roi_tcs)
@@ -123,9 +126,14 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
         store_cylinder[keycyl] = cylinder_tcs.to_numpy()
         store_cylinder[keycyl].attrs['columns'] = cyl_keep
 
-    nout = len(store_tc.keys())
+        all_tcs = ev_tc.filter(items=cyl_keep)
+        store_all[keycyl] = all_tcs.to_numpy()
+        store_all[keycyl].attrs['columns'] = cyl_keep
+
+    nout = int(len(store_tc.keys())/2)
     store_tc.close()
     store_cylinder.close()
+    store_all.close()
 
     print('ROI event balance: {} in, {} out.'.format(len(unev), nout))
                    

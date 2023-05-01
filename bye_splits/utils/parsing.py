@@ -8,7 +8,6 @@ import sys
 parent_dir = os.path.abspath(__file__ + 3 * "/..")
 sys.path.insert(0, parent_dir)
 
-
 def add_parameters(parser):
     parser.add_argument(
         "--sel",
