@@ -236,6 +236,8 @@ def seed_plotter(df, pars, user):
             k = np.array(values[binvar][vvv]['sum'])
             n = np.array(values[binvar][vvv]['size'])
             eff = k / n
+            errup = [ee+ee*np.sqrt(1/kk+1/nn)/2  if kk!=0. else 0. for ee,kk,nn in zip(eff,k,n)]
+            errlo = [ee-ee*np.sqrt(1/kk+1/nn)/2  if kk!=0. else 0. for ee,kk,nn in zip(eff,k,n)]
             feff[figname].square(y=eff, size=8, **opt)
             feff[figname].line(line_width=1, **opt)
             feff[figname].line(x=[bincenters[0]-hshift, bincenters[-1]+4*hshift], y=[1.,1.],
@@ -243,8 +245,7 @@ def seed_plotter(df, pars, user):
      
             # errors
             source = bmd.ColumnDataSource(data=dict(base=bincenters + wshifts[binvar][ivar],
-                                                    errup=eff+eff*np.sqrt(1/k+1/n)/2,
-                                                    errdown=eff-eff*np.sqrt(1/k+1/n)/2))
+                                                    errup=errup, errdown=errlo))
             quant = bmd.Whisker(base='base', upper='errup', lower='errdown', source=source,
                                 level='annotation', line_width=2, line_color=dvar[avar][2])
             quant.upper_head.size=10

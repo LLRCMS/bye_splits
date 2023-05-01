@@ -112,7 +112,7 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
         roi_tcs['wght_y'] = divz(ev_tc.tc_y)
 
         keybase = kw['FesAlgo'] + '_' + str(ev) + '_'
-        keytc = keybase + 'tc'
+        keytc = keybase + 'group'
         store_tc[keytc] = roi_tcs
         store_tc[keytc].attrs['columns'] = roi_keep
         store_tc[keytc + 'central'] = uvcentral

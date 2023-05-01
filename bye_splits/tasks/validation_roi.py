@@ -59,11 +59,11 @@ def stats_collector_seed(pars, debug=False, **kw):
     data = {'nseeds': [], 'nrois': [], 'nseedsperroi': [],
             'genen': [], 'geneta': [], 'genphi': [],}
     
-    search_str = '{}_([0-9]{{1,7}})_tc'.format(kw['FesAlgo'])
+    search_gr = '{}_([0-9]{{1,7}})_group'.format(kw['FesAlgo'])
     
     for ks,kt in zip(kseeds,ktc):
-        evn = re.search(search_str, ks).group(1)
-        assert evn == re.search('/' + search_str, kt).group(1)
+        evn = re.search(search_gr, ks).group(1)
+        assert evn == re.search('/' + search_gr, kt).group(1)
             
         dftc = stc[kt]
         dfseed = sseed[ks]
@@ -108,12 +108,13 @@ def stats_collector_roi(pars, mode='resolution', debug=True, **kw):
     sgen   = pd.HDFStore(outgen, mode='r')
 
     keysroi, keyscl = sroi.keys(), scl.keys()
-    search_str = '{}_([0-9]{{1,7}})_tc'.format(kw['FesAlgo'])
+    search_tc = '{}_([0-9]{{1,7}})_tc'.format(kw['FesAlgo'])
+    search_gr = '{}_([0-9]{{1,7}})_group'.format(kw['FesAlgo'])
     
     # remove ROI keys where no cluster exists
     to_remove = []
     for ik,k in enumerate(keysroi):
-        evn = re.search(search_str, k).group(1)
+        evn = re.search(search_tc, k).group(1)
         if '/ThresholdDummyHistomaxnoareath20_' + evn + '_cl' not in keyscl:
             to_remove.append(k)
     keysroi = list(keysroi)
@@ -151,7 +152,7 @@ def stats_collector_roi(pars, mode='resolution', debug=True, **kw):
         clPhi = dfcl['phi'].to_numpy()
         clEn  = dfcl['en'].to_numpy()
 
-        evn = re.search(search_str, kroi).group(1)
+        evn = re.search(search_tc, kroi).group(1)
         if evn not in kcl:
             breakpoint()
             print('Event {} was not in the cluster dataset.'.format(evn))

@@ -31,7 +31,7 @@ settings.ico_path = 'none'
 import utils
 from utils import params, common, parsing
 import data_handle
-from data_handle.data_handle import EventDataParticle
+from data_handle.data_process import EventDataParticle
 from data_handle.geometry import GeometryData
 
 def common_props(p):

@@ -24,7 +24,7 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
     sout = pd.HDFStore(out_valid, mode='w')
     stc = h5py.File(in_tc, mode='r')
         
-    seed_keys = [x for x in sseeds.keys() if '_tc' in x and 'central' not in x]
+    seed_keys = [x for x in sseeds.keys() if '_group' in x and 'central' not in x]
     tc_keys = [x for x in stc.keys() if '_tc' in x and 'central' not in x]
     assert len(seed_keys) == len(tc_keys)
 

@@ -25,7 +25,7 @@ def baseline_selection(df_gen, df_cl, sel, **kw):
     data = data[(data.gen_eta>kw['EtaMin']) & (data.gen_eta<kw['EtaMax'])]
     
     if sel.startswith('above_eta_'):
-        data = data[df.gen_eta > float(sel.split('above_eta_')[1])]
+        data = data[data.gen_eta > float(sel.split('above_eta_')[1])]
         return data
     
     with common.SupressSettingWithCopyWarning():
