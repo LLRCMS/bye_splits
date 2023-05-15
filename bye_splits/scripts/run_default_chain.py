@@ -23,8 +23,8 @@ from tasks import validation
 import argparse
 import pandas as pd
 
-def run_chain_radii(pars, particles, coefs):
-    df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=100, particles=particles)
+def run_chain_radii(pars, particles, coefs, event=None):
+    df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=300, particles=particles, event=event)
 
     fill_d = params.read_task_params("fill")
     tasks.fill.fill(pars, df_gen, df_cl, df_tc, **fill_d)
@@ -39,14 +39,24 @@ def run_chain_radii(pars, particles, coefs):
     dict_cluster = {}
     for coef in coefs:
         cluster_d["CoeffA"] = [coef, 0] * 50
-        dict_cluster[str(coef)[2:]], nevents = tasks.cluster.cluster(pars, **cluster_d)
+        nevents = tasks.cluster.cluster_default(pars, **cluster_d)
+        store_file = pd.HDFStore(common.fill_path(cluster_d["ClusterOutPlot"], **pars), mode='r')
+        df_list = []
+        filtered_keys = [key for key in store_file.keys() if key.startswith('df_')]
+        events = [key.split('df_')[1] for key in filtered_keys]
+        for key in filtered_keys:
+            df = store.get(key)
+            df_list.append(df)
+        dict_cluster[str(coef)[2:]] = df_list
+        store_file.close() 
 
     dict_event = {}
-    for index, ev in enumerate(nevents):
+    for index, ev in enumerate(events):
         dict_event[ev] = {}
-        df_event_tc = df_tc[df_tc.event == ev][['tc_mipPt', 'tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_layer']]
+        df_event_tc = df_tc[df_tc.event == ev][['tc_mipPt','tc_eta','tc_wu','tc_wv','tc_cu','tc_cv','tc_layer']]
         for coef in dict_cluster.keys():
-            dict_event[ev][coef] = pd.merge(left=dict_cluster[coef][index], right=df_event_tc, 
+            dict_event[ev][coef] = pd.merge(left=dict_cluster[coef][index], 
+                                            right=df_event_tc[df_event_tc.tc_layer%2 != 0], 
                                             on=['tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_layer'],
                                             how='outer').fillna(dict_cluster[coef][index]['seed_idx'].max()+1) 
     return dict_event, df_gen

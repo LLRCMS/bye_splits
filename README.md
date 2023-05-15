@@ -10,9 +10,9 @@
 4.  [Event Visualization](#org44a4071)
     1.  [Setup](#orgc4a7ba6)
     2.  [Setup in local browser](#org288a700)
-        1.  [1)](#orgb4acfa6)
-        2.  [2)](#orgbafd8a5)
     3.  [Visualization in local browser](#org3f41a7d)
+        1.  [2D display app](#orgb4acfa6)
+        2.  [3D display app](#orgbafd8a5)
     4.  [Visualization with OpenShift OKD4](#org4164d71)
         1.  [Additional information](#orgab38b90)
 5.  [Cluster Radii Studies](#orga2b91d9)
@@ -169,17 +169,7 @@ Please install the following from within the `conda` environment you should have
 
 Since browser usage directly in the server will necessarily be slow, we can:
 
-
-<a id="orgb4acfa6"></a>
-
-### 1)
-
 Use LLR's intranet at `llruicms01.in2p3.fr:<port>/display`
-
-
-<a id="orgbafd8a5"></a>
-
-### 2)
 
 Forward it to our local machines via `ssh`. To establish a connection between the local machine and the remote `llruicms01` server, passing by the gate, use:
 
@@ -193,7 +183,11 @@ The two ports do not have to be the same, but it avoids possible confusion. Leav
 
 ## Visualization in local browser
 
-In a new terminal window go to the `llruicms01` mahcines and launch one of the apps, for instance:
+<a id="orgb4acfa6"></a>
+
+### 1) 2D display app
+
+In a new terminal window go to the `llruicms01` machines and launch one of the apps, for instance:
 
     bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port>  --allow-websocket-origin=localhost:<port>
     # if visualizing directly at LLR: --allow-websocket-origin=llruicms01.in2p3.fr:<port>
@@ -201,6 +195,25 @@ In a new terminal window go to the `llruicms01` mahcines and launch one of the a
 This uses the server-creation capabilities of `bokeh`, a `python` package for interactive visualization ([docs](https://docs.bokeh.org/en/latest/index.html)). Note the port number must match. For further customisation of `bokeh serve` see [the serve documentation](https://docs.bokeh.org/en/latest/docs/reference/command/subcommands/serve.html).
 The above command should give access to the visualization under `http://localhost:8080/display`. For debugging, just run `python bye_splits/plot/display/main.py`  and see that no errors are raised.
 
+<a id="orgbafd8a5"></a>
+
+### 2) 3D display app
+
+Make sure you have activated your `conda` environment. Run the following lines. 
+With these commands, some useful packages to run the web application (e.g. `dash`, `uproot`, `awkward`, etc) will be installed in your `conda` environment:
+
+    conda install dash
+    python3 -m pip install dash-bootstrap-components
+    python3 -m pip install dash-bootstrap-templates
+    conda install pandas pyyaml numpy bokeh awkward uproot h5py pytables
+    conda install -c conda-forge pyarrow fsspec
+
+Then in a new terminal window go to the `llrcms01` machines and launch:
+
+    python bye_splits/plot/display_plotly/main.py --port 5004 --host localhost
+
+In a browser, go to http://localhost:5004/
+Make sure you have access to the geometry and event files, to be configures in `config.yaml`
 
 <a id="org4164d71"></a>
 

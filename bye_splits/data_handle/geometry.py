@@ -99,7 +99,7 @@ class GeometryData(BaseData):
         df_si = self._display_silicon_tcs(df_si, library)
 
         df_sci = df[(df.subdet==10)]
-        df_sci = self._display_scintillator_tcs(df_sci)
+        df_sci = self._display_scintillator_tcs(df_sci, library)
 
         return {'si': df_si, 'sci': df_sci}
 
@@ -237,15 +237,15 @@ class GeometryData(BaseData):
             df['hex_x'] = df['hex_x'].map(lambda x: [[x]])
             df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
 
-        remove = ['tc_x_center', 'tc_y_center', 'wx_center', 'wy_center',
+        remove = ['tc_x_center', 'tc_y_center', #'wx_center', 'wy_center',
                   'cloc', 'wafer_shift_x', 'wafer_shift_y',
                   'triggercellieta', 'triggercelliphi', 'subdet']
         df = df.drop(xcorners_str + ycorners_str + remove, axis=1)
         return df
 
-    def _display_scintillator_tcs(self, df):
+    def _display_scintillator_tcs(self, df, library):
         df = df.drop(['subdet', 'waferu', 'waferv', 'waferorient', 'waferpart',
-                      'triggercellu', 'triggercellv', 'z',], axis=1)
+                      'triggercellu', 'triggercellv'], axis=1)
         ops = ['max', 'min']
         minmax = df.groupby(['layer'], sort=False).agg({'triggercellieta': ops})
         minmax.columns = [x + '_ieta' for x in ops]
@@ -277,8 +277,31 @@ class GeometryData(BaseData):
                (df.triggercellieta==df.min_ieta), 'rmax'] -= arc_dist/2
         
         df = df.drop(['R', 'arc', 'phi', 'min_ieta', 'max_ieta'], axis=1)
+
+        if library == 'plotly':
+            df = self._display_sci_cartesian(df)
+        df['waferu'] = -999.0
         return df
         
+    def _display_sci_cartesian(self, df):
+        x0, y0 = self.cil2cart(df['rmin'], df['phimin'])
+        x1, y1 = self.cil2cart(df['rmax'], df['phimin'])
+        x2, y2 = self.cil2cart(df['rmax'], df['phimax'])
+        x3, y3 = self.cil2cart(df['rmin'], df['phimax'])
+
+        d = np.array([x0.values, x1.values, x2.values, x3.values,
+                      y0.values, y1.values, y2.values, y3.values]).T
+        df_sci = pd.DataFrame(data=d, columns=['x1','x2','x3','x4','y1','y2','y3','y4'])
+        df['diamond_y']= df_sci[['x1','x2','x3','x4']].values.tolist()
+        df['diamond_x']= df_sci[['y1','y2','y3','y4']].values.tolist()
+
+        return df.drop(columns=['rmin', 'rmax', 'phimin', 'phimax'])
+   
+    def cil2cart(self, r, phi):
+        x = r * np.cos(np.pi/2-phi)
+        y = r * np.sin(np.pi/2-phi)
+        return x,y
+
     def filter_columns(self, d):
         """Filter some columns to reduce memory usage"""
         cols_to_remove = ['color']

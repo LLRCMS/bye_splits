@@ -71,12 +71,20 @@ def baseline_selection(df_gen, df_cl, sel, **kw):
     print("The baseline selection has a {}% efficiency: {}/{}".format(np.round(eff,2), nout, nin))
     return data
 
-def get_data_reco_chain_start(nevents=500, reprocess=True, tag='chain', particles='photons'):
+def get_data_reco_chain_start(nevents=500, reprocess=False, tag='chain', particles='photons', event=None):
     """Access event data."""
     data_part_opt = dict(tag=tag, reprocess=reprocess, debug=True)
     data_particle = EventDataParticle(particles=particles, **data_part_opt)
-    ds_all, events = data_particle.provide_random_events(n=nevents) #, seed=42)
-    # ds_all = data_particle.provide_events(events=[170004, 170015, 170017, 170014])
+    if event == None:
+        ds_all, events = data_particle.provide_random_events(n=nevents) #, seed=42)
+        # ds_all = data_particle.provide_events(events=[170004, 170015, 170017, 170014])
+    else:
+        ds_all = data_particle.provide_event(event,merge=False)
+        events = event
+
+    if ds_all["gen"].empty:
+        mes = "No events in the parquet file."
+        raise RuntimeError(mes)
 
     tc_keep = {
         "event": "event",
@@ -131,8 +139,6 @@ def colorscale(df, variable, scale, saturate=False):
 
 def get_event(filename, event, coefs):
     """   Load dataframes of a particular event from the hdf5 file   """
-
-    h5file = pd.HDFStore(filename,  mode='r')
     dic = {}
     for coef in coefs:
         key = 'ev_'+str(event)+'/coef_'+str(coef)[2:]
@@ -157,20 +163,30 @@ def process_and_store(dict_events, gen_info, ds_geom, h5file):
 
     tc_keep = {'seed_idx'  : 'seed_idx',
                'tc_mipPt'  : 'mipPt',
+               'tc_eta'    : 'tc_eta',
                'tc_wu'     : 'waferu',
                'tc_wv'     : 'waferv',
                'tc_cu'     : 'triggercellu',
                'tc_cv'     : 'triggercellv',
                'tc_layer'  : 'layer'}
 
+    sci_update = {'triggercellieta': 'triggercellu',
+                  'triggercelliphi': 'triggercellv',
+                  'tc_wu'          : 'waferu'}
+    ds_geom['sci'] = ds_geom['sci'].rename(columns=sci_update)
+    
     for event in dict_events.keys():
         print('Procesing event '+str(event))
         dict_event = dict_events[event]
         for coef in dict_event.keys():
             dict_event[coef] = dict_event[coef].rename(columns=tc_keep)
-            dict_event[coef] = pd.merge(left=dict_event[coef], right=ds_geom['si'], how='inner',
-                                        on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
+            silicon_df = pd.merge(left=dict_event[coef], right=ds_geom['si'], how='inner',
+                                  on=['layer', 'waferu', 'waferv', 'triggercellu', 'triggercellv'])
+            silicon_df = silicon_df.drop(['waferorient', 'waferpart'], axis=1)
+            scintillator_df = pd.merge(left=dict_event[coef], right=ds_geom['sci'], how='inner',
+                                       on=['layer', 'waferu', 'triggercellu', 'triggercellv'])
 
+            dict_event[coef] = pd.concat([silicon_df, scintillator_df]).reset_index(drop=True)
             color_continuous = colorscale(dict_event[coef], 'mipPt', 'viridis')
             color_discrete   = colorscale(dict_event[coef], 'seed_idx', qualitative.Light24, True)
             dict_event[coef] = dict_event[coef].assign(color_energy=color_continuous, color_clusters=color_discrete)
