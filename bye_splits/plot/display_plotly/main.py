@@ -8,7 +8,7 @@ import sys
 parent_dir = os.path.abspath(__file__ + 2 * '/..')
 sys.path.insert(0, parent_dir)
 
-from dash import Dash, dcc, html, Input, Output, State, ctx
+from dash import Dash, html, Input, Output, State, ctx
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
@@ -17,7 +17,6 @@ import processing
 
 import argparse
 import pandas as pd
-import time
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 app.title = '3D Visualization' 
@@ -49,46 +48,35 @@ def render_content(*args):
 
 
 @app.callback([Output('event-display','children'),Output('out_slider','children'), 
-              Output('dataframe','data')],
+              Output('dataframe','data'), Output('event','value')],
              [Input('particle','value'),Input('event-val','n_clicks'),
               Input('submit-val','n_clicks')],
              [State('event','value'), State('page', 'key')])
 def update_event(particle, n_click, submit_event, event, page):
     button_clicked = ctx.triggered_id
-
-    if button_clicked != 'submit-val':
-        df_dict, event = process.get_data(event, particle)
-    else:
+    if button_clicked == 'submit-val':
         assert event != None, '''Please select manually an event or click on 'Random event'.'''
-        df_dict, event = process.get_data(event, particle)
 
-    df = list(df_dict.values())[0]
-    gen_info = list(df_dict.values())[-1]
-    if page == '3D':
-        slider = dcc.RangeSlider(df['layer'].min(),df['layer'].max(), 
-                             value=[df['layer'].min(), df['layer'].max()], step=None,
-                             marks={int(layer) : {"label": str(layer)} for each, 
-                                    layer in enumerate(sorted(df['layer'].unique()))}, 
-                             id = 'slider')
-    else:
-        slider = dcc.Slider(df['layer'].min(),df['layer'].max(), 
-                             value=11, step=None,
-                             marks={int(layer) : {"label": str(layer)} for each, 
-                                    layer in enumerate(sorted(df['layer'].unique()))}, 
-                             id = 'slider')
+    df_dict, event = process.get_data(particle, event)
+
+    gen_info = next(reversed(df_dict.values()))
+    slider = plt.prepare_slider(next(iter(df_dict.values())), page)
+
+    if particle == 'photons 200PU':
+        df_dict = plt.geom_selection(df_dict)
 
     df_dict = {k: v.to_json() for k, v in df_dict.items()}
-    return (u'Event {} selected. Gen Particle (\u03B7={:.2f}, \u03C6={:.2f}), {:.2f} GeV.'.format(int(event),
+    return (u'Event {} selected. Gen Particle (\u03B7={:.2f}, \u03C6={:.2f}), p\u209C={:.2f} GeV.'.format(int(event),
                gen_info['gen_eta'].values[0],
                gen_info['gen_phi'].values[0],
                plt.get_pt(int(gen_info['gen_en'].values[0]), 
                gen_info['gen_eta'].values[0])), 
-               slider, df_dict)
+               slider, df_dict, None)
 
 
-@app.callback(Output('plot', 'figure'),  Output('slider-container', 'style'),
-              [Input('dataframe', 'data'), Input('slider', 'value'), 
-               Input('slider_cluster', 'value'), Input('mip', 'value'), Input('checkbox', 'value')],
+@app.callback([Output('plot', 'figure'), Output('slider-container', 'style')],
+              [Input('dataframe', 'data'),Input('slider', 'value'),Input('slider_cluster', 'value'),
+               Input('mip', 'value'), Input('checkbox', 'value')],
               [State('page', 'key')])
 def make_graph(data, slider_value, coef, mip, checkbox, page):
     assert float(mip) >= 0.5, 'mip\u209C value out of range. Minimum value 0.5 !'
@@ -120,7 +108,6 @@ def make_graph(data, slider_value, coef, mip, checkbox, page):
         else:
             fig = plt.set_2dfigure(df_sel)
   
-    #plt.add_3dscintillators(fig, df_sci) 
     if 'Layer selection' not in checkbox and page != '2D':
         status_slider = {'display': 'none', 'width':'1'}
     else: 

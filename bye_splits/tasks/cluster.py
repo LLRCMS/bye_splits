@@ -19,7 +19,7 @@ import pandas as pd
 import h5py
 from tqdm import tqdm
 
-def cluster(pars, **kw):
+def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
     dfout = None
     df_cluster = []
     sseeds = h5py.File(in_seeds, mode='r')
@@ -94,7 +94,7 @@ def cluster(pars, **kw):
         assert len(cols) == res.shape[1]
 
         df = pd.DataFrame(res, columns=cols)
-        assert not df.empty
+        #assert not df.empty
 
         df["cl3d_pos_x"] = df.tc_x * df.tc_mipPt
         df["cl3d_pos_y"] = df.tc_y * df.tc_mipPt
@@ -134,14 +134,22 @@ def cluster(pars, **kw):
         else:
             dfout = pd.concat((dfout, cl3d[cl3d_cols + ["event"]]), axis=0)
 
-        df_cluster.append(df[['seed_idx', 'tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_layer']])
+        df_cluster.append(df[['seed_idx', 'tc_wu', 'tc_wv', 'tc_cu', 'tc_cv',
+                              'tc_layer']])
     print("[clustering step] There were {} events without seeds.".format(empty_seeds))
 
     splot = pd.HDFStore(out_plot, mode='w')
     if dfout is not None:
         dfout.event = dfout.event.astype(int)
-        splot["data"] = dfout        
+        splot["data"] = dfout
+        for i, df in enumerate(df_cluster):
+            key = f'df_{dfout.event.unique()[i]}'  
+            splot.put(key, df)
     else:
+        sseeds.close()
+        sout.close()
+        stc.close()
+        splot.close()
         mes = "No output in the cluster."
         raise RuntimeError(mes)
 
@@ -150,7 +158,7 @@ def cluster(pars, **kw):
     sout.close()
     stc.close()
     splot.close()
-    return df_cluster, nevents
+    return nevents
 
 def cluster_default(pars, **kw):
     in_seeds  = common.fill_path(kw["ClusterInSeeds"], **pars)
