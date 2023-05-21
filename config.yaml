@@ -1,7 +1,7 @@
 io:
-  dirphotons: hgcalTriggerNtuplizer
+  dirphotons: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
   treephotons: HGCalTriggerNtuple
-  filephotons: /data_CMS/cms/alves/L1HGCAL/skim_small_TEST_module_TEST_BIG_Thresh0.root
+  filephotons: /eos/user/b/bfontana/FPGAs/new_algos/skim_with_pt_ntuple_1.root     #skim_photons_0PU_bc_stc_hadd.root
   direlectrons: hgcalTriggerNtuplizer
   treeelectrons: HGCalTriggerNtuple
   fileelectrons: /eos/user/i/iehle/data/PU0/electrons/skim_electrons_0PU_bc_stc_hadd.root
@@ -36,6 +36,7 @@ varEvents:
     geta: 'good_genpart_exeta'
     gphi: 'good_genpart_exphi'
     gen: 'good_genpart_energy'
+    gpt: 'good_genpart_pt'
   tc:
     event: 'event'
     wu: 'good_tc_waferu'
@@ -63,6 +64,7 @@ varEvents:
     eta: 'good_cl3d_eta'
     phi: 'good_cl3d_phi'
     en: 'good_cl3d_energy'
+    pt: 'good_cl3d_pt'
     id: 'good_cl3d_id'
     # matches: 'matches'
     # dR: 'deltaR'
@@ -116,8 +118,8 @@ base:
 
 fill:
   FillOut: 'fill'
-  FillOutComp: 'fill_comp'
-  FillOutPlot: 'fill_plot'
+  FillOutGenCl: 'fill_gencl'
+  FillOutTcAll: 'fill_all'
 
 smooth:
   # copied from L1Trigger/L1THGCal/python/hgcalBackEndLayer2Producer_cfi.py
@@ -158,8 +160,9 @@ cluster:
   
 valid:
   ClusterOutValidation: 'cluster_valid'
-  FillOutComp: 'fill_comp'
+  FillOutGenCl: 'fill_gencl'
   FillOut: 'fill'
+  FillOutTcAll: 'fill_all'
 
 valid_cluster:
   ClusterOutValidation: 'cluster_valid_roi'
@@ -167,12 +170,16 @@ valid_cluster:
   ROIgenOut: 'roigen'
   ROItcOut: 'roiall'
   ROIregionOut: 'roicylinder'
+  tcDeltaRthresh: [] #[0.1, 0.5]
 
-valid_seed:
+valid_seed_roi:
   ROIclOut: 'roi3d'
   ROIgenOut: 'roigen'
   ROItcOut: 'roitc'
   SeedOut: 'seed_roi'
+
+valid_seed_default:
+  SeedOut: 'seed'
 
 optimization:
   Epochs: 99999
@@ -182,17 +189,18 @@ optimization:
   OptEnResOut: 'opt_enres'
   OptPosResOut: 'opt_posres'
   OptCSVOut: 'stats'
-  FillOutPlot: 'fill_plot'
+  FillOutTcAll: 'fill_all'
 
 roi:
   ROIclOut: 'roi3d'
   ROIgenOut: 'roigen'
   ROItcOut: 'roitc'
-  ROItcOut2: 'roiall'
+  ROItcAllOut: 'roiall'
+  NoROItcOut: 'noroi'
   ROIcylinderOut: 'roicylinder'
   
 seed_roi:
-  SeedIn: 'roitc'
+  InputName: ROItcOut #NoROItcOut default is to consider the ROI
   SeedOut: 'seed_roi'
   histoThreshold: 20.
   hexDist: True

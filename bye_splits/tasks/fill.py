@@ -15,20 +15,21 @@ import random; random.seed(18)
 import numpy as np
 import pandas as pd
 import h5py
+from tqdm import tqdm
 
 def fill(pars, df_gen, df_cl, df_tc, **kw):
     """
     Fills split clusters information according to the Stage2 FPGA fixed binning.
     """
-    outfillplot = common.fill_path(kw['FillOutPlot'], **pars)
-    outfillcomp = common.fill_path(kw['FillOutComp'], **pars)
-    with pd.HDFStore(outfillplot, mode='w') as store, pd.HDFStore(outfillcomp, mode='w') as storeComp:
+    out_gencl = common.fill_path(kw['FillOutGenCl'], **pars)
+    outtc_all = common.fill_path(kw['FillOutTcAll'], **pars)
+    with pd.HDFStore(out_gencl, mode='w') as store_gencl, pd.HDFStore(outtc_all, mode='w') as store_all:
 
         df1 = data_process.baseline_selection(df_gen, df_cl, pars['sel'], **kw)
         assert(df1[df1.cl3d_eta<0].shape[0] == 0)
                 
-        #df = df.drop(['matches', 'best_match', 'cl3d_layer_pt'], axis=1)
-        storeComp[kw['FesAlgo'] + '_gen'] = df1.set_index('event').filter(regex='^gen.*')
+        #storeComp['df'] = df1.set_index('event').filter(regex='^[gen.*')
+        store_gencl['df'] = df1.filter(regex='^gen.*|event')
 
         df_3d = df1[:].reset_index()
 
@@ -37,27 +38,24 @@ def fill(pars, df_gen, df_cl, df_tc, **kw):
         
         # pandas 'cut' returns np.nan when value lies outside the binning
         
-        rzedges = np.linspace(kw['MinROverZ'], kw['MaxROverZ'],
-                              num=kw['NbinsRz']+1)
-        phiedges = np.linspace(kw['MinPhi'], kw['MaxPhi'],
-                               num=kw['NbinsPhi']+1)
+        rzedges = np.linspace(kw['MinROverZ'], kw['MaxROverZ'], num=kw['NbinsRz']+1)
+        phiedges = np.linspace(kw['MinPhi'], kw['MaxPhi'], num=kw['NbinsPhi']+1)
         df_tc['Rz_bin'] = pd.cut(df_tc.Rz, bins=rzedges, labels=False)
         df_tc['tc_phi_bin'] = pd.cut(df_tc.tc_phi, bins=phiedges, labels=False)
         nansel = (pd.isna(df_tc.Rz_bin)) & (pd.isna(df_tc.tc_phi_bin))
         df_tc = df_tc[~nansel]
   
-        store[kw['FesAlgo'] + '_3d'] = df_3d
-        store[kw['FesAlgo'] + '_tc'] = df_tc
-  
+        store_all[kw['FesAlgo'] + '_3d'] = df_3d
+
         dfs = (df_3d, df_tc)
             
     ### Event Processing ######################################################
-    outfill = common.fill_path(kw['FillOut'], **pars)
-
-    with h5py.File(outfill, mode='w') as store:
+    outfill  = common.fill_path(kw['FillOut'], **pars)
+    with h5py.File(outfill, mode='w') as store, pd.HDFStore(outtc_all, mode='w') as store_all:
         group_tot = None
         df_3d, df_tc = dfs
-        for ev in df_tc['event'].unique().astype('int'):
+
+        for ev in tqdm(df_tc['event'].unique().astype('int')):
             ev_tc = df_tc[df_tc.event == ev]
             ev_3d = df_3d[df_3d.event == ev]
             if ev_3d.empty or ev_tc.empty:
@@ -99,11 +97,11 @@ def fill(pars, df_gen, df_cl, df_tc, **kw):
             group = group.sum()[cols_keep]
             group.loc[:, ['wght_x', 'wght_y']] = group.loc[:, ['wght_x', 'wght_y']].div(group.tc_mipPt, axis=0)
 
-            store_str = kw['FesAlgo'] + '_' + str(ev) + '_group'
+            store_str = kw['FesAlgo'] + '_' + str(ev) + '_ev'
             store[store_str] = group.to_numpy()
             store[store_str].attrs['columns'] = cols_keep
             store[store_str].attrs['doc'] = 'R/z vs. Phi histo Info'
-  
+
             cols_keep = ['Rz_bin',  'tc_phi_bin', 'tc_layer', 'tc_mipPt', 'tc_pt',
                          'tc_x', 'tc_y', 'tc_z', 'tc_eta', 'tc_phi']
             ev_tc = ev_tc[cols_keep]
@@ -115,12 +113,21 @@ def fill(pars, df_gen, df_cl, df_tc, **kw):
             store[store_str].attrs['columns'] = cols_keep
             store[store_str].attrs['doc'] = 'Trigger Cells Info'
 
+            ev_tc_all = df_tc[df_tc.event == ev]
+            ev_tc_all = ev_tc_all.reset_index().drop(['entry', 'subentry', 'event'], axis=1)
+            all_keep = ['tc_layer', 'tc_mipPt', 'tc_pt', 'tc_energy',
+                        'tc_x', 'tc_y', 'tc_z', 'tc_eta', 'tc_phi']
+            all_tcs = ev_tc_all.filter(items=all_keep)
+            if ev_tc_all.empty:
+                continue
+            store_all[store_str] = all_tcs
+            
             if group_tot is not None:
                 group_tot = group[:]
             else:
                 group_tot = pd.concat((group_tot, group[:]), axis=0)
 
-    return group_tot
+        return group_tot
 
 if __name__ == "__main__":
     import argparse

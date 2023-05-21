@@ -1,6 +1,6 @@
 # coding: utf-8
 
-_all_ = [ 'roi_dummy' ]
+_all_ = [ 'roi_dummy_calculator' ]
 
 import os
 import sys
@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import h5py
 import yaml
+from tqdm import tqdm
 
 def create_module_sums(df_tc):
     return df_tc.groupby(['tc_wu','tc_wv']).tc_energy.sum()
@@ -35,6 +36,15 @@ def get_roi_cylinder(ev_tc, roi_tcs):
         ncee = cfg['geometry']['nlayersCEE']
     return ev_tc[(ev_tc.tc_wu.isin(uniqueu)) & (ev_tc.tc_wv.isin(uniquev)) &
                  (ev_tc.tc_layer <= ncee)]
+
+def get_noroi(ev_tc, ev_gen, thresh):
+    etagen = float(ev_gen.gen_eta[ev_gen.gen_en == ev_gen.gen_en.max()].iloc[0])
+    phigen = float(ev_gen.gen_phi[ev_gen.gen_en == ev_gen.gen_en.max()].iloc[0]) 
+    ev_tc['deltaR'] = utils.common.deltaR(etagen, phigen,
+                                          ev_tc.tc_eta, ev_tc.tc_phi)
+    ev_tc = ev_tc[ev_tc.deltaR < thresh]
+    ev_tc = ev_tc.drop(['deltaR'], axis=1)
+    return ev_tc
 
 def roi(pars, df_gen, df_cl, df_tc, **kw):
     """Waiting for ROI future algorithms..."""
@@ -74,6 +84,9 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
     """
     Fills split clusters information according to the Stage2 FPGA fixed binning.
     """
+    with open(params.CfgPath, 'r') as afile:
+        cfg = yaml.safe_load(afile)
+
     df_cl = data_process.baseline_selection(df_gen, df_cl, pars['sel'], **kw)
     assert(df_cl[df_cl.cl3d_eta<0].shape[0] == 0)
     df_cl.set_index('event')
@@ -81,19 +94,21 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
     # match the cluster/gen dataset with the trigger cell dataset
     df_tc = df_tc[df_tc.event.isin(df_cl.event.unique())]
 
-    out_cl = common.fill_path(kw['ROIclOut'], **pars)
-    out_tc = common.fill_path(kw['ROItcOut'], **pars)
-    out_tc2 = common.fill_path(kw['ROItcOut2'], **pars)
+    out_cl       = common.fill_path(kw['ROIclOut'],       **pars)
+    out_roi      = common.fill_path(kw['ROItcOut'],       **pars)
+    out_noroi    = common.fill_path(kw['NoROItcOut'],     **pars)
     out_cylinder = common.fill_path(kw['ROIcylinderOut'], **pars)
+    out_all      = common.fill_path(kw['ROItcAllOut'],    **pars)
     with pd.HDFStore(out_cl, mode='w') as store_cl:
         store_cl['df'] = df_cl
 
     ## Event-by-event processing
-    store_tc = pd.HDFStore(out_tc, mode='w')
-    store_cylinder = h5py.File(out_cylinder, mode='w')
-    store_all = h5py.File(out_tc2, mode='w') #duplication of information in non-pandas format
+    store_roi      = pd.HDFStore(out_roi, mode='w')
+    store_noroi    = pd.HDFStore(out_noroi, mode='w')
+    store_all      = h5py.File(out_all, mode='w')
+    store_cyl_h5   = h5py.File(out_cylinder, mode='w')
     unev = df_tc['event'].unique().astype('int')
-    for ev in unev:
+    for ev in tqdm(unev):
         ev_tc = df_tc[df_tc.event == ev]
         ev_tc = ev_tc.reset_index().drop(['entry', 'subentry', 'event'], axis=1)
         if ev_tc.empty:
@@ -103,39 +118,55 @@ def roi(pars, df_gen, df_cl, df_tc, **kw):
         if roi_tcs.empty:
             continue
 
-        roi_keep = ['tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_x', 'tc_y', 'tc_z',
-                    'tc_layer', 'tc_mipPt', 'tc_pt', 'tc_energy', 'roi_id']
+        roi_keep = ['tc_wu', 'tc_wv', 'tc_cu', 'tc_cv',
+                    'tc_x', 'tc_y', 'tc_z',
+                    'tc_layer', 'tc_mipPt', 'tc_pt', 'tc_energy',
+                    'roi_id', 'tc_eta', 'tc_phi']
         roi_tcs = roi_tcs.filter(items=roi_keep)
 
-        divz = lambda pos: ev_tc.tc_mipPt*pos/np.abs(ev_tc.tc_z)
-        roi_tcs['wght_x'] = divz(ev_tc.tc_x)
-        roi_tcs['wght_y'] = divz(ev_tc.tc_y)
+        divz = lambda pos: roi_tcs.tc_mipPt*pos/np.abs(roi_tcs.tc_z)
+        roi_tcs['wght_x'] = divz(roi_tcs.tc_x)
+        roi_tcs['wght_y'] = divz(roi_tcs.tc_y)
 
         keybase = kw['FesAlgo'] + '_' + str(ev) + '_'
-        keytc = keybase + 'group'
-        store_tc[keytc] = roi_tcs
-        store_tc[keytc].attrs['columns'] = roi_keep
-        store_tc[keytc + 'central'] = uvcentral
-        store_tc[keytc + 'central'].attrs['columns'] = ['central_u', 'central_v']
-        
-        keycyl = keybase + 'tc'
+        keyroi = keybase + 'ev'
+        store_roi[keyroi] = roi_tcs
+        store_roi[keyroi].attrs['columns'] = roi_keep
+        store_roi[keyroi + 'central'] = uvcentral
+        #store_roi[keyroi + 'central'].attrs['columns'] = ['central_u', 'central_v']
+
+        # store TCs within a cylinder in the ROI
         cylinder_tcs = get_roi_cylinder(ev_tc, roi_tcs)
-        cyl_keep = ['tc_layer', 'tc_mipPt', 'tc_pt', 'tc_energy',
+        cylinder_tcs = cylinder_tcs.filter(items=roi_keep)
+        store_cyl_h5[keyroi] = cylinder_tcs.to_numpy()
+        store_cyl_h5[keyroi].attrs['columns'] = roi_keep
+
+        # store TCs within a cylinder without considering the ROI
+        ev_gen = df_cl[df_cl.event == ev]
+        noroi_tcs = get_noroi(ev_tc, ev_gen, 9999)
+        divz = lambda pos: noroi_tcs.tc_mipPt*pos/np.abs(noroi_tcs.tc_z)
+        noroi_tcs = noroi_tcs.filter(items=roi_keep)
+        noroi_tcs['wght_x'] = divz(noroi_tcs.tc_x)
+        noroi_tcs['wght_y'] = divz(noroi_tcs.tc_y)
+        store_noroi[keyroi] = noroi_tcs
+        
+        # store all TCs
+        keyall = keybase + 'tc'
+        all_keep = ['tc_layer', 'tc_mipPt', 'tc_pt', 'tc_energy',
                     'tc_x', 'tc_y', 'tc_z', 'tc_eta', 'tc_phi']
-        cylinder_tcs = cylinder_tcs.filter(items=cyl_keep)
-        store_cylinder[keycyl] = cylinder_tcs.to_numpy()
-        store_cylinder[keycyl].attrs['columns'] = cyl_keep
+        all_tcs = ev_tc.filter(items=all_keep)
+        store_all[keyall] = all_tcs.to_numpy()
+        store_all[keyall].attrs['columns'] = all_keep
 
-        all_tcs = ev_tc.filter(items=cyl_keep)
-        store_all[keycyl] = all_tcs.to_numpy()
-        store_all[keycyl].attrs['columns'] = cyl_keep
-
-    nout = int(len(store_tc.keys())/2)
-    store_tc.close()
-    store_cylinder.close()
+    nout = int(len(store_roi.keys())/2)
+    store_roi.close()
+    store_noroi.close()
+    store_cyl_h5.close()
     store_all.close()
 
-    print('ROI event balance: {} in, {} out.'.format(len(unev), nout))
+    nin = len(unev)
+    print('ROI event balance: {} in, {} out.'.format(nin, nout))
+    return nout / nin
                    
 if __name__ == "__main__":
     import argparse
