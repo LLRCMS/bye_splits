@@ -22,6 +22,7 @@ from data_handle.data_input import InputData
 
 def baseline_selection(df_gen, df_cl, sel, **kw):
     data = pd.merge(left=df_gen, right=df_cl, how='inner', on='event')
+    nin = data.shape[0]
     data = data[(data.gen_eta>kw['EtaMin']) & (data.gen_eta<kw['EtaMax'])]
     
     if sel.startswith('above_eta_'):
@@ -64,6 +65,9 @@ def baseline_selection(df_gen, df_cl, sel, **kw):
         m = 'Selection {} is not supported.'.format(sel)
         raise ValueError(m)
 
+    nout = data.shape[0]
+    eff = (nout / nin) * 100
+    print("The baseline selection has a {}% efficiency: {}/{}".format(np.round(eff,2), nout, nin))
     return data
 
 def get_data_reco_chain_start(nevents=500, reprocess=False, tag='chain'):
@@ -88,7 +92,7 @@ def get_data_reco_chain_start(nevents=500, reprocess=False, tag='chain'):
         "good_tc_z": "tc_z",
         "good_tc_eta": "tc_eta",
         "good_tc_phi": "tc_phi",
-        "good_tc_cluster_id": "tc_cluster_id",
+        "good_tc_multicluster_id": "tc_multicluster_id",
     }
 
     ds_tc = ds_all["tc"]
@@ -97,19 +101,21 @@ def get_data_reco_chain_start(nevents=500, reprocess=False, tag='chain'):
 
     gen_keep = {
         "event": "event",
-        "good_genpart_exeta": "gen_eta",
-        "good_genpart_exphi": "gen_phi",
+        "good_genpart_exeta":  "gen_eta",
+        "good_genpart_exphi":  "gen_phi",
         "good_genpart_energy": "gen_en",
+        "good_genpart_pt":     "gen_pt",
     }
     ds_gen = ds_all["gen"]
     ds_gen = ds_gen.rename(columns=gen_keep)
 
     cl_keep = {
         "event": "event",
-        "good_cl3d_eta": "cl3d_eta",
-        "good_cl3d_phi": "cl3d_phi",
-        "good_cl3d_id": "cl3d_id",
+        "good_cl3d_eta":    "cl3d_eta",
+        "good_cl3d_phi":    "cl3d_phi",
+        "good_cl3d_id":     "cl3d_id",
         "good_cl3d_energy": "cl3d_en",
+        "good_cl3d_pt":     "cl3d_pt",
     }
     ds_cl = ds_all["cl"]
     ds_cl = ds_cl.rename(columns=cl_keep)

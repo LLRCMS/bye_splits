@@ -1,6 +1,6 @@
 # coding: utf-8
 
-_all_ = []
+_all_ = [ "run_roi_chain" ]
 
 import os
 import sys
@@ -15,13 +15,18 @@ import data_handle
 from data_handle.data_process import EventDataParticle, get_data_reco_chain_start
 from data_handle.geometry import GeometryData
 import plot
-from plot import roi_chain_plotter
+from plot import chain_plotter
+from tasks import validation
 
 import argparse
 
-def run_roi_chain(pars):
+def run_roi_chain(pars, user='bfontana'):
     '''Run the backend stage 2 reconstruction chain for a single event.'''
-    df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=100, reprocess=False, tag='roi_chain')
+    collector = validation.Collector()
+    plotter = chain_plotter.ChainPlotter(chain_mode='roi', user=user,
+                                         tag='NEV'+str(pars.nevents))
+    df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=pars.nevents,
+                                                     reprocess=False, tag='roi_chain')
 
     print('There are {} events in the input.'.format(df_gen.shape[0]))
 
@@ -34,9 +39,9 @@ def run_roi_chain(pars):
         tasks.seed_roi.seed_roi(pars, **seed_d)
 
     if not pars.no_valid_seed:
-        valid_d = params.read_task_params('valid_seed')
-        stats_out_seed = tasks.validation_roi.stats_collector_seed(pars, **valid_d)
-        roi_chain_plotter.seed_plotter(stats_out_seed, pars, user='bfontana')
+        valid_d = params.read_task_params('valid_seed_roi')
+        stats_out_seed = collector.collect_seed(pars, chain_mode='roi', **valid_d)
+        plotter.seed_plotter(stats_out_seed, pars)
 
     if not pars.no_cluster:
         cluster_d = params.read_task_params('cluster')
@@ -48,9 +53,9 @@ def run_roi_chain(pars):
         valid_d = params.read_task_params('valid_cluster')
 
         # validate the clustering
-        stats_out_cluster = tasks.validation_roi.stats_collector_roi(pars, mode='resolution', **valid_d)
-        roi_chain_plotter.resolution_plotter(stats_out_cluster, pars, user='bfontana')
-        roi_chain_plotter.distribution_plotter(stats_out_cluster, pars, user='bfontana')
+        stats_out_cluster = collector.collect_cluster(pars, chain_mode='roi', **valid_d)
+        plotter.resolution_plotter(stats_out_cluster, pars)
+        #plotter.distribution_plotter(stats_out_cluster, pars)
 
     return None
 

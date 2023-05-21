@@ -17,21 +17,21 @@ import yaml
 import numpy as np
 import pandas as pd
 import h5py
+from tqdm import tqdm
 
 def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
     dfout = None
     sseeds = h5py.File(in_seeds, mode='r')
     sout = pd.HDFStore(out_valid, mode='w')
     stc = h5py.File(in_tc, mode='r')
-        
-    seed_keys = [x for x in sseeds.keys() if '_group' in x and 'central' not in x]
-    tc_keys = [x for x in stc.keys() if '_tc' in x and 'central' not in x]
-    assert len(seed_keys) == len(tc_keys)
+    skeys  = [x for x in sseeds.keys() if '_ev' in x and 'central' not in x]
+    tckeys = [x for x in stc.keys()    if '_tc' in x and 'central' not in x]
 
+    assert len(skeys) == len(tckeys)
     radiusCoeffB = kw["CoeffB"]
     empty_seeds = 0
 
-    for tck, seedk in zip(tc_keys, seed_keys):
+    for tck, seedk in tqdm(zip(tckeys, skeys), total=len(tckeys)):
         tc = stc[tck]
         tc_cols = list(tc.attrs["columns"])
 
@@ -88,8 +88,7 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
         tc = tc[:][thresh]
 
         res = np.concatenate((tc, seeds_indexes, seeds_energies), axis=1)
-
-        key = tck.replace("_tc", "_cl")
+        key = tck.replace("_tc", "_ev")
         cols = tc_cols + ["seed_idx", "seed_energy"]
         assert len(cols) == res.shape[1]
 
@@ -102,15 +101,12 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
 
         cl3d_cols = ["cl3d_pos_x", "cl3d_pos_y", "cl3d_pos_z", "tc_mipPt", "tc_pt"]
         cl3d = df.groupby(["seed_idx"]).sum()[cl3d_cols]
-        cl3d = cl3d.rename(
-            columns={
-                "cl3d_pos_x": "x",
-                "cl3d_pos_y": "y",
-                "cl3d_pos_z": "z",
-                "tc_mipPt": "mipPt",
-                "tc_pt": "pt",
-            }
-        )
+        cl3d = cl3d.rename(columns={"cl3d_pos_x": "x",
+                                    "cl3d_pos_y": "y",
+                                    "cl3d_pos_z": "z",
+                                    "tc_mipPt": "mipPt",
+                                    "tc_pt": "pt",
+                                    })
 
         cl3d = cl3d[cl3d.pt > kw["PtC3dThreshold"]]
         cl3d.loc[:, ["x", "y", "z"]] = cl3d.loc[:, ["x", "y", "z"]].div(
@@ -130,9 +126,9 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
             raise ValueError(m)
 
         cl3d["event"] = event_number.group(1)
-        cl3d_cols = ["en", "x", "y", "z", "Rz", "eta", "phi"]
+        cl3d_cols = ["en", "pt", "x", "y", "z", "Rz", "eta", "phi"]
         sout[key] = cl3d[cl3d_cols]
-        if tck == tc_keys[0] and seedk == seed_keys[0]:
+        if tck == tckeys[0] and seedk == skeys[0]:
             dfout = cl3d[cl3d_cols + ["event"]]
         else:
             dfout = pd.concat((dfout, cl3d[cl3d_cols + ["event"]]), axis=0)
@@ -164,9 +160,8 @@ def cluster_default(pars, **kw):
 def cluster_roi(pars, **kw):
     with open(params.CfgPath, 'r') as afile:
         cfg = yaml.safe_load(afile)
-    extra_name = '_hexdist' if cfg['seed_roi']['hexDist'] else ''
-    
-    in_seeds  = common.fill_path(kw["ClusterInSeedsROI"] + extra_name, **pars)
+    extra = common.seed_extra_name(cfg)    
+    in_seeds  = common.fill_path(kw["ClusterInSeedsROI"] + extra, **pars)
     if cfg['cluster']['ROICylinder']:
         in_tc = common.fill_path(kw["ClusterInTCROICylinder"], **pars)
         out_valid = common.fill_path(kw["ClusterOutValidationROI"] + '_cyl', **pars)

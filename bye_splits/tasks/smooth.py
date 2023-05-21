@@ -129,7 +129,8 @@ def smooth(pars, **kw):
     insmooth = common.fill_path(kw['SmoothIn'], **pars)
     outsmooth = common.fill_path(kw['SmoothOut'], **pars)
     with h5py.File(insmooth,  mode='r') as sin, h5py.File(outsmooth, mode='w') as sout:
-        keys = [x for x in sin.keys() if '_group' in x]
+        keys = [x for x in sin.keys() if '_ev' in x]
+
         for key in keys:
             en_opts = dict(nbinsRz=kw['NbinsRz'], nbinsPhi=kw['NbinsPhi'], fillWith=0.)
             xy_opts = dict(nbinsRz=kw['NbinsRz'], nbinsPhi=kw['NbinsPhi'],

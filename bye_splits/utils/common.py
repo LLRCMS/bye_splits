@@ -33,6 +33,13 @@ def create_dir(p):
     if not os.path.exists(p):
         os.makedirs(p)
 
+def deltaR(eta1, phi1, eta2, phi2):
+    deta = eta1 - eta2
+    dphi = phi1 - phi2
+    dphi = np.where(dphi > np.pi, dphi - 2*np.pi, dphi)
+    dphi = np.where(dphi < -np.pi, dphi + 2*np.pi, dphi)
+    return np.sqrt(deta*deta + dphi*dphi)
+
 class dot_dict(dict):
     """dot.notation access to dictionary attributes"""
 
@@ -53,11 +60,12 @@ def fill_path(base_path, data_dir=params.LocalStorage, ext="hdf5", **kw):
             base_path += "_" + prefix + "_" + str(kw[s]).replace(".", "p")
 
     strings = {
-        "sel": "SEL",
-        "reg": "REG",
-        "seed_window": "SW",
-        "smooth_kernel": "SK",
-        "cluster_algo": "CA",
+        "sel"           : "SEL",
+        "reg"           : "REG",
+        "seed_window"   : "SW",
+        "smooth_kernel" : "SK",
+        "cluster_algo"  : "CA",
+        "nevents"       : "NEV",
     }
 
     for k, v in strings.items():
@@ -117,3 +125,8 @@ def print_histogram(arr):
             else:
                 print("X", end="|")
         print()
+
+def seed_extra_name(cfg):
+    s = '_hexdist' if cfg['seed_roi']['hexDist'] else ''
+    s += '_' + cfg['seed_roi']['InputName']
+    return s

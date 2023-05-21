@@ -98,18 +98,20 @@ def seed(pars, debug=False, **kw):
                 res[1] = np.array([(wght_x[lft]*energies[lft]+wght_x[rgt]*energies[rgt])/enboth])
                 res[2] = np.array([(wght_y[lft]*energies[lft]+wght_y[rgt]*energies[rgt])/enboth])
                     
-            search_str = '{}_([0-9]{{1,7}})_group'.format(kw['FesAlgo'])
+            search_str = '{}_([0-9]{{1,7}})_ev'.format(kw['FesAlgo'])
             event_number = re.search(search_str, key).group(1)
      
             if debug:
                 print('Ev: {}'.format(event_number))
                 print('Seeds bins: {}'.format(seeds_idx))
                 print('NSeeds={}\tMipPt={}\tX={}\tY={}'.format(len(res[0]),res[0],res[1],res[2])) 
-     
+
             storeOut[key] = res
             storeOut[key].attrs['columns'] = ['seedEn', 'seedXdivZ', 'seedYdivZ']
             storeOut[key].attrs['doc'] = 'Smoothed energies and projected bin positions of seeds'
 
+        print('Seeding event balance: {} in, {} out.'.format(len(storeIn.keys()), len(storeOut.keys())))
+        
 if __name__ == "__main__":
     import argparse
     from bye_splits.utils import params, parsing
