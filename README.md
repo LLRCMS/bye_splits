@@ -2,10 +2,9 @@
 # Table of Contents
 
 1.  [Installation](#org0b1e512)
-2.  [Data production](#orga49b706)
-    1.  [Skimming: install `yaml-cpp` dependency](#org18f77dd)
-    2.  [Skimming: run](#org5746685)
-    3.  [Data sources](#orgfc86ff0)
+2.  [Data production](#dataprod)
+    1.  [Skimming](#skim)
+    2.  [Data sources](#sources)
 3.  [Reconstruction Chain](#org0bc224d)
     1.  [Cluster Size Studies](#orgc33e2a6)
 4.  [Event Visualization](#org44a4071)
@@ -41,69 +40,26 @@ This repository reproduces the CMS HGCAL L1 Stage2 reconstruction chain in Pytho
     # enforce git hooks locally (required for development)
     git config core.hooksPath .githooks
 
-
-<a id="orga49b706"></a>
-
+<a id="dataprod"></a>
 # Data production
 
+<a id="skim"></a>
+## Skimming
 
-<a id="org18f77dd"></a>
+To make the size of the files more manageable, a skimming step was implemented that relies on ```ROOT```'s ```RDataFrame```. Several cuts are applied, and additionally many type conversions are run for `uproot` usage at later steps. To run it:
 
-## Skimming: install `yaml-cpp` dependency
+```
+python bye_splits/production/produce.py --nevents -1 --particles photons
+```
 
-To make the size of the files more manageable, a skimming step was implemented in `C++`. It depends on the `yaml-cpp` package ([source](https://github.com/jbeder/yaml-cpp),  [release used](https://github.com/jbeder/yaml-cpp/releases/tag/yaml-cpp-0.7.0): version `0.7.0`). The instructions on the `README` page of the project are a bit cryptic. Below follows a step-by-step guide:
+where "-1" represents all events, and the input file is defined in ```config.yaml```. 
 
-    # 1) Download the 0.7.0 '.zip' release
-    # 2) Unzip it
-    unzip yaml-cpp-yaml-cpp-0.7.0.zip
-    # 3) The package uses CMake for compilation. To avoid cluttering the same folder with many CMake-related files, create a new folder and build the project there
-    cd yaml-cpp-yaml-cpp-0.7.0
-    mkdir build
-    cd build
-    # 3.5) This command might be necessary if your cmake executable is set to the default for the LLR machines, which is an earlier version than required.
-    module load /opt/exp_soft/vo.llr.in2p3.fr/modulefiles_el7/cmake/3.22.3
-    # 4) Compile a static library (the flag removes a -Werror issue)
-    cmake -DYAML_CPP_BUILD_TESTS=OFF ..
-    # 5) Build the package
-    cmake --build .
-    # 6) Verify the library 'libyaml-cpp.a' was created
-    ls -l
-    # 7) Check the package was correctly installed by compiling a test example (this assumes you have g++ installed):
-    g++ bye_splits/tests/test_yaml_cpp.cc -I <installation_path_yaml_cpp>/yaml-cpp-yaml-cpp-0.7.0/include/ -L <installation_path_yaml_cpp>/yaml-cpp-yaml-cpp-0.7.0/build/ -std=c++11 -lyaml-cpp -o test_yaml_cpp.o
-    # 8) Run the executable
-    ./test_yaml_cpp.o
-
-The above should print the contents stored in `bye_splits/tests/params.yaml`. 
-Occasionally the following error message is printed: ``relocation R_X86_64_32 against symbol `_ZTVN4YAML9ExceptionE' can not be used when making a PIE object; recompile with -fPIE``. This is currently not understood but removing the `yaml-cpp-yaml-cpp-0.7.0` folder (`rm -rf`) and running the above from scratch solves the issue.
-
-
-<a id="org5746685"></a>
-
-## Skimming: run
-
-To run the skimming step, you will need to compile the `C++` files stored under `bye_splits/production`. Run `make` from the top repository directory.
-
-Run the following, specifying the particle type:
-
-    ./produce.exe electrons
-
-The above skims the input files, applying:
-
--   &Delta; R matching between the generated particle and the clusters (currently works only for one generated particle, and throws an assertion error otherwise)
--   a trigger cell energy threshold cut
--   unconverted photon cut
--   positive endcap cut (reduces the amount of data processed by a factor of 2)
--   type conversion for `uproot` usage at later steps
-
-
-<a id="orgfc86ff0"></a>
-
+<a id="sources"></a>
 ## Data sources
 
 This framework relies on photon-, electron- and pion-gun samples produced via CRAB. The most up to date versions are currently stored under:
 
 <table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
-
 
 <colgroup>
 <col  class="org-left" />
@@ -116,24 +72,20 @@ This framework relies on photon-, electron- and pion-gun samples produced via CR
 <td class="org-left"><code>/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoublePhoton_FlatPt-1To100/GammaGun_Pt1_100_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221025_153226/0000/</code></td>
 </tr>
 
-
 <tr>
 <td class="org-left">Electrons (PU0)</td>
 <td class="org-left"><code>/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/DoubleElectron_FlatPt-1To100/ElectronGun_Pt1_100_PU200_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_102633/0000/</code></td>
 </tr>
-
 
 <tr>
 <td class="org-left">Pions (PU0)</td>
 <td class="org-left"><code>/dpm/in2p3.fr/home/cms/trivcat/store/user/lportale/SinglePion_PT0to200/SinglePion_Pt0_200_PU0_HLTSummer20ReRECOMiniAOD_2210_BCSTC-FE-studies_v3-29-1_realbcstc4/221102_103211/0000</code></td>
 </tr>
 
-
 <tr>
 <td class="org-left">Photons (PU200)</td>
 <td class="org-left"><code>/eos/user/i/iehle/data/PU200/photons/ntuples</code></td>
 </tr>
-
 
 <tr>
 <td class="org-left">Electrons (PU200)</td>
@@ -146,7 +98,6 @@ The `PU0` files above were merged and are stored under `/data_CMS/cms/alves/L1HG
 
 
 <a id="org0bc224d"></a>
-
 # Reconstruction Chain
 
 The reconstruction chain is implemented in Python. To run it:
