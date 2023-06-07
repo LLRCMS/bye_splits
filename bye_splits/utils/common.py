@@ -23,7 +23,6 @@ def binConv(vals, dist, amin):
     """
     return (vals * dist) + (dist / 2) + amin
 
-
 def calcRzFromEta(eta):
     """R/z = tan(theta) [theta is obtained from pseudo-rapidity, eta]"""
     _theta = 2 * np.arctan(np.exp(-1 * eta))
@@ -125,6 +124,15 @@ def print_histogram(arr):
             else:
                 print("X", end="|")
         print()
+
+def std_eff(values, c=0.68):
+    """
+    Effective standard deviation: half-width of shortest interval covering fraction 'c' items in a 1D array.
+    """
+    x = values[~np.isnan(values)]
+    x = np.sort(x, kind="mergesort")
+    m = int(c * len(x)) + 1
+    return np.min(x[m:] - x[:-m]) / 2.0
 
 def seed_extra_name(cfg):
     s = '_hexdist' if cfg['seed_roi']['hexDist'] else ''
