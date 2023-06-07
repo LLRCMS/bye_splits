@@ -37,7 +37,7 @@ class ChainPlotter:
         self.info = {
             'eta': {'title_1d': self.uc['eta']+' response', 'label_1d': r'$$\eta-\eta_{Gen}$$',
                     'title_2d': self.uc['eta']+' response', 'label_2d': '|'+self.uc['eta']+'|',
-                    'nbins_2d': 10, 'nbins_1d': 50, 'round': 2},
+                    'nbins_2d': 10, 'nbins_1d': 80, 'round': 2},
             'phi': {'title_1d': self.uc['phi']+' response', 'label_1d': r'$$\phi-\phi_{Gen}$$',
                     'title_2d': self.uc['eta']+' response', 'label_2d': self.uc['phi'],
                     'nbins_2d': 10, 'nbins_1d': 50, 'round': 2},
@@ -355,7 +355,7 @@ class ChainPlotter:
                 values_1d.update({v.format(x): df.groupby(cuts_1d).agg(aggr_1d)[v.format(x)]})
 
         ## 2D
-        aggr_2d = ['median', self._q1, self._q3, 'size']
+        aggr_2d = ['median', 'mean', self._q1, self._q3, 'std', common.std_eff, 'size']
         if self.mode == 'both':
             vars_2d = ['clres{}_'+x for x in ('def', 'roi')]
         else:
@@ -372,7 +372,10 @@ class ChainPlotter:
                               .rename(columns={'<lambda_0>': 'q1',
                                                '<lambda_1>': 'q3'})[[k.format('en') for k in vars_2d]]})
         
-        common_y_range = bmd.Range1d(-0.4, 0.12)
+        common_y_range = {'median':  bmd.Range1d(-0.3, 0.05),
+                          'mean':    bmd.Range1d(-0.3, 0.05),
+                          'std':     bmd.Range1d(0., 0.12),
+                          'std_eff': bmd.Range1d(0., 0.12)}
         violins = {}
         for bk in bins_2d.keys():
             ibins = np.tile(cuts_2d[bk].to_numpy(), len(vars_2d)).astype(float)
@@ -409,9 +412,11 @@ class ChainPlotter:
                             ), 
                 clone=True,)
             violins[bk] = hv.render(violins[bk]) # convert to bokeh's format
-            violins[bk].y_range = common_y_range
+            violins[bk].y_range = common_y_range['median']
      
-        figs_1d, figs_2d = ({x:None for x in bins_2d.keys()} for _ in range(2))
+        figs_1d = {x:None for x in bins_2d.keys()}
+        quants_2d = ('median', 'mean', 'std', 'std_eff')
+        figs_2d = {x: {z:None for z in quants_2d} for x in bins_2d.keys()}
         if self.mode == 'both':
             leglab = {'clres_def': 'Clusters (R/z,'+self.uc['phi']+')', 'clres_roi': 'Clusters (CS)'}
         else:
@@ -435,11 +440,12 @@ class ChainPlotter:
             figs_1d[bk].xaxis.axis_label = self.info[bk]['label_1d']
             figs_1d[bk].yaxis.axis_label = 'Counts'
 
-            figs_2d[bk] = bokeh.plotting.figure(
-                x_range=(bins_2d[bk][0], bins_2d[bk][-1]+hshift),
-                y_range=common_y_range,
-                **figs_opt
-            )
+            for qt in quants_2d:
+                figs_2d[bk][qt] = bokeh.plotting.figure(
+                    x_range=(bins_2d[bk][0], bins_2d[bk][-1]+hshift),
+                    y_range=common_y_range[qt],
+                    **figs_opt
+                )
 
             ymaxline = 0
             for iv1d, (v1d, lab) in enumerate(vars_1d.items()):
@@ -475,16 +481,7 @@ class ChainPlotter:
                 bincenters = (bins_2d[bk][:-1]+bins_2d[bk][1:])/2
                 opt = dict(x=bincenters+self._x_shift(ivar,bk,len(vars_2d)),
                            legend_label=leglab[avar.format('')], color=self.palette[ivar])
-                median = np.array(values_2d[bk][avar.format('en')]['median'])
-                q1     = np.array(values_2d[bk][avar.format('en')]['q1'])
-                q3     = np.array(values_2d[bk][avar.format('en')]['q3'])
-                medianopt = dict(y=median)
-     
-                # median
-                figs_2d[bk].circle(size=10, **medianopt, **opt)
-                figs_2d[bk].line(line_width=1, **medianopt, **opt)
-                figs_2d[bk].line(x=[bincenters[0]-hshift, bincenters[-1]+10*hshift], y=[0.,0.],
-                                  line_width=1, line_dash='dashed', color='gray')
+
                 xmax = len(vars_2d)*self.info[bk]['nbins_2d']+1.5*self.info[bk]['nbins_2d']
                 violins[bk].line(x=[0., xmax], y=[0.,0.],
                                  line_width=1, line_dash='dashed', color='gray')
@@ -493,32 +490,57 @@ class ChainPlotter:
                 violins[bk].xaxis.major_label_text_color = 'white'
                 violins[bk].xaxis.major_tick_line_alpha = 0.
                 violins[bk].xaxis.major_tick_line_color = 'white'
-     
-                # quantiles
-                source = bmd.ColumnDataSource(
-                    data=dict(base=bincenters+self._x_shift(ivar,bk,len(vars_2d)),
-                              q3=q3, q1=q1))
-                quant = bmd.Whisker(base='base', upper='q3', lower='q1', source=source,
-                                    level='annotation', line_width=2, line_color=self.palette[ivar])
-                quant.upper_head.size=10
-                quant.lower_head.size=10
-                quant.upper_head.line_color = self.palette[ivar]
-                quant.lower_head.line_color = self.palette[ivar]
-                figs_2d[bk].add_layout(quant)
-
-                figs_2d[bk].xaxis.axis_label = self.info[bk]['label_2d']
                 violins[bk].xaxis.axis_label = self.info[bk]['label_2d']
-                figs_2d[bk].yaxis.axis_label = r'$$E/E_{Gen}-1$$'
-                violins[bk].yaxis.axis_label = r'$$E/E_{Gen}-1$$'
+                violins[bk].yaxis.axis_label = r"$$E/E_{Gen}-1" + r"\:\:\text{" + "(median)" + r"}" + "$$"
                 
-            self._set_fig_common_attributes(figs_2d[bk], title=self.info[bk]['title_2d'])
+                for qt in quants_2d:
+                    qt_arr = np.array(values_2d[bk][avar.format('en')][qt])                
+                    qt_opt = dict(y=qt_arr)
+     
+                    figs_2d[bk][qt].circle(size=10, **qt_opt, **opt)
+                    figs_2d[bk][qt].line(line_width=1, **qt_opt, **opt)
+                    figs_2d[bk][qt].xaxis.axis_label = self.info[bk]['label_2d']
+                    
+                    if qt != 'median' and qt != 'mean':
+                        if qt == 'std':
+                            figs_2d[bk][qt].yaxis.axis_label = 'Standard deviation'
+                        elif qt == 'std_eff':
+                            figs_2d[bk][qt].yaxis.axis_label = 'Effective standard deviation'
+                        continue
+
+                    figs_2d[bk][qt].yaxis.axis_label = r"$$E/E_{Gen}-1" + r"\:\:\text{(" + qt + r")}" + "$$"
+                    figs_2d[bk][qt].line(x=[bincenters[0]-hshift, bincenters[-1]+10*hshift], y=[0.,0.],
+                                         line_width=1, line_dash='dashed', color='gray')
+
+                    # quantiles                                    
+                    q1 = np.array(values_2d[bk][avar.format('en')]['q1'])
+                    q3 = np.array(values_2d[bk][avar.format('en')]['q3'])
+
+                    source = bmd.ColumnDataSource(
+                        data=dict(base=bincenters+self._x_shift(ivar,bk,len(vars_2d)),
+                                  q3=q3, q1=q1))
+                    quant = bmd.Whisker(base='base', upper='q3', lower='q1', source=source,
+                                        level='annotation', line_width=2, line_color=self.palette[ivar])
+                    quant.upper_head.size=10
+                    quant.lower_head.size=10
+                    quant.upper_head.line_color = self.palette[ivar]
+                    quant.lower_head.line_color = self.palette[ivar]
+                    figs_2d[bk][qt].add_layout(quant)
+
+        for bk in bins_2d.keys():
             self._set_fig_common_attributes(violins[bk], title=self.info[bk]['title_2d'], show_grid=False)
-                     
-        lay_list = [[figs_1d['en'],  figs_1d['eta'], figs_1d['phi']],
-                    [figs_2d['en'],  violins['en']],
-                    [figs_2d['eta'], violins['eta']],
-                    [figs_2d['phi'], violins['phi']],
-                    [figs_2d['pt'],  violins['pt']],]
+            for qt in quants_2d:
+                if qt in ('std', 'std_eff'):
+                    loc = "top_left"
+                else:
+                    loc = "bottom_right"
+                self._set_fig_common_attributes(figs_2d[bk][qt], title=self.info[bk]['title_2d'], location=loc)
+
+        # create display layout of all the figures
+        lay_list = [[figs_1d[v] for v in ('en', 'eta', 'phi', 'pt')]]
+        for v in ('en', 'eta', 'phi', 'pt'):
+            row = [figs_2d[v][qt] for qt in quants_2d] + [violins[v]]
+            lay_list.append(row)
         self._display(lay_list, pars, nevents=df.shape[0])
      
         return None
@@ -588,7 +610,7 @@ class ChainPlotter:
                 self._set_fig_common_attributes(figs[il], title=self.info[bk]['title_1d'])
      
             allfigs.append(figs)
-            
+
         lay_list = [[allfigs[0]['en'],  allfigs[1]['en']],
                     [allfigs[0]['phi'], allfigs[1]['phi']],
                     [allfigs[0]['eta'], allfigs[1]['eta']],
