@@ -123,7 +123,7 @@ class Collector:
         with open(params.CfgPath, 'r') as afile:
             self.cfg = yaml.safe_load(afile)
 
-    def collect_seed(self, pars, chain_mode, debug=False, **kw):
+    def collect_seed(self, cli_pars, chain_mode, debug=False, **kw):
         """Statistics collector for ROI seeding results."""
         if debug:
             print('Running the seed validation...')
@@ -131,14 +131,14 @@ class Collector:
 
         outseed, outtc, outgen = ({} for _ in range(3))
         if mdef:
-            outseed.update({'def': common.fill_path(self.cfg['seed']['SeedOut'],      **pars)})
-            outtc.update(  {'def': common.fill_path(self.cfg['fill']['FillOutTcAll'], **pars)})
-            outgen.update( {'def': common.fill_path(self.cfg['fill']['FillOutGenCl'], **pars)})
+            outseed.update({'def': common.fill_path(self.cfg['seed']['SeedOut'],      **cli_pars)})
+            outtc.update(  {'def': common.fill_path(self.cfg['fill']['FillOutTcAll'], **cli_pars)})
+            outgen.update( {'def': common.fill_path(self.cfg['fill']['FillOutGenCl'], **cli_pars)})
         if mroi:
             extra = common.seed_extra_name(self.cfg)
-            outseed.update({'roi': common.fill_path(self.cfg['seed_roi']['SeedOut'] + extra,            **pars)})
-            outtc.update(  {'roi': common.fill_path(self.cfg['roi'][self.cfg['seed_roi']['InputName']], **pars)})
-            outgen.update( {'roi': common.fill_path(self.cfg['roi']['ROIclOut'],                        **pars)})
+            outseed.update({'cs': common.fill_path(self.cfg['seed_roi']['SeedOut'] + extra,            **cli_pars)})
+            outtc.update(  {'cs': common.fill_path(self.cfg['roi'][self.cfg['seed_roi']['InputName']], **cli_pars)})
+            outgen.update( {'cs': common.fill_path(self.cfg['roi']['ROIclOut'],                        **cli_pars)})
             
         sseed = {k: h5py.File(  v, mode='r') for k,v in outseed.items()}
         stc   = {k: pd.HDFStore(v, mode='r') for k,v in outtc.items()}
@@ -164,7 +164,7 @@ class Collector:
                 colsseed = list(dfseed.attrs['columns'])
          
                 nseeds = len(dfseed[:][colsseed.index('seedEn')])
-                if mroi and chain=='roi' and self.cfg['seed_roi']['InputName'] != 'NoROItcOut':
+                if mroi and chain=='cs' and self.cfg['seed_roi']['InputName'] != 'NoROItcOut':
                     nrois = len(dftc['roi_id'].unique())
                 else: # ROIs are ignored, there is only one "region of interest"
                     nrois = 1
@@ -189,24 +189,24 @@ class Collector:
             ret = self._postprocessing_multi_chain_seed(ret)
         return ret
 
-    def collect_cluster(self, pars, chain_mode, debug=True, **kw):
+    def collect_cluster(self, cli_pars, chain_mode, debug=True, **kw):
         """Statistics collector for ROI clustering results."""
         mdef, mroi = self._decode_modes(chain_mode)
         outgen, outtc, outcl = ({} for _ in range(3))
         if mdef:
-            outtc.update( {'def': common.fill_path(self.cfg['fill']['FillOutTcAll'],             **pars)})
-            outgen.update({'def': common.fill_path(self.cfg['fill']['FillOutGenCl'],             **pars)})
-            outcl.update( {'def':  common.fill_path(self.cfg['cluster']['ClusterOutValidation'], **pars)})
+            outtc.update( {'def': common.fill_path(self.cfg['fill']['FillOutTcAll'],             **cli_pars)})
+            outgen.update({'def': common.fill_path(self.cfg['fill']['FillOutGenCl'],             **cli_pars)})
+            outcl.update( {'def':  common.fill_path(self.cfg['cluster']['ClusterOutValidation'], **cli_pars)})
 
         if mroi:
-            outgen.update( {'roi': common.fill_path(self.cfg['roi']['ROIclOut'], **pars)})
+            outgen.update( {'cs': common.fill_path(self.cfg['roi']['ROIclOut'], **cli_pars)})
             if self.cfg['cluster']['ROICylinder']:
-                outcl.update({'roi': common.fill_path(self.cfg['cluster']['ClusterOutValidationROI']  + '_cyl', **pars)})
-                outtc.update({'roi': common.fill_path(self.cfg['roi']['ROIregionOut'], **pars)})
+                outcl.update({'cs': common.fill_path(self.cfg['cluster']['ClusterOutValidationROI']  + '_cyl', **cli_pars)})
+                outtc.update({'cs': common.fill_path(self.cfg['roi']['ROIregionOut'], **cli_pars)})
             else:
-                outcl.update({'roi': common.fill_path(self.cfg['cluster']['ClusterOutValidationROI'], **pars)})
+                outcl.update({'cs': common.fill_path(self.cfg['cluster']['ClusterOutValidationROI'], **cli_pars)})
                 # performance is compared to all TCs, not just the ones within the ROIs
-                outtc.update({'roi': common.fill_path(self.cfg['roi']['NoROItcOut'], **pars)})
+                outtc.update({'cs': common.fill_path(self.cfg['roi']['NoROItcOut'], **cli_pars)})
 
         sgen = {k: pd.HDFStore(v, mode='r') for k,v in outgen.items()}
         scl  = {k: pd.HDFStore(v, mode='r') for k,v in outcl.items()}
@@ -300,11 +300,17 @@ class Collector:
         return ret
 
     def _decode_modes(self, mode):
-        assert mode in ('default', 'roi', 'both')
+        """
+        Sets two boolean flags to decode the modes currently supported:
+        - "default" / "def": original reconstruction chain with (phi,R/z) binning
+        - "coarse seeding" / "cs": new chain using coarse seeding and (u,v) coordinates
+        - "both": consider both chains; useful for comparison/validation
+        """
+        assert mode in ('default', 'cs', 'both')
         if mode == 'default':
             mode_def = True
             mode_roi = False
-        elif mode == 'roi':
+        elif mode == 'cs':
             mode_def = False
             mode_roi = True
         elif mode == 'both':
@@ -342,7 +348,7 @@ class Collector:
     def _postprocessing_multi_chain_cluster(self, df):
         """
         Merge cluster results from multiple chains into single output dataframe.
-        Currenty focusing on the 'default' and 'roi' chains.
+        Currenty focusing on the 'default' and 'cs' chains.
         """
         new_df = {}
         new_df.update({'genen':    df['def']['genen'],
@@ -359,7 +365,7 @@ class Collector:
                        'tcallrespt': df['def']['tcallrespt'],
                        })
 
-        for suf in ('def', 'roi'):
+        for suf in ('def', 'cs'):
             new_df.update({'clen_'+suf:  df[suf]['clen'],
                            'cleta_'+suf: df[suf]['cleta'],
                            'clphi_'+suf: df[suf]['clphi'],
@@ -386,15 +392,15 @@ class Collector:
     def _postprocessing_multi_chain_seed(self, df):
         """
         Merge seed results from multiple chains into single output dataframe.
-        Currenty focusing on the 'default' and 'roi' chains.
+        Currenty focusing on the 'default' and 'cs' chains.
         """
         new_df = pd.DataFrame({
             'nrois_def':        df['def']['nrois'],
             'nseeds_def':       df['def']['nseeds'],
             'nseedsperroi_def': df['def']['nseedsperroi'],
-            'nrois_roi':        df['roi']['nrois'],
-            'nseeds_roi':       df['roi']['nseeds'],
-            'nseedsperroi_roi': df['roi']['nseedsperroi'],
+            'nrois_roi':        df['cs']['nrois'],
+            'nseeds_roi':       df['cs']['nseeds'],
+            'nseedsperroi_roi': df['cs']['nseedsperroi'],
             'genen':            df['def']['genen'],
             'geneta':           df['def']['geneta'],
             'genphi':           df['def']['genphi'],
