@@ -23,10 +23,10 @@ import argparse
 def run_roi_chain(pars, user='bfontana'):
     '''Run the backend stage 2 reconstruction chain for a single event.'''
     collector = validation.Collector()
-    plotter = chain_plotter.ChainPlotter(chain_mode='roi', user=user,
+    plotter = chain_plotter.ChainPlotter(chain_mode='cs', user=user,
                                          tag='NEV'+str(pars.nevents))
     df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=pars.nevents,
-                                                     reprocess=False, tag='roi_chain')
+                                                     reprocess=True, tag='cs_chain')
 
     print('There are {} events in the input.'.format(df_gen.shape[0]))
 
@@ -40,7 +40,7 @@ def run_roi_chain(pars, user='bfontana'):
 
     if not pars.no_valid_seed:
         valid_d = params.read_task_params('valid_seed_roi')
-        stats_out_seed = collector.collect_seed(pars, chain_mode='roi', **valid_d)
+        stats_out_seed = collector.collect_seed(pars, chain_mode='cs', **valid_d)
         plotter.seed_plotter(stats_out_seed, pars)
 
     if not pars.no_cluster:
@@ -53,7 +53,7 @@ def run_roi_chain(pars, user='bfontana'):
         valid_d = params.read_task_params('valid_cluster')
 
         # validate the clustering
-        stats_out_cluster = collector.collect_cluster(pars, chain_mode='roi', **valid_d)
+        stats_out_cluster = collector.collect_cluster(pars, chain_mode='cs', **valid_d)
         plotter.resolution_plotter(stats_out_cluster, pars)
         #plotter.distribution_plotter(stats_out_cluster, pars)
 

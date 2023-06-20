@@ -24,7 +24,7 @@ def baseline_selection(df_gen, df_cl, sel, **kw):
     data = pd.merge(left=df_gen, right=df_cl, how='inner', on='event')
     nin = data.shape[0]
     data = data[(data.gen_eta>kw['EtaMin']) & (data.gen_eta<kw['EtaMax'])]
-    
+
     if sel.startswith('above_eta_'):
         data = data[data.gen_eta > float(sel.split('above_eta_')[1])]
         return data
@@ -119,7 +119,6 @@ def get_data_reco_chain_start(nevents=500, reprocess=False, tag='chain'):
     }
     ds_cl = ds_all["cl"]
     ds_cl = ds_cl.rename(columns=cl_keep)
-
     return ds_gen, ds_cl, ds_tc
 
 def EventDataParticle(tag, reprocess, logger=None, debug=False, particles=None):

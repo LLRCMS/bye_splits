@@ -29,7 +29,7 @@ class ChainPlotter:
     Manages all plotting within the reconstruction chains.
     """
     def __init__(self, chain_mode='default', user='bfontana', tag=''):
-        assert chain_mode in ('default', 'roi', 'both')
+        assert chain_mode in ('default', 'cs', 'both')
         self.mode = chain_mode
         self.user = user
         self.tag = tag
@@ -341,7 +341,7 @@ class ChainPlotter:
         ## 1D
         aggr_1d = ['size',] #'std', 'mean',]
         if self.mode == 'both':
-            vars_1d = {'clres{}_def': 'Clusters (R/z,'+self.uc['phi']+')', 'clres{}_roi': 'Clusters (CS)',
+            vars_1d = {'clres{}_def': 'Clusters (R/z,'+self.uc['phi']+')', 'clres{}_cs': 'Clusters (CS)',
                        'tcallres{}': 'TCs'
                        }
         else:
@@ -357,7 +357,7 @@ class ChainPlotter:
         ## 2D
         aggr_2d = ['median', 'mean', self._q1, self._q3, 'std', common.std_eff, 'size']
         if self.mode == 'both':
-            vars_2d = ['clres{}_'+x for x in ('def', 'roi')]
+            vars_2d = ['clres{}_'+x for x in ('def', 'cs')]
         else:
             vars_2d = ['clres{}']
         vars_2d += ['tcallres{}'] + ['tc' + str(t).replace('.','p') + 'res{}' for t in deltaRs]
@@ -381,7 +381,7 @@ class ChainPlotter:
             ibins = np.tile(cuts_2d[bk].to_numpy(), len(vars_2d)).astype(float)
             if self.mode == 'both':
                 concat_list = [np.array(['Clusters (R/z,'+self.uc['phi']+')' for _ in range(len(df['clresen_def']))]),
-                               np.array(['Clusters (CS)' for _ in range(len(df['clresen_roi']))]),
+                               np.array(['Clusters (CS)' for _ in range(len(df['clresen_cs']))]),
                                np.array(['All TCs'  for _ in range(len(df['tcallresen']))])]
             else:
                 concat_list = [np.array(['Clusters' for _ in range(len(df['clresen']))]),
@@ -392,7 +392,7 @@ class ChainPlotter:
             group_ids = np.concatenate(concat_list, axis=None)
 
             if self.mode == 'both':
-                vals_list = [df['clresen_def'], df['clresen_roi']]
+                vals_list = [df['clresen_def'], df['clresen_cs']]
             else:
                 vals_list = [df['clresen']]
             vals_list += [df['tcallresen']]
@@ -418,7 +418,7 @@ class ChainPlotter:
         quants_2d = ('median', 'mean', 'std', 'std_eff')
         figs_2d = {x: {z:None for z in quants_2d} for x in bins_2d.keys()}
         if self.mode == 'both':
-            leglab = {'clres_def': 'Clusters (R/z,'+self.uc['phi']+')', 'clres_roi': 'Clusters (CS)'}
+            leglab = {'clres_def': 'Clusters (R/z,'+self.uc['phi']+')', 'clres_cs': 'Clusters (CS)'}
         else:
             leglab = {'clres': 'Clusters'}
         leglab.update({'tcallres': 'All TCs'})

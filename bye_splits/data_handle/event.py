@@ -50,7 +50,7 @@ class EventData(BaseData):
 
         ds = ak.from_parquet(self.outpath)
         ds = self._event_mask(ds, events)
-
+        
         dsd = {}
         for k in self.var.keys():
             dsd[k] = ak.to_dataframe(ds[list(self.var[k].values())], how="outer")

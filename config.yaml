@@ -1,7 +1,7 @@
 io:
   dirphotons: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
   treephotons: HGCalTriggerNtuple
-  filephotons: /eos/user/b/bfontana/FPGAs/new_algos/skim_with_pt_ntuple_1.root     #skim_photons_0PU_bc_stc_hadd.root
+  filephotons: /eos/user/b/bfontana/FPGAs/new_algos/skim_with_pt_ntuple_1.root #skim_photons_0PU_bc_stc_hadd.root
   direlectrons: hgcalTriggerNtuplizer
   treeelectrons: HGCalTriggerNtuple
   fileelectrons: /eos/user/i/iehle/data/PU0/electrons/skim_electrons_0PU_bc_stc_hadd.root
