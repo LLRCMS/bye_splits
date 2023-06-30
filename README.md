@@ -40,6 +40,9 @@ This repository reproduces the CMS HGCAL L1 Stage2 reconstruction chain in Pytho
     # enforce git hooks locally (required for development)
     git config core.hooksPath .githooks
 
+The user could also use [Mamba](https://mamba.readthedocs.io/en/latest/index.html), a fast and robust package manager. It is fully compatible with conda packages and supports most of conda’s commands.
+
+
 <a id="dataprod"></a>
 # Data production
 
@@ -163,6 +166,7 @@ Please install the following from within the `conda` environment you should have
     python3 -m pip install --upgrade pip setuptools #to avoid annoying "Setuptools is replacing distutils." warning
 
 
+
 <a id="org288a700"></a>
 
 ## Setup in local browser
@@ -199,8 +203,10 @@ The above command should give access to the visualization under `http://localhos
 
 ### 2) 3D display app
 
-Make sure you have activated your `conda` environment. Run the following lines. 
-With these commands, some useful packages to run the web application (e.g. `dash`, `uproot`, `awkward`, etc) will be installed in your `conda` environment:
+Make sure you have activated your `conda` environment. 
+    conda activate <Env>
+
+Run the following lines. With these commands, some useful packages to run the web application (e.g. `dash`, `uproot`, `awkward`, etc) will be installed in your `conda` environment:
 
     conda install dash
     python3 -m pip install dash-bootstrap-components
@@ -208,12 +214,12 @@ With these commands, some useful packages to run the web application (e.g. `dash
     conda install pandas pyyaml numpy bokeh awkward uproot h5py pytables
     conda install -c conda-forge pyarrow fsspec
 
-Then in a new terminal window go to the `llrcms01` machines and launch:
+Then go to the `llruicms01` machine (if you are indide LLR intranet) or to your preferred machine and launch:
 
     python bye_splits/plot/display_plotly/main.py --port 5004 --host localhost
 
-In a browser, go to http://localhost:5004/
-Make sure you have access to the geometry and event files, to be configures in `config.yaml`
+In a browser, go to http://localhost:5004/.
+Make sure you have access to the geometry and event files, to be configured in `config.yaml`.
 
 <a id="org4164d71"></a>
 

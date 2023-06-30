@@ -15,7 +15,7 @@ from tasks import validation
 import utils
 from utils import params, common, parsing
 from run_default_chain import run_default_chain
-from run_roi_chain import run_roi_chain
+from run_new_chain import run_new_chain
 from plot import chain_plotter
 
 def avoid_single_chain_validation(pars):
@@ -34,8 +34,8 @@ def run_meta(pars, user):
     print("======= Default Chain =========")
     run_default_chain(single_pars, user=user)
 
-    print("======= ROI Chain =========")
-    run_roi_chain(single_pars, user=user)
+    print("======= New Chain =========")
+    run_new_chain(single_pars, user=user)
 
     base_d = params.read_task_params('base')
 
@@ -54,18 +54,7 @@ def run_meta(pars, user):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Meta script, running multiple reconstruction chains.',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--no_fill",          action="store_true")
-    parser.add_argument("--no_smooth",        action="store_true")
-    parser.add_argument('--no_roi',           action='store_true', help='do not run the roi finder step')
-    parser.add_argument('--no_seed',          action='store_true', help='do not run the seeding step')
-    parser.add_argument('--no_cluster',       action='store_true', help='do not run the clustering step')
-    parser.add_argument('--no_valid',         action='store_true', help='do not run any validation')
-    parser.add_argument('--no_valid_seed',    action='store_true', help='do not run ROI seed validation')
-    parser.add_argument('--no_valid_cluster', action='store_true', help='do not run ROI cluster validation')
-    parsing.add_parameters(parser)
-    FLAGS = parser.parse_args()
+    FLAGS = parsing.parser_meta()
     if FLAGS.no_valid:
         FLAGS.no_valid_seed = True
         FLAGS.no_valid_cluster = True
@@ -73,4 +62,4 @@ if __name__ == '__main__':
     assert (FLAGS.sel in ('splits_only', 'no_splits', 'all') or
             FLAGS.sel.startswith('above_eta_'))
 
-    run_meta(common.dot_dict(vars(FLAGS)), user="bfontana")
+    run_meta(common.dot_dict(vars(FLAGS)), user=FLAGS.user)

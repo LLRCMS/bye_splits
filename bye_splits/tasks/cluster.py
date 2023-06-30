@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
     dfout = None
-    df_cluster = []
+    df_tc = []
     sseeds = h5py.File(in_seeds, mode='r')
     sout = pd.HDFStore(out_valid, mode='w')
     stc = h5py.File(in_tc, mode='r')
@@ -94,7 +94,6 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
         assert len(cols) == res.shape[1]
 
         df = pd.DataFrame(res, columns=cols)
-        #assert not df.empty
 
         df["cl3d_pos_x"] = df.tc_x * df.tc_mipPt
         df["cl3d_pos_y"] = df.tc_y * df.tc_mipPt
@@ -134,24 +133,18 @@ def cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw):
         else:
             dfout = pd.concat((dfout, cl3d[cl3d_cols + ["event"]]), axis=0)
 
-        df_cluster.append(df[['seed_idx', 'tc_wu', 'tc_wv', 'tc_cu', 'tc_cv',
-                              'tc_layer']])
+        df_tc.append(df[['seed_idx', 'tc_wu', 'tc_wv', 'tc_cu', 'tc_cv', 'tc_layer']])
     print("[clustering step] There were {} events without seeds.".format(empty_seeds))
 
     splot = pd.HDFStore(out_plot, mode='w')
     if dfout is not None:
         dfout.event = dfout.event.astype(int)
         splot["data"] = dfout
-        for i, df in enumerate(df_cluster):
+        for i, df in enumerate(df_tc):
             key = f'df_{dfout.event.unique()[i]}'  
             splot.put(key, df)
     else:
-        sseeds.close()
-        sout.close()
-        stc.close()
-        splot.close()
-        mes = "No output in the cluster."
-        raise RuntimeError(mes)
+        raise RuntimeError("No output in the cluster.")
 
     nevents = dfout.event.unique().shape[0]
     sseeds.close()
@@ -167,19 +160,19 @@ def cluster_default(pars, **kw):
     out_plot  = common.fill_path(kw["ClusterOutPlot"], **pars)
     return cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw)
     
-def cluster_roi(pars, **kw):
+def cluster_cs(pars, **kw):
     with open(params.CfgPath, 'r') as afile:
         cfg = yaml.safe_load(afile)
     extra = common.seed_extra_name(cfg)    
-    in_seeds  = common.fill_path(kw["ClusterInSeedsROI"] + extra, **pars)
-    if cfg['cluster']['ROICylinder']:
-        in_tc = common.fill_path(kw["ClusterInTCROICylinder"], **pars)
-        out_valid = common.fill_path(kw["ClusterOutValidationROI"] + '_cyl', **pars)
-        out_plot  = common.fill_path(kw["ClusterOutPlotROI"] + '_cyl', **pars)
+    in_seeds  = common.fill_path(kw["ClusterInSeedsCS"] + extra, **pars)
+    if cfg['cluster']['CSCylinder']:
+        in_tc = common.fill_path(kw["ClusterInTCCSCylinder"], **pars)
+        out_valid = common.fill_path(kw["ClusterOutValidationCS"] + '_cyl', **pars)
+        out_plot  = common.fill_path(kw["ClusterOutPlotCS"] + '_cyl', **pars)
     else:
-        in_tc = common.fill_path(kw["ClusterInTCROI"], **pars)
-        out_valid = common.fill_path(kw["ClusterOutValidationROI"], **pars)
-        out_plot  = common.fill_path(kw["ClusterOutPlotROI"], **pars)
+        in_tc = common.fill_path(kw["ClusterInTCCS"], **pars)
+        out_valid = common.fill_path(kw["ClusterOutValidationCS"], **pars)
+        out_plot  = common.fill_path(kw["ClusterOutPlotCS"], **pars)
 
     return cluster(pars, in_seeds, in_tc, out_valid, out_plot, **kw)
 
@@ -189,12 +182,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Clustering standalone step.")
     parsing.add_parameters(parser)
-    parser.add_argument('--roi', action='store_true',
-                        help='Cluster on ROI chain output.')
+    parser.add_argument('--coarse_seeding', action='store_true',
+                        help='Cluster on new chain output.')
     FLAGS = parser.parse_args()
 
     cluster_d = params.read_task_params("cluster")
-    if FLAGS.roi:
-        cluster_roi(vars(FLAGS), **cluster_d)
+    if FLAGS.coarse_seeding:
+        cluster_CS(vars(FLAGS), **cluster_d)
     else:
         cluster_default(vars(FLAGS), **cluster_d)

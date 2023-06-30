@@ -9,6 +9,7 @@ parent_dir = os.path.abspath(__file__ + 2 * "/..")
 sys.path.insert(0, parent_dir)
 
 from utils import params
+from plotly.express.colors import sample_colorscale
 
 import os
 import yaml
@@ -27,6 +28,15 @@ def calcRzFromEta(eta):
     """R/z = tan(theta) [theta is obtained from pseudo-rapidity, eta]"""
     _theta = 2 * np.arctan(np.exp(-1 * eta))
     return np.tan(_theta)
+
+def colorscale(df, variable, scale, saturate=False):
+    """Transforms float values in a column of a DataFrame into RGB format"""
+    min_variable = df[variable].min()
+    norm_points = (df[variable]-min_variable)/(df[variable].max()-min_variable)
+    colorscale = sample_colorscale(scale, norm_points) 
+    if saturate:
+        ["rgb(255,255,255)" if norm_points[i] == 1 else s for i, s in enumerate(colorscale)]
+    return colorscale
 
 def create_dir(p):
     if not os.path.exists(p):
@@ -73,6 +83,8 @@ def fill_path(base_path, data_dir=params.LocalStorage, ext="hdf5", **kw):
     base_path += "." + ext
     return os.path.join(data_dir, base_path)
 
+def get_pt(energy, eta):
+    return energy/np.cosh(eta)
 
 class SupressSettingWithCopyWarning:
     """
@@ -135,6 +147,6 @@ def std_eff(values, c=0.68):
     return np.min(x[m:] - x[:-m]) / 2.0
 
 def seed_extra_name(cfg):
-    s = '_hexdist' if cfg['seed_roi']['hexDist'] else ''
-    s += '_' + cfg['seed_roi']['InputName']
+    s = '_hexdist' if cfg['seed_cs']['hexDist'] else ''
+    s += '_' + cfg['seed_cs']['InputName']
     return s
