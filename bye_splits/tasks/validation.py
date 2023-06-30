@@ -124,21 +124,21 @@ class Collector:
             self.cfg = yaml.safe_load(afile)
 
     def collect_seed(self, cli_pars, chain_mode, debug=False, **kw):
-        """Statistics collector for ROI seeding results."""
+        """Statistics collector for CS seeding results."""
         if debug:
             print('Running the seed validation...')
-        mdef, mroi = self._decode_modes(chain_mode)
+        mdef, mcs = self._decode_modes(chain_mode)
 
         outseed, outtc, outgen = ({} for _ in range(3))
         if mdef:
             outseed.update({'def': common.fill_path(self.cfg['seed']['SeedOut'],      **cli_pars)})
             outtc.update(  {'def': common.fill_path(self.cfg['fill']['FillOutTcAll'], **cli_pars)})
             outgen.update( {'def': common.fill_path(self.cfg['fill']['FillOutGenCl'], **cli_pars)})
-        if mroi:
+        if mcs:
             extra = common.seed_extra_name(self.cfg)
-            outseed.update({'cs': common.fill_path(self.cfg['seed_roi']['SeedOut'] + extra,            **cli_pars)})
-            outtc.update(  {'cs': common.fill_path(self.cfg['roi'][self.cfg['seed_roi']['InputName']], **cli_pars)})
-            outgen.update( {'cs': common.fill_path(self.cfg['roi']['ROIclOut'],                        **cli_pars)})
+            outseed.update({'cs': common.fill_path(self.cfg['seed_cs']['SeedOut'] + extra,            **cli_pars)})
+            outtc.update(  {'cs': common.fill_path(self.cfg['cs'][self.cfg['seed_cs']['InputName']], **cli_pars)})
+            outgen.update( {'cs': common.fill_path(self.cfg['cs']['CSclOut'],                        **cli_pars)})
             
         sseed = {k: h5py.File(  v, mode='r') for k,v in outseed.items()}
         stc   = {k: pd.HDFStore(v, mode='r') for k,v in outtc.items()}
@@ -151,7 +151,7 @@ class Collector:
      
             dfgen = sgen[chain]['/df']
             data[chain] = {'genen': [], 'geneta': [], 'genphi': [], 'genpt': [],
-                           'nseeds': [], 'nrois': [], 'nseedsperroi': []}
+                           'nseeds': [], 'ncss': [], 'nseedspercs': []}
 
             assert len(kseeds)==len(ktc)
             search_ev = '{}_([0-9]{{1,7}})_ev'.format(kw['FesAlgo'])
@@ -164,19 +164,19 @@ class Collector:
                 colsseed = list(dfseed.attrs['columns'])
          
                 nseeds = len(dfseed[:][colsseed.index('seedEn')])
-                if mroi and chain=='cs' and self.cfg['seed_roi']['InputName'] != 'NoROItcOut':
-                    nrois = len(dftc['roi_id'].unique())
-                else: # ROIs are ignored, there is only one "region of interest"
-                    nrois = 1
-                
+                if mcs and chain=='cs' and self.cfg['seed_cs']['InputName'] != 'NoCStcOut':
+                    ncss = len(dftc['cs_id'].unique())
+                else: # CSs are ignored, there is only one "region of interest"
+                    ncss = 1
+               
                 genEn, genEta, genPhi, genPt = self._get_gen_info(dfgen, int(evn))
                 data[chain]['genen'].append(genEn)
                 data[chain]['geneta'].append(genEta)
                 data[chain]['genphi'].append(genPhi)
                 data[chain]['genpt'].append(genPt)
                 data[chain]['nseeds'].append(nseeds)
-                data[chain]['nrois'].append(nrois)
-                data[chain]['nseedsperroi'].append(float(nseeds) / nrois)
+                data[chain]['ncss'].append(ncss)
+                data[chain]['nseedspercs'].append(float(nseeds) / ncss)
      
             ret[chain] = pd.DataFrame(data[chain])
             stc[chain].close()
@@ -190,23 +190,23 @@ class Collector:
         return ret
 
     def collect_cluster(self, cli_pars, chain_mode, debug=True, **kw):
-        """Statistics collector for ROI clustering results."""
-        mdef, mroi = self._decode_modes(chain_mode)
+        """Statistics collector for CS clustering results."""
+        mdef, mcs = self._decode_modes(chain_mode)
         outgen, outtc, outcl = ({} for _ in range(3))
         if mdef:
             outtc.update( {'def': common.fill_path(self.cfg['fill']['FillOutTcAll'],             **cli_pars)})
             outgen.update({'def': common.fill_path(self.cfg['fill']['FillOutGenCl'],             **cli_pars)})
             outcl.update( {'def':  common.fill_path(self.cfg['cluster']['ClusterOutValidation'], **cli_pars)})
 
-        if mroi:
-            outgen.update( {'cs': common.fill_path(self.cfg['roi']['ROIclOut'], **cli_pars)})
-            if self.cfg['cluster']['ROICylinder']:
-                outcl.update({'cs': common.fill_path(self.cfg['cluster']['ClusterOutValidationROI']  + '_cyl', **cli_pars)})
-                outtc.update({'cs': common.fill_path(self.cfg['roi']['ROIregionOut'], **cli_pars)})
+        if mcs:
+            outgen.update( {'cs': common.fill_path(self.cfg['cs']['CSclOut'], **cli_pars)})
+            if self.cfg['cluster']['CSCylinder']:
+                outcl.update({'cs': common.fill_path(self.cfg['cluster']['ClusterOutValidationCS']  + '_cyl', **cli_pars)})
+                outtc.update({'cs': common.fill_path(self.cfg['cs']['CSregionOut'], **cli_pars)})
             else:
-                outcl.update({'cs': common.fill_path(self.cfg['cluster']['ClusterOutValidationROI'], **cli_pars)})
-                # performance is compared to all TCs, not just the ones within the ROIs
-                outtc.update({'cs': common.fill_path(self.cfg['roi']['NoROItcOut'], **cli_pars)})
+                outcl.update({'cs': common.fill_path(self.cfg['cluster']['ClusterOutValidationCS'], **cli_pars)})
+                # performance is compared to all TCs, not just the ones within the CSs
+                outtc.update({'cs': common.fill_path(self.cfg['cs']['NoCStcOut'], **cli_pars)})
 
         sgen = {k: pd.HDFStore(v, mode='r') for k,v in outgen.items()}
         scl  = {k: pd.HDFStore(v, mode='r') for k,v in outcl.items()}
@@ -217,7 +217,7 @@ class Collector:
             kall, kcl = stc[chain].keys(), scl[chain].keys()
             search_ev = '{}_([0-9]{{1,7}})_'.format(kw['FesAlgo'])
      
-            # remove ROI keys where no cluster exists
+            # remove CS keys where no cluster exists
             to_remove = []
             for ik,k in enumerate(kall):
                 evn = re.search(search_ev, k).group(1)
@@ -248,7 +248,7 @@ class Collector:
                     print('Event {} was not in the cluster dataset.'.format(evn))
                     continue
                 dfall = stc[chain][kall]
-                
+               
                 genEn, genEta, genPhi, genPt = self._get_gen_info(dfgen, int(evn))
                 genDatum = Datum(genEn, genEta, genPhi, genPt)
          
@@ -309,22 +309,22 @@ class Collector:
         assert mode in ('default', 'cs', 'both')
         if mode == 'default':
             mode_def = True
-            mode_roi = False
+            mode_cs = False
         elif mode == 'cs':
             mode_def = False
-            mode_roi = True
+            mode_cs = True
         elif mode == 'both':
             mode_def = True
-            mode_roi = True
-        return mode_def, mode_roi
+            mode_cs = True
+        return mode_def, mode_cs
 
     def _get_gen_info(self, dfgen, event):
         genEvent = dfgen[dfgen.event==event]
-     
+    
         genEn  = genEvent['gen_en'].to_numpy()
         genEta = genEvent['gen_eta'].to_numpy()
         genPhi = genEvent['gen_phi'].to_numpy()
-        genPt  = genEvent['gen_pt'].to_numpy()
+        genPt  = common.get_pt(genEn,genEta)
         
         #when the cluster is split we will have two rows
         if len(genEn) > 1:
@@ -395,12 +395,12 @@ class Collector:
         Currenty focusing on the 'default' and 'cs' chains.
         """
         new_df = pd.DataFrame({
-            'nrois_def':        df['def']['nrois'],
+            'ncss_def':         df['def']['ncss'],
             'nseeds_def':       df['def']['nseeds'],
-            'nseedsperroi_def': df['def']['nseedsperroi'],
-            'nrois_roi':        df['cs']['nrois'],
-            'nseeds_roi':       df['cs']['nseeds'],
-            'nseedsperroi_roi': df['cs']['nseedsperroi'],
+            'nseedspercs_def':  df['def']['nseedspercs'],
+            'ncss_cs':          df['cs']['ncss'],
+            'nseeds_cs':        df['cs']['nseeds'],
+            'nseedspercs_cs':   df['cs']['nseedspercs'],
             'genen':            df['def']['genen'],
             'geneta':           df['def']['geneta'],
             'genphi':           df['def']['genphi'],
@@ -416,9 +416,9 @@ if __name__ == "__main__":
     import argparse
     from bye_splits.utils import params, parsing
 
-    parser = argparse.ArgumentParser(description='ROI chain validation standalone step.')
+    parser = argparse.ArgumentParser(description='CS chain validation standalone step.')
     parsing.add_parameters(parser)
     FLAGS = parser.parse_args()
 
-    valid_d = params.read_task_params('valid_roi')
-    stats_collector_roi(vars(FLAGS), mode='resolution', **valid_d)
+    valid_d = params.read_task_params('valid_cs')
+    stats_collector_cs(vars(FLAGS), mode='resolution', **valid_d)

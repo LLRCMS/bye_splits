@@ -1,16 +1,30 @@
 io:
-  dirphotons: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple #l1tHGCalTriggerNtuplizer 
-  treephotons: HGCalTriggerNtuple
-  filephotons: /eos/user/b/bfontana/FPGAs/new_algos/skim_with_pt_ntuple_1.root #skim_photons_0PU_bc_stc_hadd.root
-  dirphotons_PU: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple #hgcalTriggerNtuplizer
-  treephotons_PU: HGCalTriggerNtuple
-  filephotons_PU: /home/llr/cms/mchiusi/building_ROI/inputFiles/skim_photons_hadd.root #/eos/user/m/mchiusi/visualization/display3d/skim_photons_hadd_200PU.root
-  direlectrons: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
-  treeelectrons: HGCalTriggerNtuple
-  fileelectrons: /eos/user/i/iehle/data/PU0/electrons/skim_electrons_0PU_bc_stc_hadd.root
-  dirpions: hgcalTriggerNtuplizer
-  treepions: HGCalTriggerNtuple
-  filepions: /data_CMS/cms/ehle/L1HGCAL/PU0/pions/skims/skim_tightTC_dRxy_hadd.root #/eos/user/i/iehle/data/PU0/pions/skim_pions_0PU_new_hadd.root
+  PU0:
+    photons:
+      dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+      tree: HGCalTriggerNtuple
+      file: /data_CMS/cms/alves/L1HGCAL/skim_with_pt_ntuple_1.root #/data_CMS/cms/ehle/L1HGCAL/PU0/photons/skims/skim_tightTC_dRxy_fullEta_photons_0PU_bc_stc_hadd.root
+    electrons:
+      dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+      tree: HGCalTriggerNtuple
+      file: /eos/user/i/iehle/data/PU0/photons/skim_photons_0PU_bc_stc_hadd.root #/data_CMS/cms/ehle/L1HGCAL/PU0/electrons/skims/skim_tightTC_dRxy_fullEta_electrons_0PU_bc_stc_hadd.root
+    pions:
+      dir: hgcalTriggerNtuplizer
+      tree: HGCalTriggerNtuple
+      file: /data_CMS/cms/ehle/L1HGCAL/PU0/pions/skims/skim_tightTC_dRxy_fullEta_new_pions_0PU_bc_stc_hadd.root
+  PU200:
+    photons:
+      dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+      tree: HGCalTriggerNtuple
+      file: /eos/user/m/mchiusi/visualization/display3d/skim_photons_hadd_200PU.root #/data_CMS/cms/ehle/L1HGCAL/PU200/photons/skims/skim_tightTC_dRxy_fullEta_photons_200PU_bc_stc_hadd.root
+    electrons:
+      dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+      tree: HGCalTriggerNtuple
+      file: /data_CMS/cms/ehle/L1HGCAL/PU200/electrons/skims/skim_tightTC_dRxy_fullEta_electrons_200PU_bc_stc_hadd.root
+    pions:
+      dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+      tree: HGCalTriggerNtuple
+      file: /data_CMS/cms/ehle/L1HGCAL/PU200/pions/skims/skim_tightTC_dRxy_fullEta_pions_200PU_bc_stc_hadd.root
 
 geometry:
     dir: L1THGCaltriggergeomtester
@@ -22,17 +36,19 @@ geometry:
     nlayersCEH: 22
   
 selection:
-    particles: photons_PU
-    disconnectedTriggerLayers: [2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50]
+    particles: photons
+    disconnectedTriggerLayers: [2,4,6,8,10,12,14,16,18,20,22,24,26,28]
     reachedEE: 2
-    deltarThreshold: 0.1
+    deltarThreshold: 0.05
     mipThreshold: 0.5
 
 defaultEvents:
-    photons: [170032, 170044]
-    photons_PU: [62878, 55896]
-    electrons: [92243, 92244]
-    pions: [9102, 9148]
+    PU0:
+      photons: [170032, 170044]
+      electrons: [92243, 92244]
+      pions: [9102, 9148]
+    PU200:
+      photons: [62878, 55896]
 
 varEvents:
   gen:
@@ -53,6 +69,7 @@ varEvents:
     z: 'good_tc_z'
     phi: 'good_tc_phi'
     eta: 'good_tc_eta'
+    #idcl: 'good_tc_multicluster_id'
     pt: 'good_tc_pt'
     en: 'good_tc_mipPt'
     en_gev: 'good_tc_energy'
@@ -91,12 +108,16 @@ varGeometry:
     part: 'waferpart'
 
 3Ddisplay:
+  PU0:
+    photons: 'photons_0PU_cluster.hdf5'
+    electrons: 'electrons_0PU_cluster.hdf5'
+    pions: 'pions_0PU_cluster.hdf5'
+  PU200:
+    photons: 'photons_200PU_cluster.hdf5'
+    electrons: 'electrons_200PU_cluster.hdf5'
+    pions: 'pions_200PU_cluster.hdf5'
   reprocess: False
   coefs: [0.006,0.010,0.014,0.018,0.022,0.026,0.030]
-  photons: 'photons_0PU_cluster.hdf5' 
-  photons_PU: 'photons_200PU_cluster.hdf5' 
-  electrons: 'electrons_0PU_cluster.hdf5' 
-  pions: 'pions_0PU_cluster.hdf5'
 
 clusterStudies:
   localDir: /home/llr/cms/mchiusi/event_display/bye_splits/data/new_algos/
@@ -147,15 +168,15 @@ seed:
 
 cluster:
     ClusterInTC: 'fill'
-    ClusterInTCROI: 'roiall'
-    ClusterInTCROICylinder: 'roicylinder'
-    ROICylinder: False
+    ClusterInTCCS: 'csall'
+    ClusterInTCCSCylinder: 'cscylinder'
+    CSCylinder: False
     ClusterInSeeds: 'seed'
-    ClusterInSeedsROI: 'seed_roi'
+    ClusterInSeedsCS: 'seed_cs'
     ClusterOutPlot: 'cluster_plot'
     ClusterOutValidation: 'cluster_valid'
-    ClusterOutPlotROI: 'cluster_plot_roi'
-    ClusterOutValidationROI: 'cluster_valid_roi'
+    ClusterOutPlotCS: 'cluster_plot_cs'
+    ClusterOutValidationCS: 'cluster_valid_cs'
     CoeffA: [
     0.015, 0.015, 0.015, 0.015, 0.015, 0.015, 0.015,
     0.020, 0.020, 0.020, 0.020, 0.020, 0.020, 0.020,
@@ -176,18 +197,18 @@ valid:
   FillOutTcAll: 'fill_all'
 
 valid_cluster:
-  ClusterOutValidation: 'cluster_valid_roi'
-  ROIclOut: 'roi3d'
-  ROIgenOut: 'roigen'
-  ROItcOut: 'roiall'
-  ROIregionOut: 'roicylinder'
+  ClusterOutValidation: 'cluster_valid_cs'
+  CSclOut: 'cs3d'
+  CSgenOut: 'csgen'
+  CStcOut: 'csall'
+  CSregionOut: 'cscylinder'
   tcDeltaRthresh: [] #[0.1, 0.5]
 
-valid_seed_roi:
-  ROIclOut: 'roi3d'
-  ROIgenOut: 'roigen'
-  ROItcOut: 'roitc'
-  SeedOut: 'seed_roi'
+valid_seed_cs:
+  CSclOut: 'cs3d'
+  CSgenOut: 'csgen'
+  CStcOut: 'cstc'
+  SeedOut: 'seed_cs'
 
 valid_seed_default:
   SeedOut: 'seed'
@@ -202,16 +223,16 @@ optimization:
   OptCSVOut: 'stats'
   FillOutTcAll: 'fill_all'
 
-roi:
-  ROIclOut: 'roi3d'
-  ROIgenOut: 'roigen'
-  ROItcOut: 'roitc'
-  ROItcAllOut: 'roiall'
-  NoROItcOut: 'noroi'
-  ROIcylinderOut: 'roicylinder'
+cs:
+  CSclOut: 'cs3d'
+  CSgenOut: 'csgen'
+  CStcOut: 'cstc'
+  CStcAllOut: 'csall'
+  NoCStcOut: 'nocs'
+  CScylinderOut: 'cscylinder'
   
-seed_roi:
-  InputName: ROItcOut #NoROItcOut default is to consider the ROI
-  SeedOut: 'seed_roi'
+seed_cs:
+  InputName: CStcOut #NoCStcOut default is to consider the CS
+  SeedOut: 'seed_cs'
   histoThreshold: 20.
   hexDist: True

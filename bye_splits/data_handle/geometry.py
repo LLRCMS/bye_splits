@@ -13,7 +13,6 @@ import yaml
 import awkward as ak
 import uproot as up
 import pandas as pd
-pd.options.mode.chained_assignment = None
 import logging
 
 from utils import params, common
@@ -26,7 +25,7 @@ class GeometryData(BaseData):
     Uses the orientation #1 of bottom row of slide 4 in
     https://indico.cern.ch/event/1111846/contributions/4675223/attachments/2372915/4052852/PartialsRotation.pdf
     """
-    def __init__(self, reprocess=False, logger=None, is_tc=True):        
+    def __init__(self, reprocess=False, logger=None, is_tc=True, library='bokeh'):        
         super().__init__('geom', reprocess, logger, is_tc)
 
         self.indata = InputData()
@@ -36,6 +35,7 @@ class GeometryData(BaseData):
 
         self.dataset = None
         self.dname = 'tc'
+        self.library = library
         self.var = common.dot_dict(self.cfg['varGeometry'])
 
         self.readvars = self._readvars()
@@ -86,25 +86,26 @@ class GeometryData(BaseData):
         df.loc[:, 'tc_y'] = np.where(df['cloc']=='B', df['tc_y']+self.cellDistY/2, df['tc_y'])
         return df
 
-    def _display_cells(self, df, library):
+    def _display_cells(self, df):
         """Display silicon cells and scintillator tiles."""
         raise NotImplementedError()
     
-    def _display_trigger_cells(self, df, library):
+    def _display_trigger_cells(self, df):
         """
         Display silicon trigger cells (groups of cells) and
         scintillator trigger tiles (groups of tiles).
         """
         df_si = df[(df.subdet==1) | (df.subdet==2)]
-        df_si = self._display_silicon_tcs(df_si, library)
+        df_si = self._display_silicon_tcs(df_si)
 
         df_sci = df[(df.subdet==10)]
-        df_sci = self._display_scintillator_tcs(df_sci, library)
+        df_sci = self._display_scintillator_tcs(df_sci)
 
         return {'si': df_si, 'sci': df_sci}
 
-    def _display_silicon_tcs(self, df, library):
+    def _display_silicon_tcs(self, df):
         """Displays silicon trigger cells"""
+        pd.options.mode.chained_assignment = None
         df['wafer_shift_x'] = (-2*df[self.wu] + df[self.wv])*(self.waferWidth+self.sensorSeparation)/2
         df['wafer_shift_y'] = (self.c30*df[self.wv])*(self.waferWidth+self.sensorSeparation)
 
@@ -206,14 +207,15 @@ class GeometryData(BaseData):
             yaxis.update(
                 {kloc: pd.concat([y0[kloc],y1[kloc],y2[kloc],y3[kloc]],
                                  axis=1, keys=keys)})
-            if library == 'bokeh':
-                xaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
+            _round = 3
+            if self.library == 'bokeh':
+                xaxis[kloc]['new'] = [[[[round(val, _round) for val in sublst]]]
                                          for sublst in xaxis[kloc].values.tolist()]
-                yaxis[kloc]['new'] = [[[[round(val, 3) for val in sublst]]]
+                yaxis[kloc]['new'] = [[[[round(val, _round) for val in sublst]]]
                                          for sublst in yaxis[kloc].values.tolist()]
             else:
-                xaxis[kloc]['new'] = xaxis[kloc].round(3)[keys].values.tolist()
-                yaxis[kloc]['new'] = yaxis[kloc].round(3)[keys].values.tolist()
+                xaxis[kloc]['new'] = xaxis[kloc].round(_round)[keys].values.tolist()
+                yaxis[kloc]['new'] = yaxis[kloc].round(_round)[keys].values.tolist()
 
             xaxis[kloc] = xaxis[kloc].drop(keys, axis=1)
             yaxis[kloc] = yaxis[kloc].drop(keys, axis=1)
@@ -233,7 +235,7 @@ class GeometryData(BaseData):
 
         df['hex_x'] = df[xcorners_str].values.tolist()
         df['hex_y'] = df[ycorners_str].values.tolist()
-        if library == 'bokeh':
+        if self.library == 'bokeh':
             df['hex_x'] = df['hex_x'].map(lambda x: [[x]])
             df['hex_y'] = df['hex_y'].map(lambda x: [[x]])
 
@@ -241,9 +243,10 @@ class GeometryData(BaseData):
                   'cloc', 'wafer_shift_x', 'wafer_shift_y',
                   'triggercellieta', 'triggercelliphi', 'subdet']
         df = df.drop(xcorners_str + ycorners_str + remove, axis=1)
+        pd.options.mode.chained_assignment = 'warn'
         return df
 
-    def _display_scintillator_tcs(self, df, library):
+    def _display_scintillator_tcs(self, df):
         df = df.drop(['subdet', 'waferu', 'waferv', 'waferorient', 'waferpart',
                       'triggercellu', 'triggercellv'], axis=1)
         ops = ['max', 'min']
@@ -278,12 +281,15 @@ class GeometryData(BaseData):
         
         df = df.drop(['R', 'arc', 'phi', 'min_ieta', 'max_ieta'], axis=1)
 
-        if library == 'plotly':
-            df = self._display_sci_cartesian(df)
+        if self.library == 'plotly':
+            df = self._display_plotly_sci_cartesian(df)
+        # The tiles can be mapped onto the geometry dataframe using triggercellieta, 
+        # triggercelliphi, and the following variables
         df['waferu'] = -999.0
+        df['waferv'] = -999.0
         return df
         
-    def _display_sci_cartesian(self, df):
+    def _display_plotly_sci_cartesian(self, df):
         x0, y0 = self.cil2cart(df['rmin'], df['phimin'])
         x1, y1 = self.cil2cart(df['rmax'], df['phimin'])
         x2, y2 = self.cil2cart(df['rmax'], df['phimax'])
@@ -291,16 +297,16 @@ class GeometryData(BaseData):
 
         d = np.array([x0.values, x1.values, x2.values, x3.values,
                       y0.values, y1.values, y2.values, y3.values]).T
-        df_sci = pd.DataFrame(data=d, columns=['x1','x2','x3','x4','y1','y2','y3','y4'])
+        xcols, ycols = ['x1','x2','x3','x4'], ['y1','y2','y3','y4']
+        df_sci = pd.DataFrame(data=d, columns=xcols+ycols)
         df['diamond_y']= df_sci[['x1','x2','x3','x4']].values.tolist()
         df['diamond_x']= df_sci[['y1','y2','y3','y4']].values.tolist()
 
         return df.drop(columns=['rmin', 'rmax', 'phimin', 'phimax'])
    
     def cil2cart(self, r, phi):
-        x = r * np.cos(np.pi/2-phi)
-        y = r * np.sin(np.pi/2-phi)
-        return x,y
+        x, y = r*np.cos(np.pi/2-phi), r*np.sin(np.pi/2-phi)
+        return x, y
 
     def filter_columns(self, d):
         """Filter some columns to reduce memory usage"""
@@ -308,7 +314,7 @@ class GeometryData(BaseData):
         cols = [x for x in d.fields if x not in cols_to_remove]
         return d[cols]
 
-    def _parquet_to_geom(self, ds, section, region, lrange, library):
+    def _parquet_to_geom(self, ds, section, region, lrange):
         """
         Steps required for going from parquet format to full pandas geometry dataframe
         In principle all these steps could be done without using pandas,
@@ -316,35 +322,29 @@ class GeometryData(BaseData):
         """
         ds = ak.to_dataframe(ds)
         ds = self.region_selection(ds, section, region, lrange)
-        ds = self.prepare_for_display(ds, library)
+        ds = self.prepare_for_display(ds)
         return ds
 
-    def prepare_for_display(self, df, library):
+    def prepare_for_display(self, df):
         """Prepares dataframe to be displayed by certain libraries."""
-        if self.is_tc:
-            libraries = ('bokeh', 'plotly')
-            if library not in libraries:
-                raise NotImplementedError()
-            df = self._display_trigger_cells(df, library)
-        else:
-            libraries = ('bokeh', )
-            if library not in libraries:
-                raise NotImplementedError()
-            #df = self._display_cells(df, library)
+        libraries = ('bokeh', 'plotly')
+        if self.library not in libraries:
+            raise NotImplementedError(f"'{self.library}' library is not supported. Supported libraries: {', '.join(libraries)}")
+        if self.is_tc:  df = self._display_trigger_cells(df)
         return df
 
-    def provide(self, section=None, region=None, lrange=None, library='bokeh'):
+    def provide(self, section=None, region=None, lrange=None):
         """Provides a processed geometry dataframe to the client."""
         if not os.path.exists(self.outpath) or self.reprocess:
             if self.logger is not None:
                 self.logger.debug('Storing geometry data...')
-            self.store(section, region, lrange, library)
+            self.store(section, region, lrange)
 
         if self.dataset is None: # use cached dataset (currently will never happen)
             if self.logger is not None:
                 self.logger.debug('Retrieving geometry data...')
             ds = ak.from_parquet(self.outpath)
-            self.dataset = self._parquet_to_geom(ds, section, region, lrange, library)
+            self.dataset = self._parquet_to_geom(ds, section, region, lrange)
          
         return self.dataset
 
@@ -438,11 +438,11 @@ class GeometryData(BaseData):
 
         return data
 
-    def store(self, section, region, lrange, library):
+    def store(self, section, region, lrange):
         """Stores the data selection in a parquet file for quicker access."""
         ds = self.select()
         if os.path.exists(self.outpath):
             os.remove(self.outpath)
         ds = self.filter_columns(ds)
         ak.to_parquet(ds, self.outpath)
-        self.dataset = self._parquet_to_geom(ds, section, region, lrange, library)
+        self.dataset = self._parquet_to_geom(ds, section, region, lrange)

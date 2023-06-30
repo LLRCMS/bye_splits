@@ -56,7 +56,7 @@ def common_props(fig, title, legend=True):
 def get_folder_plots():
     with open(params.CfgPath, 'r') as afile:
         cfg = yaml.safe_load(afile)
-    if cfg['cluster']['ROICylinder']:
+    if cfg['cluster']['CSCylinder']:
         folder = 'CylinderOnly'
     else:
         folder = 'AllTCs'
@@ -87,7 +87,7 @@ def resolution_plotter(df, pars, user):
     bincenters = {x: np.round((bins[x][:-1]+bins[x][1:])/2,around[x]).astype(str)
                   for x in bins.keys()}
 
-    avars = ['clres', 'roiallres'] + ['roi' + str(t).replace('.','p') + 'res' for t in cfg['valid_cluster']['tcDeltaRthresh']]
+    avars = ['clres', 'csallres'] + ['cs' + str(t).replace('.','p') + 'res' for t in cfg['valid_cluster']['tcDeltaRthresh']]
     cuts = {x: pd.cut(df['gen'+x], bins[x], labels=bincenters[x], include_lowest=True) for x in bins.keys()}
     values = {x: df.groupby(cuts[x]).agg(['median', q1, q3, 'size'])[[k+'en' for k in avars]] for x in bins.keys()}
 
@@ -99,14 +99,14 @@ def resolution_plotter(df, pars, user):
     for bk in bins.keys():
         ibins = np.tile(cuts[bk].to_numpy(), len(avars)).astype(float)
         concat_list = [np.array(['Clusters' for _ in range(len(df['clresen']))]),
-                       np.array(['All TCs'  for _ in range(len(df['roiallresen']))])]
+                       np.array(['All TCs'  for _ in range(len(df['csallresen']))])]
         for it,t in enumerate(cfg['valid_cluster']['tcDeltaRthresh']):
             concat_list.append(np.array(['TCs (dR<{})'.format(t) for _ in range(len(df[avars[it+2]+'en']))]))
         group_ids = np.concatenate(concat_list, axis=None)
 
-        vals_list = [df['clresen'], df['roiallresen']]
+        vals_list = [df['clresen'], df['csallresen']]
         for it,t in enumerate(cfg['valid_cluster']['tcDeltaRthresh']):
-            vals_list.append(df['roi' + str(t).replace('.','p') + 'resen'])
+            vals_list.append(df['cs' + str(t).replace('.','p') + 'resen'])
         group_vals = pd.concat(vals_list)
         violins[bk] = hv.Violin((ibins.tolist(), group_ids, group_vals.to_numpy()), [bk, 'Group'])
         violins[bk] = violins[bk].opts(opts.Violin(height=400, width=1400,
@@ -123,9 +123,9 @@ def resolution_plotter(df, pars, user):
     colors = itertools.cycle(palette) # create a color iterator
 
     dvar = {'clres': ('Cluster Enenergy Resolution', 'Clusters', next(colors)),
-            'roiallres': ('TCs Energy Resolution', 'All TCs', next(colors))}
+            'csallres': ('TCs Energy Resolution', 'All TCs', next(colors))}
     for t in cfg['valid_cluster']['tcDeltaRthresh']:
-        dvar.update({'roi' + str(t).replace('.','p') + 'res':
+        dvar.update({'cs' + str(t).replace('.','p') + 'res':
                      ('TCs Energy Resolution', 'TCs (dR<{})'.format(t), next(colors))})
     assert len(dvar.keys()) == len(avars)
         
@@ -217,7 +217,7 @@ def seed_plotter(df, pars, user):
 
     # required to calculate the seeding efficiency
     df['has_seeds'] = (df.nseeds > 0).astype(int)
-    df['less_seeds'] = (df.nseeds < df.nrois).astype(int)
+    df['less_seeds'] = (df.nseeds < df.ncss).astype(int)
 
     nbeta, nbphi, nben = (10 for _ in range(3))
     bins = {'eta': np.linspace(df.geneta.min(), df.geneta.max(), nbeta+1),
@@ -230,7 +230,7 @@ def seed_plotter(df, pars, user):
     def q3(x):
         return x.quantile(0.84135)
 
-    avars = ['nseeds', 'nrois', 'has_seeds', 'less_seeds']
+    avars = ['nseeds', 'ncss', 'has_seeds', 'less_seeds']
     values = {x:df.groupby(pd.cut(df['gen'+x], bins[x])).agg(['median', 'mean', 'std', q1, q3, 'sum', 'size'])[avars]
               for x in bins.keys()}
     labels = {'eta': '\u03B7',
@@ -239,7 +239,7 @@ def seed_plotter(df, pars, user):
 
     fcounts, feff  = ({x:None for x in bins.keys()} for _ in range(2))
     dvar = {'nseeds': ('Number of seeds', '#seeds', 'blue'),
-            'nrois': ('Number of ROIs', '#ROIs', 'green')}
+            'ncss': ('Number of CSs', '#CSs', 'green')}
 
     # calculate shifts along the x axis to avoid superposition of the lines
     horiz_shift = {'en': 10., 'eta': 0.01, 'phi': 0.1}
@@ -250,7 +250,7 @@ def seed_plotter(df, pars, user):
     avars.remove('has_seeds')
     avars.remove('less_seeds')
 
-    # plot ROI and seed multiplicities
+    # plot CS and seed multiplicities
     for binvar in bins.keys():
         hshift = (bins[binvar][1]-bins[binvar][0])/2
         fcounts[binvar] = bokeh.plotting.figure(
@@ -293,7 +293,7 @@ def seed_plotter(df, pars, user):
 
             fcounts[binvar].xaxis.axis_label = labels[binvar]
             fcounts[binvar].yaxis.axis_label = 'Average'
-        common_props(fcounts[binvar], title="ROIs and Seeds multiplicities")
+        common_props(fcounts[binvar], title="CSs and Seeds multiplicities")
 
     # plot seeding efficiency
     for vvv in ('has_seeds', 'less_seeds'):
@@ -336,9 +336,9 @@ def seed_plotter(df, pars, user):
 
             feff[figname].xaxis.axis_label = labels[binvar]
             feff[figname].yaxis.axis_label = ('Seeding Efficiency' if vvv=='has_seeds'
-                                              else 'Fraction of events w/ #Seeds < #ROIs')
+                                              else 'Fraction of events w/ #Seeds < #CSs')
         common_props(feff[figname],
-                     title="Seeding Efficiency" if vvv=="has_seeds" else "#Seeds < #ROIs", legend=False)
+                     title="Seeding Efficiency" if vvv=="has_seeds" else "#Seeds < #CSs", legend=False)
             
     if pars.sel.startswith('above_eta_'):
         title_suf = ' (eta > ' + pars.selection.split('above_eta_')[1] + ')'
@@ -372,7 +372,7 @@ def distribution_plotter(df, pars, user):
     bokeh.io.output_file(out)
 
     allfigs = []
-    varpairs = (('cl', 'roi0p1'),  ('clres', 'roi0p1res'))
+    varpairs = (('cl', 'cs0p1'),  ('clres', 'cs0p1res'))
 
     nbeta, nbphi, nben = 200, 200, 30
     bins = {'eta': {'def': np.linspace(df.geneta.min(), df.geneta.max(), nbeta+1),
@@ -385,9 +385,9 @@ def distribution_plotter(df, pars, user):
     labels = {'eta': {'def': '\u03B7', 'res': '\u03B7 resolution'},
               'phi': {'def': '\u03C6', 'res': '\u03C6 resolution'},
               'en':  {'def': 'Energy [GeV]', 'res': r'$$E/E_{Gen}-1$$'}}
-    wshifts = {'eta': {'cl': 0.01, 'roi0p1': -0.01, 'clres': 0.002, 'roi0p1res': -0.002},
-               'phi': {'cl': 0.01, 'roi0p1': -0.1, 'clres': 0.002, 'roi0p1res': -0.002, },
-               'en':  {'cl': 10, 'roi0p1': -10, 'clres': 0.002, 'roi0p1res': -0.002}}
+    wshifts = {'eta': {'cl': 0.01, 'cs0p1': -0.01, 'clres': 0.002, 'cs0p1res': -0.002},
+               'phi': {'cl': 0.01, 'cs0p1': -0.1, 'clres': 0.002, 'cs0p1res': -0.002, },
+               'en':  {'cl': 10, 'cs0p1': -10, 'clres': 0.002, 'cs0p1res': -0.002}}
     dvar = {'eta': ('Eta distribution',),
             'phi': ('Phi distribution',),
             'en': ('Energy distribution',)}
@@ -396,7 +396,7 @@ def distribution_plotter(df, pars, user):
               'en':  {'def': (-2, 175), 'res': (-2, 120)}}
     
     for avars in varpairs:
-        vstr = 'def' if avars==('cl', 'roi') else 'res'
+        vstr = 'def' if avars==('cl', 'cs') else 'res'
         values = {x: {avars[0]: df.groupby(pd.cut(df[avars[0]+x], bins[x][vstr])).agg(['mean', 'std', 'size']),
                       avars[1]: df.groupby(pd.cut(df[avars[1]+x], bins[x][vstr])).agg(['mean', 'std', 'size'])}
                   for x in bins.keys()}
@@ -491,7 +491,7 @@ if __name__ == "__main__":
     ncols = 4
     with open(params.CfgPath, 'r') as afile:
         cfg = yaml.safe_load(afile)
-    window_u, window_v = cfg['seed_roi']['WindowUDim'], cfg['seed_roi']['WindowVDim']
+    window_u, window_v = cfg['seed_cs']['WindowUDim'], cfg['seed_cs']['WindowVDim']
     
     sep = " <b>|</b> "
     text = sep.join(('<b>Selection: </b>{}'.format(FLAGS.sel),

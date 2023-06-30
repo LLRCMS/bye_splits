@@ -91,7 +91,7 @@ def skim(tn, inf, outf, particle, nevents):
 
     # gen-related variables
     gen_intv = ["genpart_pid"]
-    gen_floatv = ["genpart_exphi", "genpart_exeta", "genpart_energy"]
+    gen_floatv = ["genpart_exphi", "genpart_exeta", "genpart_energy", "genpart_pt"]
     gen_floatv2 = []
     #gen_floatv2 = ["genpart_posx", "genpart_posy", "genpart_posz"]
     gen_v = gen_intv + gen_floatv + gen_floatv2

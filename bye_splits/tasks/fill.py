@@ -61,8 +61,8 @@ def fill(pars, df_gen, df_cl, df_tc, **kw):
                 continue
             
             keep_tc = ['tc_phi_bin', 'Rz_bin', 'tc_layer', 'tc_mipPt', 'tc_pt',
-                       'tc_wu', 'tc_wv', 'tc_cu', 'tc_cv',
-                       'tc_x', 'tc_y', 'tc_z', 'tc_eta', 'tc_phi', 'gen_eta', 'gen_phi']
+                       'tc_wu', 'tc_wv', 'tc_cu',  'tc_cv', 'tc_x', 'tc_y', 'tc_z',
+                       'tc_eta', 'tc_phi', 'gen_eta', 'gen_phi']
             ev_tc = ev_tc.filter(items=keep_tc)
             wght_f = lambda pos: ev_tc.tc_mipPt*pos/np.abs(ev_tc.tc_z)
             ev_tc['wght_x'] = wght_f(ev_tc.tc_x)
@@ -102,9 +102,9 @@ def fill(pars, df_gen, df_cl, df_tc, **kw):
             store[store_str].attrs['columns'] = cols_keep
             store[store_str].attrs['doc'] = 'R/z vs. Phi histo Info'
 
-            cols_keep = ['Rz_bin',  'tc_phi_bin', 'tc_layer', 'tc_mipPt', 'tc_pt',
-                         'tc_wu', 'tc_wv', 'tc_cu', 'tc_cv',
-                         'tc_x', 'tc_y', 'tc_z', 'tc_eta', 'tc_phi'] 
+            cols_keep = ['Rz_bin', 'tc_phi_bin', 'tc_layer', 'tc_mipPt', 
+                         'tc_pt', 'tc_wu', 'tc_wv', 'tc_cu',  'tc_cv',
+                         'tc_x',  'tc_y',  'tc_z',  'tc_eta', 'tc_phi'] 
             ev_tc = ev_tc[cols_keep]
             if ev_tc.empty:
                 continue

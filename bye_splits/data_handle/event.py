@@ -91,7 +91,6 @@ class EventData(BaseData):
     def _get_event_numbers(self):
         if not os.path.exists(self.outpath):
             self.store()
-        print(self.outpath)
         ds = ak.from_parquet(self.outpath)
         return ds.event.tolist()
 
@@ -158,9 +157,25 @@ class EventData(BaseData):
     def select(self):
         with up.open(self.indata.path, array_cache='550 MB', num_workers=8) as f:
             tree = f[self.indata.tree_path]
+            total_events = tree.num_entries
             allvars = set([y for x in self.var.values() for y in x.values()])
-            data = tree.arrays(filter_name='/' + '|'.join(allvars) + '/',
-                               entry_stop=6000, library='ak')
+
+            threshold_size_bytes = 1e+9 # 1 gigabyte
+            data = ak.Array([])
+            for array in tree.iterate(filter_name='/' + '|'.join(allvars) + '/', step_size='20 MB', library='ak'):
+                if (data.layout.nbytes + array.layout.nbytes) <= threshold_size_bytes:
+                    data = ak.concatenate([data, array], axis=0)
+                else:
+                    break
+            
+            threshold = 0.1
+            try:
+                if len(data) / total_events < threshold:
+                    print(f'[WARNING] Function select() in event.py\nThe number of events in the Parquet file is less than {threshold * 100}% compared to the events in the ROOT file.')
+            except ZeroDivisionError:
+                print("The input file is empty.")
+
+            #data = tree.arrays(filter_name='/' + '|'.join(allvars) + '/', entry_stop=5000, library='ak')
         # data[self.var.v] = data.waferv
         # data[self.newvar.vs] = -1 * data.waferv
         # data[self.newvar.c] = "#8a2be2"

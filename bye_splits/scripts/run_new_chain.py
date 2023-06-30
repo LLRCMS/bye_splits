@@ -1,6 +1,6 @@
 # coding: utf-8
 
-_all_ = [ "run_roi_chain" ]
+_all_ = [ "run_new_chain" ]
 
 import os
 import sys
@@ -12,40 +12,39 @@ import tasks
 import utils
 from utils import params, common, parsing
 import data_handle
-from data_handle.data_process import EventDataParticle, get_data_reco_chain_start
-from data_handle.geometry import GeometryData
+from data_handle.data_process import get_data_reco_chain_start
 import plot
 from plot import chain_plotter
 from tasks import validation
 
 import argparse
 
-def run_roi_chain(pars, user='bfontana'):
+def run_new_chain(pars, user='bfontana'):
     '''Run the backend stage 2 reconstruction chain for a single event.'''
     collector = validation.Collector()
     plotter = chain_plotter.ChainPlotter(chain_mode='cs', user=user,
                                          tag='NEV'+str(pars.nevents))
     df_gen, df_cl, df_tc = get_data_reco_chain_start(nevents=pars.nevents,
-                                                     reprocess=True, tag='cs_chain')
+                                                     reprocess=True, tag='new_chain')
 
     print('There are {} events in the input.'.format(df_gen.shape[0]))
 
-    if not pars.no_roi:
-        fill_d = params.read_task_params('roi')
-        tasks.roi.roi(pars, df_gen, df_cl, df_tc, **fill_d)
+    if not pars.no_cs:
+        fill_d = params.read_task_params('cs')
+        tasks.coarse_seeding.coarse_seeding(pars, df_gen, df_cl, df_tc, **fill_d)
 
     if not pars.no_seed:
-        seed_d = params.read_task_params('seed_roi')
-        tasks.seed_roi.seed_roi(pars, **seed_d)
+        seed_d = params.read_task_params('seed_cs')
+        tasks.seed_cs.seed_cs(pars, **seed_d)
 
     if not pars.no_valid_seed:
-        valid_d = params.read_task_params('valid_seed_roi')
+        valid_d = params.read_task_params('valid_seed_cs')
         stats_out_seed = collector.collect_seed(pars, chain_mode='cs', **valid_d)
         plotter.seed_plotter(stats_out_seed, pars)
 
     if not pars.no_cluster:
         cluster_d = params.read_task_params('cluster')
-        nevents_end = tasks.cluster.cluster_roi(pars, **cluster_d)
+        nevents_end = tasks.cluster.cluster_cs(pars, **cluster_d)
         print('There are {} events in the output.'.format(nevents_end))
 
     if not pars.no_valid_cluster:
@@ -61,16 +60,7 @@ def run_roi_chain(pars, user='bfontana'):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Full reconstruction chain.',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--no_roi',           action='store_true', help='do not run the roi finder step')
-    parser.add_argument('--no_seed',          action='store_true', help='do not run the seeding step')
-    parser.add_argument('--no_cluster',       action='store_true', help='do not run the clustering step')
-    parser.add_argument('--no_valid',         action='store_true', help='do not run any validation')
-    parser.add_argument('--no_valid_seed',    action='store_true', help='do not run ROI seed validation')
-    parser.add_argument('--no_valid_cluster', action='store_true', help='do not run ROI cluster validation')
-    parsing.add_parameters(parser)
-    FLAGS = parser.parse_args()
+    FLAGS = parsing.parser_new_chain()
     if FLAGS.no_valid:
         FLAGS.no_valid_seed = True
         FLAGS.no_valid_cluster = True
@@ -78,4 +68,4 @@ if __name__ == '__main__':
     assert (FLAGS.sel in ('splits_only', 'no_splits', 'all') or
             FLAGS.sel.startswith('above_eta_'))
 
-    run_roi_chain(common.dot_dict(vars(FLAGS)))
+    run_new_chain(common.dot_dict(vars(FLAGS)), user=FLAGS.user)

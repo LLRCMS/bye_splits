@@ -21,25 +21,25 @@ import utils
 from utils import params, common, parsing
 
 import tasks
-from tasks.seed_roi import dist
+from tasks.seed_cs import dist
 
-def add_centrals_info(roi_ev, centr):
+def add_centrals_info(cs_ev, centr):
     """
-    A negative number indicates a wafer that is not the cente rof any ROI in the event.
-    A positive number indicates a wafer that is the center of a ROI in the event.
+    A negative number indicates a wafer that is not the cente rof any CS in the event.
+    A positive number indicates a wafer that is the center of a CS in the event.
     Zero is not assigned.
     """
-    roi_ev['central_roi'] = 0
+    cs_ev['central_cs'] = 0
     for ic,c in enumerate(centr):
-        iscentral = (roi_ev.tc_wu==c[0]) & (roi_ev.tc_wv==c[1])
-        roi_ev.loc[iscentral, 'central_roi'] = ic+1
+        iscentral = (cs_ev.tc_wu==c[0]) & (cs_ev.tc_wv==c[1])
+        cs_ev.loc[iscentral, 'central_cs'] = ic+1
         
-    non_centrals = roi_ev[roi_ev.central_roi == 0]
+    non_centrals = cs_ev[cs_ev.central_cs == 0]
     non_centrals = non_centrals[['tc_wu', 'tc_wv']].drop_duplicates().to_numpy()
     for ip,pair in enumerate(non_centrals):
-        sel = (roi_ev.tc_wu==pair[0]) & (roi_ev.tc_wv==pair[1])
-        roi_ev.loc[sel, 'central_roi'] = -ip-1
-    return roi_ev
+        sel = (cs_ev.tc_wu==pair[0]) & (cs_ev.tc_wv==pair[1])
+        cs_ev.loc[sel, 'central_cs'] = -ip-1
+    return cs_ev
 
 def coord_transf(cu, wu, cv, wv):
     nside = 4
@@ -88,13 +88,13 @@ def dist(u1, v1, u2, v2):
     s2 = u2 - v2
     return (abs(u1-u2) + abs(v1-v2) + abs(s1-s2)) / 2
     
-def roi_event_loop(pars, **kw):
+def cs_event_loop(pars, **kw):
     in_tcs = common.fill_path(kw['SeedIn'], **pars)
     uv_vars = ['univ_u', 'univ_v', 'tc_cu', 'tc_cv', 'tc_wu', 'tc_wv']
     tabs = []
     
     ntabs = 18
-    if FLAGS.fullroi:
+    if FLAGS.fullcs:
         # randomly center on wafer (3,5)
         center = '35'
         allowed = (center, '36', '25' ,'24', '34', '45', '45', '46')
@@ -145,23 +145,23 @@ def roi_event_loop(pars, **kw):
 
         toy = toy.reset_index()[toy.columns]
         toy = calc_universal_coordinates(toy, varu=uv_vars[0], varv=uv_vars[1])
-        lay = create_roi_tab(toy)
-        panel = bmd.TabPanel(child=lay, title='Full ROI')
-        plot_all_rois([panel], 'uv_to_square_fullroi.html')
+        lay = create_cs_tab(toy)
+        panel = bmd.TabPanel(child=lay, title='Full CS')
+        plot_all_css([panel], 'uv_to_square_fullcs.html')
         
     else:
-        store_roi = pd.HDFStore(in_tcs, mode='r')
-        unev = [x for x in store_roi.keys() if 'central' not in x]
+        store_cs = pd.HDFStore(in_tcs, mode='r')
+        unev = [x for x in store_cs.keys() if 'central' not in x]
         inspect_events = ('165405',)
         for key in unev:
-            roi_ev = store_roi[key]
-            roi_uvcentrals = store_roi[key + 'central'].to_numpy()
+            cs_ev = store_cs[key]
+            cs_uvcentrals = store_cs[key + 'central'].to_numpy()
             
-            roi_ev = calc_universal_coordinates(roi_ev, varu=uv_vars[0], varv=uv_vars[1])
-            roi_ev = roi_ev.groupby(by=uv_vars).sum()[['tc_mipPt', 'tc_energy']].reset_index()
-            roi_ev = add_centrals_info(roi_ev, roi_uvcentrals)
+            cs_ev = calc_universal_coordinates(cs_ev, varu=uv_vars[0], varv=uv_vars[1])
+            cs_ev = cs_ev.groupby(by=uv_vars).sum()[['tc_mipPt', 'tc_energy']].reset_index()
+            cs_ev = add_centrals_info(cs_ev, cs_uvcentrals)
 
-            lay = create_roi_tab(roi_ev)
+            lay = create_cs_tab(cs_ev)
             tab_title = re.findall('.*_([0-9]{1,7})_.*', key)[0]
             panel = bmd.TabPanel(child=lay, title=tab_title)
             if len(tabs) < ntabs or any([x in key for x in inspect_events]):
@@ -173,9 +173,9 @@ def roi_event_loop(pars, **kw):
             if len(tabs) > ntabs and inspected:
                 break
             
-        store_roi.close()
+        store_cs.close()
         
-        plot_all_rois(tabs, 'uv_to_square.html')
+        plot_all_css(tabs, 'uv_to_square.html')
 
 def source_maxmin(src, varu, varv):
     # find dataset minima and maxima
@@ -208,13 +208,13 @@ def add_bokeh_coord_convention(df, varu, varv):
     df['q_bokeh'] = df[varv]
     return df
 
-def create_roi_tab(df):
+def create_cs_tab(df):
     width, height = 800, 800
     title = r''
     basic_tools = 'pan,save,reset,undo,box_select'
 
     df = add_bokeh_coord_convention(df, 'univ_u', 'univ_v')
-    if not FLAGS.fullroi:
+    if not FLAGS.fullcs:
         mypalette = _palette(50)
         mapper = bmd.LinearColorMapper(palette=mypalette,
                                        low=df.tc_mipPt.min(), high=df.tc_mipPt.max())
@@ -231,7 +231,7 @@ def create_roi_tab(df):
 
     xmin, xmax, ymin, ymax = source_maxmin(source, 'univ_u', 'univ_v')
     p_uv = figure(width=width, height=height,
-                  title='ROI TCs u/v coordinates',
+                  title='CS TCs u/v coordinates',
                   tools=basic_tools, toolbar_location='right',
                   output_backend='webgl',
                   x_range=bmd.Range1d(xmin, xmax),
@@ -244,17 +244,17 @@ def create_roi_tab(df):
     uv_r = p_uv.hex_tile(q='q_bokeh', r='r_bokeh', orientation='flattop',
                          source=source,
                          size=hexsize,
-                         fill_color=('colors' if FLAGS.fullroi
+                         fill_color=('colors' if FLAGS.fullcs
                                      else {'field': 'tc_mipPt', 'transform': mapper}),
                          line_color='black',
                          line_width=3, alpha=1., **hover_opt)
-    if not FLAGS.fullroi:
+    if not FLAGS.fullcs:
         p_uv.add_layout(cbar, 'right')
 
-    if FLAGS.fullroi:
+    if FLAGS.fullcs:
         hvr_tt = [('cu,cv/wu,wv', '@tc_cu,@tc_cv/@tc_wu,@tc_wv')]
     else:
-        hvr_tt = [('mipPt [mipPt] / energy [GeV] / ROI id', '@tc_mipPt / @tc_energy / @central_roi')]
+        hvr_tt = [('mipPt [mipPt] / energy [GeV] / CS id', '@tc_mipPt / @tc_energy / @central_cs')]
     p_uv.add_tools(bmd.WheelZoomTool(),
                    bmd.HoverTool(tooltips=hvr_tt, renderers=[uv_r]))
 
@@ -263,10 +263,10 @@ def create_roi_tab(df):
     p_uv.text(hexx, hexy,
               text=['{},{}'.format(q,r) for (q, r) in zip(hexcu, hexcv)],
               text_baseline='middle', text_align='center',
-              text_font_size='8pt' if FLAGS.fullroi else '10pt')
+              text_font_size='8pt' if FLAGS.fullcs else '10pt')
 
     p_xy = figure(width=width, height=height,
-                  title='ROI TCs transfer to a square grid',
+                  title='CS TCs transfer to a square grid',
                   tools=basic_tools, toolbar_location='right',
                   output_backend='webgl',
                   x_range=bmd.Range1d(xmin, xmax),
@@ -275,16 +275,16 @@ def create_roi_tab(df):
     xy_r = p_xy.rect(x='univ_u', y='univ_v', source=source,
                      width=1., height=1.,
                      width_units='data', height_units='data',
-                     fill_color=('colors' if FLAGS.fullroi
+                     fill_color=('colors' if FLAGS.fullcs
                                  else {'field': 'tc_mipPt', 'transform': mapper}),
                      line_color='black', line_width=3,
                      **hover_opt)
-    if not FLAGS.fullroi:
+    if not FLAGS.fullcs:
         p_xy.add_layout(cbar, 'right')
     p_xy.text(hexcu, hexcv,
               text=['{},{}'.format(q,r) for (q, r) in zip(hexcu, hexcv)],
               text_baseline='middle', text_align='center',
-              text_font_size='9pt' if FLAGS.fullroi else '11pt')
+              text_font_size='9pt' if FLAGS.fullcs else '11pt')
     p_xy.add_tools(bmd.WheelZoomTool(),
                    bmd.HoverTool(tooltips=hvr_tt, renderers=[xy_r]))
     
@@ -292,18 +292,18 @@ def create_roi_tab(df):
     
     return layout([[p_uv, p_xy], [table]])
 
-def plot_all_rois(tabs, out):
-    adir = '/eos/user/b/bfontana/www/L1/SeedROIStudies/'
+def plot_all_css(tabs, out):
+    adir = '/eos/user/b/bfontana/www/L1/SeedCSStudies/'
     output_file(os.path.join(adir, out))
     save(bmd.Tabs(tabs=tabs))
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='Study ROI UV/grid distributions')
-    parser.add_argument('--fullroi', action='store_true',
+    parser = argparse.ArgumentParser(description='Study CS UV/grid distributions')
+    parser.add_argument('--fullcs', action='store_true',
                         help='display an toy full region of interest')
     parsing.add_parameters(parser) 
     FLAGS = parser.parse_args()
  
-    seed_d = params.read_task_params('seed_roi')
-    roi_event_loop(vars(FLAGS), **seed_d)
+    seed_d = params.read_task_params('seed_cs')
+    cs_event_loop(vars(FLAGS), **seed_d)

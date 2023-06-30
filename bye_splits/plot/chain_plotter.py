@@ -163,29 +163,29 @@ class ChainPlotter:
 
     def seed_plotter(self, df, pars):
         self.df_seed = df
-        self._output('seed_'+self.tag, pars, folder='SeedROIStudies')
+        self._output('seed_'+self.tag, pars, folder='SeedCSStudies')
      
         # required to calculate the seeding efficiency
         if self.mode == 'both':
-            for suf in ('_def', '_roi'):
+            for suf in ('_def', '_cs'):
                 nans  = df['nseeds'+suf].isna() #NaN's cannot be converted to a boolean!
                 df['has_seeds'+suf]  = (df['nseeds'+suf] > 0).astype(int)
                 df['has_seeds'+suf][nans] = np.nan
-                df['less_seeds'+suf] = (df['nseeds'+suf] < df['nrois'+suf]).astype(int)
+                df['less_seeds'+suf] = (df['nseeds'+suf] < df['ncss'+suf]).astype(int)
                 df['less_seeds'+suf][nans] = np.nan
         else:
             df['has_seeds'] = (df.nseeds > 0).astype(int)
-            df['less_seeds'] = (df.nseeds < df.nrois).astype(int)
+            df['less_seeds'] = (df.nseeds < df.ncss).astype(int)
      
         _, bins = self._get_bins(df)
 
         if self.mode == 'both':
             avars = []
-            for suf in ('_def', '_roi'):
-                avars.extend(['nseeds' + suf, 'nrois' + suf, 'has_seeds' + suf, 'less_seeds' + suf])
+            for suf in ('_def', '_cs'):
+                avars.extend(['nseeds' + suf, 'ncss' + suf, 'has_seeds' + suf, 'less_seeds' + suf])
                 #avars.extend(['nseeds' + suf, 'has_seeds' + suf, 'less_seeds' + suf])
         else:
-            avars = ['nseeds', 'nrois', 'has_seeds', 'less_seeds']
+            avars = ['nseeds', 'ncss', 'has_seeds', 'less_seeds']
         aggr_quantities = ['median', 'mean', 'std', self._q1, self._q3, 'sum', 'size', self._nanlen]
         values = {x: df.groupby(pd.cut(df['gen'+x], bins[x]))
                   .agg(aggr_quantities)
@@ -195,27 +195,27 @@ class ChainPlotter:
 
         if self.mode == 'both':
             leglab = {}
-            _leglab = {'_def': 'R/z,'+self.uc['phi'], '_roi': 'CS'}
+            _leglab = {'_def': 'R/z,'+self.uc['phi'], '_cs': 'CS'}
             for suf in _leglab.keys():
                 leglab.update({'nseeds'+suf:    '#seeds ('+_leglab[suf]+')',
-                               'nrois' +suf:    '#CS regions ('+_leglab[suf]+')',
+                               'ncss' +suf:    '#CS regions ('+_leglab[suf]+')',
                                'has_seeds'+suf:  _leglab[suf],
                                'less_seeds'+suf: _leglab[suf],
                                })
         else:
-            leglab = {'nseeds': '#seeds', 'nrois':  '#CS regions'}
+            leglab = {'nseeds': '#seeds', 'ncss':  '#CS regions'}
      
         # efficiencies need a separate treatment
         if self.mode == 'both':
-            for suf in ('_def', '_roi'):
+            for suf in ('_def', '_cs'):
                 avars.remove('has_seeds'+suf)
                 avars.remove('less_seeds'+suf)
         else:
             avars.remove('has_seeds')
             avars.remove('less_seeds')
      
-        # plot ROI and seed multiplicities
-        average_numbers_y_range = (0.98,1.25) if self.cfg['seed_roi']=='NoROItcOut' else (0.98,1.5)
+        # plot CS and seed multiplicities
+        average_numbers_y_range = (0.98,1.25) if self.cfg['seed_cs']=='NoCStcOut' else (0.98,1.5)
         for binvar in bins.keys():
             hshift = (bins[binvar][1]-bins[binvar][0])/2
             fcounts[binvar] = bokeh.plotting.figure(
@@ -226,7 +226,7 @@ class ChainPlotter:
             )
      
             for ivar,avar in enumerate(avars):
-                # skip plotting number of ROIs for the default chain
+                # skip plotting number of CSs for the default chain
                 bincenters = (bins[binvar][:-1]+bins[binvar][1:])/2
                 opt = dict(x=bincenters+self._x_shift(ivar,binvar,len(avars)),
                            legend_label=leglab[avar], color=self.palette[ivar])
@@ -258,27 +258,27 @@ class ChainPlotter:
                 fcounts[binvar].add_layout(quant)
      
                 fcounts[binvar].xaxis.axis_label = self.info[binvar]['label_2d']
-                fcounts[binvar].yaxis.axis_label = 'Average of the number of seeds and ROIs'
-            self._set_fig_common_attributes(fcounts[binvar], title="ROIs and Seeds multiplicities",
+                fcounts[binvar].yaxis.axis_label = 'Average of the number of seeds and CSs'
+            self._set_fig_common_attributes(fcounts[binvar], title="CSs and Seeds multiplicities",
                                             location='top_right')
      
         # plot seeding efficiency
         for ivar,vvv in enumerate(('has_seeds', 'less_seeds')):
-            roi_waste_y_range = ((0.8,1.2) if 'has_seeds' in vvv else (-0.02,0.2)
-                                 if self.cfg['seed_roi']['InputName']=='NoROItcOut' else (-0.02,0.35))
+            cs_waste_y_range = ((0.8,1.2) if 'has_seeds' in vvv else (-0.02,0.2)
+                                 if self.cfg['seed_cs']['InputName']=='NoCStcOut' else (-0.02,0.35))
             for binvar in bins.keys():
                 figname = binvar + '_' + vvv
                 hshift = (bins[binvar][1]-bins[binvar][0])/2
                 feff[figname] = bokeh.plotting.figure(
                     width=600, height=self.fig_height, title='', tools=self.fig_tools,
                     x_range=(bins[binvar][0], bins[binvar][-1]+hshift),
-                    y_range=roi_waste_y_range,
+                    y_range=cs_waste_y_range,
                     y_axis_type='linear'
                 )
          
                 bincenters = (bins[binvar][:-1]+bins[binvar][1:])/2
 
-                for isuf,suf in enumerate(('_def', '_roi')):
+                for isuf,suf in enumerate(('_def', '_cs')):
                     if self.mode != 'both': #handle the single chain case
                         if isuf>0:
                             break
