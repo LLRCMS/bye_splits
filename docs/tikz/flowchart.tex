@@ -29,6 +29,9 @@
   % Green box
   mygreenbox1/.style={rectangle, draw=black, fill=green!40, rounded corners,
     minimum width=\minhdist, minimum height=0.5\minvdist},
+  % Pale green box
+  mypalegreenbox1/.style={rectangle, draw=black, fill=green!10, rounded corners,
+    inner sep=2pt, dashed, minimum width=\minhdist, minimum height=0.5\minvdist},
   % Dashed box 1
   mydashbox1/.style={rectangle, draw=black, fill=gray!10, inner sep=3pt, dotted,
     minimum width=4.6\minhdist, minimum height=1.7\minvdist},
@@ -37,6 +40,7 @@
     minimum width=1.2\minhdist, minimum height=3.5\minvdist},
   % Arrows
   myarrow/.style={line width=\mylinewidth,->,>=stealth},
+  myarrowdashed/.style={line width=\mylinewidth,->,>=stealth, dashed},
   myarrow2/.style={line width=\mylinewidth,->,stealth-stealth},
   myarrowbend/.style={line width=\mylinewidth,-{>[flex=0.9]},>=stealth},
   bigarrow/.style={line width=1.5cm, arrows={-Triangle Cap[line width=1cm]}, draw=gray!75},
@@ -89,15 +93,15 @@
   \coordinate (skim_c)     at (COORD\nrows_6);
   \coordinate (eparquet_c) at (COORD\nrows_9);
   \coordinate (ecache_c)   at (COORD\nrows_11);
-  \coordinate (chain_c)    at (COORD\nrows_\ncols);
-  \coordinate (future_c)   at ($ (chain_c) - (0,2.5) $);
+  \coordinate (chains_c)   at (COORD\nrows_\ncols);
+  \coordinate (future_c)   at ($ (chains_c) - (0,2.5) $);
   
   \coordinate (gntuple_c)    at (COORD1_1);
   \coordinate (gparquet_c)   at (COORD1_9);
   \coordinate (gdisplay2d_c) at (COORD3_\ncols);
   \coordinate (gdisplay3d_c) at (COORD1_\ncols);
 
-  \coordinate (request_c) at (COORD\nrowsmid_9);
+  \coordinate (init_c) at (COORD\nrowsmid_9);
 
   \coordinate (gproc_c) at ($ (COORD1_5) - (0,0) $);
   \coordinate (eproc_c) at ($ (COORD\nrows_5) + (0,0.) $);
@@ -117,13 +121,13 @@
   
   % Client
   \node (client) [mydashbox2] at (client_c) {};
-  \node[align=left, thick] at ($ (client) - (-2.5,5.5) $) {\huge \textbf{``Client''}};
+  \node[align=left, thick] at ($ (client) - (-3.0,5.7) $) {\huge \textbf{Client}};
 
   % Event ntuples
   \foreach \i in {1,...,-1}{
     \ifnum\i=-1
     \node (entuple\i) [myredbox1] at ($ (entuple_c) + (\i/2,\i/2) $)
-    {\huge \twolines{Events}{Ntuples}};
+    {\huge \twolines{Events Ntuples}{(from CMSSW)}};
     \else
     \node (entuple\i) [myredbox1] at ($ (entuple_c) + (\i/2,\i/2) $)
     {};
@@ -148,13 +152,13 @@
   \node (ecache) [mybluebox2] at (ecache_c) {\huge \twolines{Events}{cache}};
 
   % Geometry
-  \node (gntuple) [myredbox1] at (gntuple_c) {\huge \textbf{Geometry}};
+  \node (gntuple) [myredbox1] at (gntuple_c) {\huge \textbf{HGCAL Geometry}};
 
   % Geometry parquet
   \node (gparquet) [mybluebox2] at (gparquet_c) {\huge \twolines{Geometry}{\textit{.parquet}}};
 
-  % Request
-  \node (request) [mydiam] at (request_c) {\huge \textbf{Request}};
+  % Initialization
+  \node (init) [mydiam] at (init_c) {\huge \textbf{Initialize}};
 
   % Event display 2D
   \node (gdisplay2d) [mygreenbox1] at (gdisplay2d_c) {\huge \textbf{Event Display 2D}};
@@ -162,16 +166,24 @@
   % Event display 3D
   \node (gdisplay3d) [mygreenbox1] at (gdisplay3d_c) {\huge \textbf{Event Display 3D}};
 
-  % Reco Chain
-  \node (chain) [mygreenbox1] at (chain_c) {\huge \textbf{Reco Chain}};
-
-  % ...
+  % Reco Chains
   \foreach \i in {1,...,-1}{
     \ifnum\i=-1
-    \node (future) [mygreenbox1] at ($ (future_c) + (\i/6.,\i/6.) $)
-    {\huge \textbf{Future...}};
+      \node (chains) [mygreenbox1] at ($ (chains_c) + (\i/6,\i/6) $)
+      {\huge \textbf{Reco Chains}};
     \else
-    \node (future) [mygreenbox1] at ($ (future_c) + (\i/6,\i/6) $)
+      \node (future) [mygreenbox1] at ($ (chains_c) + (\i/6,\i/6) $)
+      {};
+    \fi
+  }
+  
+  % Future...
+  \foreach \i in {1,...,-1}{
+    \ifnum\i=-1
+    \node (future) [mypalegreenbox1] at ($ (future_c) + (\i/6.,\i/6.) $)
+    {\huge \textbf{Future algos...}};
+    \else
+    \node (future) [mypalegreenbox1] at ($ (future_c) + (\i/6,\i/6) $)
     {};
     \fi
   }
@@ -200,8 +212,8 @@
   node[black,yshift=1.2\unit]{\huge \textbf{reprocess?}}  (eparquet.north);
   \draw [myarrow2] (eparquet.north) to[bend left=\mybend]
   node[black,yshift=1.2\unit]{\huge \textbf{no event?}} (ecache.north);
-  \draw [myarrow] (ecache.east) to [bend left=10] (chain.west);
-  \draw [myarrow] (ecache.east) to [bend left=-20] (future.west);
+  \draw [myarrow] (ecache.east) to [bend left=10] (chains.west);
+  \draw [myarrowdashed] (ecache.east) to [bend left=-20] (future.west);
   \draw [myarrow2] ($ (ecache.south) - (.5,0) $) to [bend left=-20] ($ (gdisplay2d.west) + (0,.25) $);
   \draw [myarrow2] ($ (ecache.south) + (.5,0) $) to [bend left=-30] ($ (gdisplay3d.west) + (0,.25) $);
   
@@ -210,14 +222,14 @@
   \draw [myarrow] (gparquet.east) to [bend left=10] ($ (gdisplay2d.west) - (0,.25) $);
   \draw [myarrow] (gparquet.east) to [bend left=10] ($ (gdisplay3d.west) - (0,.25) $);
 
-  % Request arrows
-  \draw [myarrow] (request.north) -- (eparquet.south);
-  \draw [myarrow] (request.south) -- (gparquet.north);
-  \draw [myarrowbend] ($ (request.west) + (.5,.5) $) arc (30:330:1cm);
+  % Init arrows
+  \draw [myarrow] (init.north) -- (eparquet.south);
+  \draw [myarrow] (init.south) -- (gparquet.north);
+  % \draw [myarrowbend] ($ (init.west) + (.5,.5) $) arc (30:330:1cm);
 
   % Reconstruction chain arrows
-  \draw [myarrow] (chain.east) to [bend left=50] (gdisplay2d.east);
-  \draw [myarrow] (chain.east) to [bend left=50] (gdisplay3d.east);  
+  \draw [myarrow] (chains.east) to [bend left=50] (gdisplay2d.east);
+  \draw [myarrow] (chains.east) to [bend left=50] (gdisplay3d.east);  
 
   \foreach \i in {1,...,\nrows}{
     \foreach \j in {1,...,\ncols}{
