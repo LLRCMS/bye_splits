@@ -39,14 +39,41 @@ def common_props(p):
     p.toolbar.logo = None
     p.grid.visible = False
     p.outline_line_color = None
-    p.xaxis.visible = False
-    p.yaxis.visible = False
+    
+    # grid
+    for g in ('xgrid', 'ygrid'):
+        grid = getattr(p, g)
+        grid.visible = False
+        grid.grid_line_color = "black"
+        grid.grid_line_alpha = 0.25
+        grid.grid_line_width = 0.6
+        grid.band_fill_color = "white"
+
+    # axis
+    for ax in ('xaxis', 'yaxis'):
+        axis = getattr(p, ax)
+        axis.visible = True
+        axis.axis_label_text_font_size = "20px"
+        axis.axis_label_text_font_style = "normal"
+        axis.major_label_text_font_size = "18px"
+        axis.major_label_text_font_style = "normal"
+        axis.axis_line_width = 1
+        axis.major_tick_line_width = 2.
+        axis.minor_tick_line_width = 1.5
+        axis.major_label_text_align = "center"
+        axis.axis_label_text_color = "black"
+        #axis.axis_label_text_outline_color = "black"
+        axis.major_label_text_color = "black"
+        #axis.major_label_text_outline_color = "black"
+        axis.axis_line_color = "black"
+        axis.major_tick_line_color = "black"
+
 
 with open(params.CfgPath, 'r') as afile:
     cfg = yaml.safe_load(afile)
 
 data_part_opt = dict(tag='mytag', reprocess=True, debug=True, logger=log)
-myparticles = ('photons',)
+myparticles = ('photons', 'pions')
 data_particle = {x: EventDataParticle(particles=x, **data_part_opt) for x in myparticles}
 geom_data = GeometryData(reprocess=False, logger=log)
 mode = 'ev'
@@ -253,13 +280,33 @@ def en_max_min(si, sci):
     enmax = max(simax, scimax)
     enmin = min(simin, scimin)
     return enmax, enmin
-            
+
+def create_bokeh_datatable(sources, width, height):
+    col_names = {'waferu'       : 'Wafer U',
+                 'waferv'       : 'Wafer V',
+                 'triggercellu' : 'Trigger Cell U',
+                 'triggercellv' : 'Trigger Cell V',
+                 'layer'        : 'Layer',
+                 'tc_mipPt'     : 'Energy [mipPt]'}
+
+    template_ints="""<b><div><%= (value).toFixed(0) %></div></b>"""
+    template_floats="""<b><div><%= (value).toFixed(3) %></div></b>"""
+    fi = bmd.HTMLTemplateFormatter(template=template_ints)
+    ff = bmd.HTMLTemplateFormatter(template=template_floats)
+    cols = [bmd.TableColumn(field=x, title=col_names[x], formatter=fi)
+            for x in ['waferu', 'waferv', 'triggercellu', 'triggercellv', 'layer']]
+    cols.extend([bmd.TableColumn(field='tc_mipPt', title=col_names['tc_mipPt'],
+                                 formatter=ff)])
+    table_opt = dict(width=int(0.7*width), height=int(0.6*height), source=sources['si'])
+    table = bmd.DataTable(columns=cols, **table_opt)
+    return table
+
 def display():
     doc = curdoc()
     doc.title = 'HGCal Visualization'
     
-    width, height   = 800, 800
-    width2, height2 = 300, 200
+    width, height   = 1000, 800
+    width2, height2 = 400, 200
     ven, vl = 'tc_mipPt', 'layer'
     
     if mode == 'ev':
@@ -327,9 +374,9 @@ def display():
                            #active_drag='box_zoom'
                            )
             border = 18
-            #p_tc = figure(x_range=bmd.Range1d(cur_xmin-border, cur_xmax+border),
-            #              y_range=bmd.Range1d(cur_ymin-border, cur_ymax+border), **fig_opt)
-            p_tc = figure(match_aspect=True, **fig_opt)
+            p_tc = figure(x_range=bmd.Range1d(cur_xmin-border, cur_xmax+border),
+                         y_range=bmd.Range1d(cur_ymin-border, cur_ymax+border), **fig_opt)
+            # p_tc = figure(match_aspect=True, **fig_opt)
 
             # p_mods.add_tools(*tool_list)
             common_props(p_tc)
@@ -359,13 +406,17 @@ def display():
                            '@{} (@triggercelliphi,@triggercellieta)'.format(ven))]
             hvr_si = bmd.HoverTool(tooltips=hvr_tt_si, renderers=[r_si])
             hvr_sci = bmd.HoverTool(tooltips=hvr_tt_sci, renderers=[r_sci])
+
             tool_list = (bmd.WheelZoomTool(), bmd.BoxZoomTool(match_aspect=True),)
-            #tool_list = ()
             p_tc.add_tools(hvr_si, hvr_sci, *tool_list)
 
             cbar_opt = dict(ticker=bmd.BasicTicker(desired_num_ticks=int(len(mypalette)/4)),
                             formatter=bmd.PrintfTickFormatter(format="%d"))
             cbar_diams = bmd.ColorBar(color_mapper=mapper_diams, title='TC energy [mipPt]', **cbar_opt)
+            cbar_diams.title_text_font_size  = "25px"
+            cbar_diams.title_text_font_style = "normal"
+            cbar_diams.major_label_text_font_size  = "18px"
+            cbar_diams.major_label_text_font_style = "normal"
 
             p_tc.add_layout(cbar_diams, 'right')
             # p_tc.x_range.callback = bmd.CustomJS(args=dict(xrange=myplot.x_range), code="""
@@ -387,7 +438,7 @@ def display():
                                 value=gsource[keymax].data[vl].min(), step=1, title='Layer', **sld_opt)
         sld_layers_cb = bmd.CustomJS(args=dict(s1=gsource['si'], s2=gsource['sci']),
                                      code="""s1.change.emit(); s2.change.emit();""")
-        sld_layers.js_on_change('value_throttled', sld_layers_cb)
+        sld_layers.js_on_change('value', sld_layers_cb)
         
         filt_layers = bmd.CustomJSFilter(args=dict(slider=sld_layers), code="""
            var indices = new Array(source.get_length());
@@ -407,16 +458,6 @@ def display():
         #view_modules = (~cds[ksrc].duplicated(subset=[vl, 'waferu', 'waferv'])).tolist()
         #view_modules = bmd.CDSView(filter=filt_layers & bmd.BooleanFilter(view_modules))
         view_modules = bmd.CDSView(filter=filt_layers)
-
-        ####### (u,v) plots ################################################################
-        # p_uv = figure(width=width, height=height,
-        #               tools='save,reset', toolbar_location='right')
-        # p_uv.add_tools(bmd.WheelZoomTool(),
-        #                bmd.BoxZoomTool(match_aspect=True))
-        # common_props(p_uv, xlim=(-20,20), ylim=(-20,20))
-        # p_uv.hex_tile(q=variables['tcwu'], r=variables['tcwv'], source=vsrc, view=view,
-        #               size=1, fill_color='color', line_color='black', line_width=1, alpha=1.)    
-        # p_uv.add_tools(bmd.HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),]))
 
         xmin, xmax, ymin, ymax = source_maxmin(gsource)
 
@@ -447,56 +488,22 @@ def display():
                                    start_angle_units='rad', end_angle_units='rad',
                                    source=gsource['sci'], view=view_sci,
                                    color='red', **polyg_opt)
-        # r_xy = p_tc.circle(x='x', y='y', source=gsource['sci'], view=view_sci,
-        #                    size=2., color='blue', legend_label='true')
 
         hvr_tt_si = [('cu,cv / wu,wv',
                       '@triggercellu,@triggercellv / @waferu,@waferv')]
         hvr_tt_sci = [('iphi,ieta',
                        '@triggercelliphi,@triggercellieta')]
-        # hvr_tt_xy = [('iphi,ieta',
-        #               '@triggercelliphi,@triggercellieta')]
+
         hvr_si = bmd.HoverTool(tooltips=hvr_tt_si, renderers=[r_si])
         hvr_sci = bmd.HoverTool(tooltips=hvr_tt_sci, renderers=[r_sci])
-        # hvr_xy = bmd.HoverTool(tooltips=hvr_tt_xy, renderers=[r_xy])
+
         tool_list = (bmd.WheelZoomTool(), bmd.BoxZoomTool(match_aspect=True))
         p_tc.add_tools(hvr_si, hvr_sci, *tool_list)
 
-        # p_tc.circle(x='tc_x', y='tc_y', source=gsource['si'], view=view_si,
-        #             size=5, color='blue', legend_label='u,v conversion')
         p_tc.circle(x='x', y='y', source=gsource['si'], view=view_si,
                     size=5, color='orange')
         # p_tc.legend.click_policy='hide'
-                        
-        ####### (x,y) plots ################################################################
-        # p_xy = figure(width=width, height=height,
-        #             tools='save,reset', toolbar_location='right',
-        #             output_backend='webgl')
-        # p_xy.add_tools(bmd.WheelZoomTool(), bmd.BoxZoomTool(match_aspect=True))
-        # p_xy.add_tools(bmd.HoverTool(tooltips=[('u/v', '@'+variables['tcwu']+'/'+'@'+variables['tcwv']),],))       
-        # common_props(p_xy, xlim=(-13,13), ylim=(-13,13))
-        # p_xy.rect(x=variables['tcwu'], y=variables['tcwv'], source=vsrc, view=view,
-        #           width=1., height=1., width_units='data', height_units='data',
-        #           fill_color='color', line_color='black',)
-
-        # ####### x vs. z plots ################################################################
-        # p_xVSz = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_xVSz.add_tools(bmd.BoxZoomTool(match_aspect=True))
-        # p_xVSz.scatter(x=variables['z'], y=variables['x'], source=vsrc)
-        # common_props(p_xVSz)
-        
-        # ####### y vs. z plots ################################################################
-        # p_yVSz = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_yVSz.add_tools(bmd.BoxZoomTool(match_aspect=True))
-        # p_yVSz.scatter(x=variables['z'], y=variables['y'], source=vsrc)
-        # common_props(p_yVSz)
-        
-        # ####### y vs. x plots ################################################################
-        # p_yVSx = figure(width=width2, height=height2, tools='save,reset', toolbar_location='right')
-        # p_yVSx.add_tools(bmd.BoxZoomTool(match_aspect=True))
-        # p_yVSx.scatter(x=variables['x'], y=variables['y'], source=vsrc)
-        # common_props(p_yVSx)
-        
+                                
     ####### define layout ################################################################
     blank = bmd.Div(width=1000, height=100, text='')
     if mode == 'ev':
@@ -504,12 +511,13 @@ def display():
         for ksrc,vsrc in [(k,v) for k,v in evsource.items()]:
             first_row = [widg[ksrc]['dropdown'], widg[ksrc]['textinput'],
                          widg[ksrc]['button'], widg[ksrc]['text'],]
+            table = create_bokeh_datatable(vsrc, width, height)
             lay = layout([first_row,
                           sld_layers,
                           sld_en,
                           #[p_tc, p_uv, p_xy],
                           #[p_xVSz, p_yVSz, p_yVSx],
-                          [p_tc],
+                          [p_tc, table],
                           [blank],
                           ])
             tab = bmd.TabPanel(child=lay, title=ksrc)
