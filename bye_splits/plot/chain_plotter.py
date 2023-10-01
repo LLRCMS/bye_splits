@@ -653,7 +653,7 @@ def stats_plotter(pars, names_d):
     p1.line(**cmssw_line_opt)
     p1.circle(**custom_circle_opt)
     p1.legend.location = 'bottom_right'
-    p1.toolbar.logo = None
+    p1.toolbar.logo = None0
     p1.xaxis.axis_label = 'Algorithm tunable parameter'
 
     return p1

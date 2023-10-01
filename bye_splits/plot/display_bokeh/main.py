@@ -73,7 +73,7 @@ with open(params.CfgPath, 'r') as afile:
     cfg = yaml.safe_load(afile)
 
 data_part_opt = dict(tag='mytag', reprocess=True, debug=True, logger=log)
-myparticles = ('photons', 'pions')
+myparticles = ('photons', 'pions',)
 data_particle = {x: EventDataParticle(particles=x, **data_part_opt) for x in myparticles}
 geom_data = GeometryData(reprocess=False, logger=log)
 mode = 'ev'
@@ -83,8 +83,6 @@ def get_data(particles, event=None):
     if mode == event:
         assert region is None
     ds_geom = geom_data.provide(section=section, region=region, lrange=lrange)
-    # ds_geom = geom_data.provide(section=FLAGS.section, region=FLAGS.region,
-    #                             lrange=FLAGS.lrange)
     
     if mode=='ev':
         tc_keep = {'good_tc_waferu'     : 'waferu',
@@ -208,30 +206,28 @@ def source_maxmin(src, cfg=None):
     ymin -= (ymax-ymin)*0.05
     return xmin, xmax, ymin, ymax
     
-def range_callback(fig, src_si, xsi, ysi, src_sci, xsci, ysci, shift):
+def range_callback(fig, si, xsi, ysi, sci, xsci, ysci, shift):
     """adapt figure range to data being displayed"""
-    if len(src_si.data[xsi])==0:
-        mode = 0
-    elif len(src_sci.data[xsci])==0:
-        mode = 1
-    else:
-        mode = 2
- 
-    if mode==0:
-        fig.x_range.start = min(src_sci.data[xsci]) - shift
-        fig.x_range.end   = max(src_sci.data[xsci]) + shift 
-        fig.y_range.start = min(src_sci.data[ysci]) - shift 
-        fig.y_range.end   = max(src_sci.data[ysci]) + shift
-    elif mode==1:
-        fig.x_range.start = min(src_si.data[xsi]) - shift
-        fig.x_range.end   = max(src_si.data[xsi]) + shift 
-        fig.y_range.start = min(src_si.data[ysi]) - shift 
-        fig.y_range.end   = max(src_si.data[ysi]) + shift
-    elif mode==2:
-        fig.x_range.start = min(min(src_si.data[xsi]), min(src_sci.data[xsci])) - shift
-        fig.x_range.end   = max(max(src_si.data[xsi]), max(src_sci.data[xsci])) + shift 
-        fig.y_range.start = min(min(src_si.data[ysi]), min(src_sci.data[ysci])) - shift 
-        fig.y_range.end   = max(max(src_si.data[ysi]), max(src_sci.data[ysci])) + shift
+    isSi  = bool(len(si.data[xsi]))
+    isSci = bool(len(sci.data[xsci]))
+
+    simax_x, scimax_x, simax_y, scimax_y = 0,   0,   0,   0
+    simin_x, scimin_x, simin_y, scimin_y = 1E9, 1E9, 1E9, 1E9
+    if isSi:
+        simax_x = si.data[xsi].max()
+        simin_x = si.data[xsi].min()
+        simax_y = si.data[ysi].max()
+        simin_y = si.data[ysi].min()
+    if isSci:
+        scimax_x = sci.data[xsci].max()
+        scimin_x = sci.data[xsci].min()
+        scimax_y = sci.data[ysci].max()
+        scimin_y = sci.data[ysci].min()
+
+    fig.x_range.start = max(simax_x, scimax_x) - shift
+    fig.x_range.end   = min(simin_x, scimin_x) + shift
+    fig.y_range.start = max(simax_y, scimax_y) - shift
+    fig.y_range.end   = min(simin_y, scimin_y) + shift
 
 def text_callback(attr, old, new, src_si, src_sci, figs, particles, border):
     print('text callback ', particles, new)
@@ -261,7 +257,7 @@ def button_callback(event, pretext, src_si, src_sci, figs, particles, border):
     pretext.text = ev_txt.format(str(rand_ev))
     for fig in figs:
         range_callback(fig, src_si, 'tc_x', 'tc_y', src_sci, 'x', 'y', border)
-
+        
 def en_max_min(si, sci):
     """ Provide energy maximum and minimum considering silicon and scintillator datasets."""
     avar = 'tc_mipPt'
@@ -374,9 +370,9 @@ def display():
                            #active_drag='box_zoom'
                            )
             border = 18
-            p_tc = figure(x_range=bmd.Range1d(cur_xmin-border, cur_xmax+border),
-                         y_range=bmd.Range1d(cur_ymin-border, cur_ymax+border), **fig_opt)
-            # p_tc = figure(match_aspect=True, **fig_opt)
+            # p_tc = figure(x_range=bmd.Range1d(cur_xmin-border, cur_xmax+border),
+            #               y_range=bmd.Range1d(cur_ymin-border, cur_ymax+border), **fig_opt)
+            p_tc = figure(match_aspect=True, **fig_opt)
 
             # p_mods.add_tools(*tool_list)
             common_props(p_tc)
@@ -419,16 +415,12 @@ def display():
             cbar_diams.major_label_text_font_style = "normal"
 
             p_tc.add_layout(cbar_diams, 'right')
-            # p_tc.x_range.callback = bmd.CustomJS(args=dict(xrange=myplot.x_range), code="""
-            # xrange.set({"start": 10, "end": 20})
-            # """)
 
             wopt = dict(src_si=vsrc['si'], src_sci=vsrc['sci'],
                         figs=(p_tc,), particles=ksrc, border=border)
             widg[ksrc]['textinput'].on_change('value', partial(text_callback, **wopt))
             widg[ksrc]['dropdown'].on_event('menu_item_click', partial(dropdown_callback, **wopt))
             widg[ksrc]['button'].on_event('button_click', partial(button_callback, pretext=widg[ksrc]['text'], **wopt))
-
 
     elif mode == 'geom':
         keymin = 'si' if len(gsource['si'].data[vl])!=0 else 'sci'
@@ -515,9 +507,7 @@ def display():
             lay = layout([first_row,
                           sld_layers,
                           sld_en,
-                          #[p_tc, p_uv, p_xy],
-                          #[p_xVSz, p_yVSz, p_yVSx],
-                          [p_tc, table],
+                          [p_tc, table], 
                           [blank],
                           ])
             tab = bmd.TabPanel(child=lay, title=ksrc)

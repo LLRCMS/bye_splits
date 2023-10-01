@@ -1,3 +1,5 @@
+import numpy as np
+from scipy.integrate import odeint
 import pandas as pd
 import argparse
 
@@ -22,21 +24,44 @@ import plotly.express as px
 app = Flask(__name__)
 
 def bokeh_app(doc):
-    df = pd.DataFrame({'x': [0,1,2,3,4,6],
-                       'y': [0,1,2,3,4,5]})
+    """
+    Example available at https://docs.bokeh.org/en/3.2.2/docs/examples/basic/lines/lorenz.html
+    """
+    sigma = 10
+    rho = 28
+    beta = 8.0/3
+    theta = 3 * np.pi / 4
 
-    source = ColumnDataSource(df)
+    def lorenz(xyz, t):
+        x, y, z = xyz
+        x_dot = sigma * (y - x)
+        y_dot = x * rho - x * z - y
+        z_dot = x * y - beta* z
+        return [x_dot, y_dot, z_dot]
 
-    plot = figure(title='Title')
-    plot.line('x', 'y', source=source)
+    initial = (-10, -7, 35)
+    t = np.arange(0, 100, 0.006)
+
+    solution = odeint(lorenz, initial, t)
+
+    x = solution[:, 0]
+    y = solution[:, 1]
+    z = solution[:, 2]
+    xprime = np.cos(theta) * x - np.sin(theta) * y
+
+    colors = ["#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6", "#2171B5", "#08519C", "#08306B"]
+
+    plot = figure(title="Lorenz attractor example", background_fill_color="#fafafa")
+    
+    plot.multi_line(np.array_split(xprime, 7), np.array_split(z, 7),
+                    line_color=colors, line_alpha=0.8, line_width=1.5)
 
     doc.add_root(column(plot))
-    #doc.theme = Theme(filename="theme.yaml")
 
 def plotly_app():
-    df = pd.DataFrame({'x': [1,2,5,6,7,8],
-                       'y': [1,2,5,6,7,8],
-                       'z': [1,2,5,6,7,8]})
+    df = pd.DataFrame({'x': [1,2,5,6,7,8,3,4,7,2],
+                       'y': [1,2,5,6,7,8,8,9,2,5],
+                       'z': [1,2,5,5,2,1,8,3,5,2]})
     fig = px.scatter_3d(df,
                         x='z', y='x', z='y',
                         color_discrete_sequence=['black'],
@@ -69,10 +94,10 @@ def bk_worker():
     server.io_loop.start()
 
 if __name__ == '__main__':
-    p = argparse.ArgumentParser(description='Command line parser')
-    p.add_argument('--bokeh_port', required=True, default=8008, type=int,
+    p = argparse.ArgumentParser(description='Run example: `python bye_splits/plot/join/app.py`')
+    p.add_argument('--bokeh_port', required=False, default=8008, type=int,
                    help='Specify port for bokeh server.')
-    p.add_argument('--flask_port', required=True, default=8010, type=int,
+    p.add_argument('--flask_port', required=False, default=8010, type=int,
                    help='Specify port for flask server.')
     p.add_argument('--ssh', action='store_true',
                    help='Whether to serve ports with a SSH connection in mind.')
