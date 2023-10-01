@@ -45,8 +45,8 @@ def common_props(p):
 with open(params.CfgPath, 'r') as afile:
     cfg = yaml.safe_load(afile)
 
-data_part_opt = dict(tag='mytag', reprocess=False, debug=True, logger=log)
-myparticles = ('pions',)
+data_part_opt = dict(tag='mytag', reprocess=True, debug=True, logger=log)
+myparticles = ('photons',)
 data_particle = {x: EventDataParticle(particles=x, **data_part_opt) for x in myparticles}
 geom_data = GeometryData(reprocess=False, logger=log)
 mode = 'ev'
@@ -88,7 +88,7 @@ def get_data(particles, event=None):
 
         ds_ev_sci = pd.merge(left=ds_ev, right=ds_geom['sci'], how='inner',
                              on=['layer', 'triggercellu', 'triggercellv'])
-        
+
         return {'ev': {'rand_ev': rand_ev, 'si': ds_ev_si, 'sci': ds_ev_sci}, 'geom': ds_geom}
 
     else:
@@ -234,7 +234,26 @@ def button_callback(event, pretext, src_si, src_sci, figs, particles, border):
     pretext.text = ev_txt.format(str(rand_ev))
     for fig in figs:
         range_callback(fig, src_si, 'tc_x', 'tc_y', src_sci, 'x', 'y', border)
-        
+
+def en_max_min(si, sci):
+    """ Provide energy maximum and minimum considering silicon and scintillator datasets."""
+    avar = 'tc_mipPt'
+    isSi  = bool(len(si.data[avar]))
+    isSci = bool(len(sci.data[avar]))
+
+    simax, scimax = 0, 0
+    simin, scimin = 1E9, 1E9
+    if isSi:
+        simax = si.data[avar].max()
+        simin = si.data[avar].min()
+    if isSci:
+        scimax = sci.data[avar].max()
+        scimin = sci.data[avar].min()
+
+    enmax = max(simax, scimax)
+    enmin = min(simin, scimin)
+    return enmax, enmin
+            
 def display():
     doc = curdoc()
     doc.title = 'HGCal Visualization'
@@ -245,10 +264,11 @@ def display():
     
     if mode == 'ev':
         for ksrc,vsrc in [(k,v) for k,v in evsource.items()]:
-            enmax = max(vsrc['si'].data[ven].max(), vsrc['sci'].data[ven].max())
-            enmin = min(vsrc['si'].data[ven].min(), vsrc['sci'].data[ven].min())
+            isSi  = bool(len(vsrc['si'].data[ven]))
+            isSci = bool(len(vsrc['sci'].data[ven]))
+            
+            enmax, enmin = en_max_min(vsrc['si'], vsrc['sci'])
             mapper_diams = bmd.LinearColorMapper(palette=mypalette, low=enmin, high=enmax)
-            # mapper_mods = bmd.LinearColorMapper(palette=mypalette, low=enmin, high=enmax)
 
             lmax = 50#max(vsrc['si'].data[vl].max(), vsrc['sci'].data[vl].max())
             lmin = 1#min(vsrc['si'].data[vl].min(), vsrc['sci'].data[vl].min())
