@@ -31,9 +31,9 @@ This repository reproduces the CMS HGCAL L1 Stage2 reconstruction chain in Pytho
 
 # Installation
 
-    # setup conda environment
-    create -n <EnvName> python=3 pandas uproot pytables h5py
-    conda activate <EnvName>
+    # setup mamba environment
+    mamba create -n <EnvName> python=3 pandas uproot pytables h5py
+    mamba activate <EnvName>
     
     # setup a ssh key if not yet done and clone the repository
     git clone git@github.com:bfonta/bye_splits.git
@@ -156,9 +156,9 @@ The repository creates two web apps that can be visualized in a browser. The cod
 
 ## Setup
 
-Please install the following from within the `conda` environment you should have already created:
+Please install the following from within the `mamba` environment you should have already created:
 
-    conda install -c conda-forge pyarrow
+    mamba install -c conda-forge pyarrow
     #if the above fails: python -m pip install pyarrow
     python3 -m pip install --upgrade pip setuptools #to avoid annoying "Setuptools is replacing distutils." warning
 
@@ -195,11 +195,11 @@ The two ports do not have to be the same, but it avoids possible confusion. Leav
 
 In a new terminal window go to the `llruicms01` mahcines and launch one of the apps, for instance:
 
-    bokeh serve bye_splits/plot/display/ --address llruicms01.in2p3.fr --port <port>  --allow-websocket-origin=localhost:<port>
+    bokeh serve bye_splits/plot/display_bokeh/ --address llruicms01.in2p3.fr --port <port>  --allow-websocket-origin=localhost:<port>
     # if visualizing directly at LLR: --allow-websocket-origin=llruicms01.in2p3.fr:<port>
 
 This uses the server-creation capabilities of `bokeh`, a `python` package for interactive visualization ([docs](https://docs.bokeh.org/en/latest/index.html)). Note the port number must match. For further customisation of `bokeh serve` see [the serve documentation](https://docs.bokeh.org/en/latest/docs/reference/command/subcommands/serve.html).
-The above command should give access to the visualization under `http://localhost:8080/display`. For debugging, just run `python bye_splits/plot/display/main.py`  and see that no errors are raised.
+The above command should give access to the visualization under `http://localhost:8080/display`. For debugging, just run `python bye_splits/plot/display_bokeh/main.py`  and see that no errors are raised.
 
 
 <a id="org4164d71"></a>
