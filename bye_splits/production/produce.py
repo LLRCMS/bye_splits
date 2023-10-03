@@ -7,8 +7,7 @@ import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
-import bye_splits
-#from bye_splits.utils import common, params
+from bye_splits.utils import params
 
 import ROOT
 import yaml
@@ -68,11 +67,7 @@ return vec;
 }
 """)
     
-def skim(tn, inf, outf, particle, nevents):
-    #with open(params.CfgPath, 'r') as afile:
-    with open("/home/llr/cms/alves/CMSSW_12_5_0_pre1/src/bye_splits/config.yaml", 'r') as afile:
-        cfg = yaml.safe_load(afile)
-
+def skim(tn, inf, outf, particle, nevents, cfg):
     if cfg["selection"]["disconnectedTriggerLayers"]:
 	    discLayers = cfg["selection"]["disconnectedTriggerLayers"]
   
@@ -186,11 +181,12 @@ if __name__ == "__main__":
     parser.add_argument('--nevents', type=int, default=100,
                         required=False, help='number of events to skim')
     FLAGS = parser.parse_args()
-    
-    adir = "/eos/user/b/bfontana/FPGAs/new_algos/"
-    tree_name = "FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple"
 
-    infile = FLAGS.particles + "_0PU_bc_stc_hadd.root"
-    events_str = str(FLAGS.nevents) + "events_" if FLAGS.nevents > 0 else ""
-    outfile = "skim_" + events_str + infile;
-    skim(tree_name, adir+infile, adir+outfile, FLAGS.particles, FLAGS.nevents)
+    with open(params.CfgPath, 'r') as afile:
+        cfg = yaml.safe_load(afile)
+
+    dir_tree = os.path.join(cfg["io"]["production"][FLAGS.particles]["dir"],
+                            cfg["io"]["production"][FLAGS.particles]["tree"])
+    infile = cfg["io"]["production"][FLAGS.particles]["infile"]
+    outfile = cfg["io"]["production"][FLAGS.particles]["outfile"]
+    skim(dir_tree, infile, outfile, FLAGS.particles, FLAGS.nevents, cfg)
