@@ -3,7 +3,6 @@
 _all_ = []
 
 import os
-from pathlib import Path
 import sys
 import argparse
 import re

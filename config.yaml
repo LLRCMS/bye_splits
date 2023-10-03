@@ -1,4 +1,20 @@
 io:
+  production:
+    photons:
+      dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+      tree: HGCalTriggerNtuple
+      infile: /eos/user/b/bfontana/FPGAs/new_algos/photons_0PU_bc_stc_hadd.root
+      outfile: skim_photons_default.root
+    electrons:
+      dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+      tree: HGCalTriggerNtuple
+      infile: /eos/user/b/bfontana/FPGAs/new_algos/electrons_hadd.root
+      outfile: /eos/user/b/bfontana/FPGAs/new_algos/skim_electrons_default.root
+    pions:
+      dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
+      tree: HGCalTriggerNtuple
+      infile: /eos/user/b/bfontana/FPGAs/new_algos/pions_hadd.root
+      outfile: /eos/user/b/bfontana/FPGAs/new_algos/skim_pions_default.root
   PU0:
     photons:
       dir: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple
