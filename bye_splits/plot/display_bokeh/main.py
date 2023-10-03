@@ -76,14 +76,14 @@ data_part_opt = dict(tag='mytag', reprocess=True, debug=True, logger=log)
 myparticles = ('photons', 'pions',)
 data_particle = {x: EventDataParticle(particles=x, **data_part_opt) for x in myparticles}
 geom_data = GeometryData(reprocess=False, logger=log)
-mode = 'ev'
+mode = 'geom'
 
 def get_data(particles, event=None):
-    region, section, lrange = None, None, None
+    region, section, lrange = None, None, (40,45)
     if mode == event:
         assert region is None
     ds_geom = geom_data.provide(section=section, region=region, lrange=lrange)
-    
+
     if mode=='ev':
         tc_keep = {'good_tc_waferu'     : 'waferu',
                    'good_tc_waferv'     : 'waferv',
@@ -127,7 +127,6 @@ if mode=='ev':
         def_ev_text[k] = drop_text
     ev_txt = '<p style="width: 60px; padding: 10px; border: 1px solid black;">{}</p>'
 
-if mode=='ev':
     evsource, widg = ({k:None for k in myparticles} for _ in range(2))
     for k in myparticles:
         evs = def_evs[k][0]
@@ -492,8 +491,8 @@ def display():
         tool_list = (bmd.WheelZoomTool(), bmd.BoxZoomTool(match_aspect=True))
         p_tc.add_tools(hvr_si, hvr_sci, *tool_list)
 
-        p_tc.circle(x='x', y='y', source=gsource['si'], view=view_si,
-                    size=5, color='orange')
+        # p_tc.circle(x='x', y='y', source=gsource['si'], view=view_si,
+        #             size=5, color='orange')
         # p_tc.legend.click_policy='hide'
                                 
     ####### define layout ################################################################
