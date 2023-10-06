@@ -29,7 +29,7 @@ app.layout = html.Div([
                   dbc.Nav([dbc.DropdownMenu([
                                dbc.DropdownMenuItem('3D view', id='3D view'),
                                dbc.DropdownMenuItem('Layer view', id='Layer view')],
-                           label="Pages", nav=True)
+                           label="View", nav=True)
                           ])
               ],brand="3D trigger cells visualization",color="primary",dark=True,)]),
     html.Br(),
@@ -72,22 +72,21 @@ def update_event(particle, pu, n_click, submit_event, event, page):
     button_clicked = ctx.triggered_id
     if button_clicked == 'submit-val':
         if event is None:  raise RuntimeError("Please select manually an event or click on 'Random event'.")
-
+    
     df_dict, event = process.get_data(common.dot_dict(vars(args)), particle, pu, event)
     
     gen_info = next(reversed(df_dict.values()))
-    slider = plt.prepare_slider(next(iter(df_dict.values())), page)
+    slider = plt.prepare_slider(next(iter(df_dict['default'].values())), page)
 
-    if particle == 'photons' and pu == '200 PU':
+    if pu == '200 pileup':
         df_dict = plt.geom_selection(df_dict)
     if particle != 'pions': checkbox = ['Coarse seeding','Layer selection','Seed index']
     else: checkbox = ['Layer selection','Seed index']
 
-    df_dict = {k: v.to_json() for k, v in df_dict.items()}
-    event_selected_message = 'Event {} selected. Gen Particle (η={:.2f}, ϕ={:.2f}), pₜ={:.2f} GeV.'
-    return (event_selected_message.format(int(event), gen_info['gen_eta'].values[0], 
-            gen_info['gen_phi'].values[0], gen_info['gen_pt'].values[0]), 
-            checkbox, slider, df_dict, None)
+    df_dict = {key:val for key, val in df_dict.items() if key != 'gen'}
+    json_df_dict = {chain: {coef: df.to_json() for coef, df in v.items()} for chain, v in df_dict.items()}
+    event_selected_message = 'Event {} selected. Gen Particle (η={:.2f}, ϕ={:.2f}, p$_{{\\text{T}}}$={:.2f} GeV).'
+    return ('Event '+ event +' selected. Gen Particle η={:.2f}, ϕ={:.2f}, '.format(gen_info['gen_eta'].values[0],gen_info['gen_phi'].values[0])+ 'p$_{T}$'+'={:.2f} GeV'.format(gen_info['gen_pt'].values[0]), checkbox, slider, json_df_dict, None)
 
 @app.callback(
     [
@@ -100,13 +99,14 @@ def update_event(particle, pu, n_click, submit_event, event, page):
         Input('slider_cluster', 'value'),
         Input('mip', 'value'),
         Input('checkbox', 'value'),
+        Input('chain', 'value'),
     ],
     [State('page', 'key')]
 )
-def make_graph(data, slider_value, coef, mip, checkbox, page):
+def make_graph(data, slider_value, coef, mip, checkbox, chain, page):
     assert float(mip) >= 0.5, 'mip\u209C value out of range. Minimum value 0.5 !'
-    df_dict = {k: pd.read_json(v) for k, v in data.items()}
-    df = df_dict[str(coef)]
+    df_dict = {k: {coef: pd.read_json(df) for coef, df in v.items()} for k, v in data.items()}
+    df = df_dict[chain][str(coef)]
     df_sel = df[df.tc_mipPt >= mip]
 
     if page == '3D':
@@ -144,4 +144,4 @@ if __name__ == '__main__':
     args = parsing.parser_display_plotly()
     process = processing.Processing() 
     
-    app.run_server(host=args.host, port=args.port, debug=args.debug)
+    app.run_server(host=args.host, port=args.port, debug=True)

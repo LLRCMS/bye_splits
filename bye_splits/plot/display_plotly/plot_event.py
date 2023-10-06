@@ -14,13 +14,17 @@ from bye_splits.tasks.coarse_seeding import cs_dummy_calculator
 def geom_selection(df_dict):
     gen_info = next(reversed(df_dict.values()))
 
-    radius_gen = 50 # radius to select a specific region around the gen
-    for coef in list(df_dict.keys())[:-1]:
-        eta = gen_info['gen_eta'].values[0]
-        phi = gen_info['gen_phi'].values[0]
-        x_gen, y_gen = sph2cart(eta, phi)
-        df_dict[coef] = df_dict[coef][np.sqrt((x_gen-df_dict[coef].tc_x)**2+(y_gen-df_dict[coef].tc_y)**2)<radius_gen]
+    radius_gen = 40  # radius to select a specific region around the gen
+    for chain in df_dict.keys():
+        for coef in list(df_dict[chain].keys()):
+            eta = gen_info['gen_eta'].values[0]
+            phi = gen_info['gen_phi'].values[0]
+            x_gen, y_gen = sph2cart(eta, phi)
 
+            mask = np.sqrt((x_gen - df_dict[chain][coef]['tc_x'])**2 + \
+                           (y_gen - df_dict[chain][coef]['tc_y'])**2) < radius_gen
+            df_dict[chain][coef] = df_dict[chain][coef][mask].reset_index(drop=True)
+    
     return df_dict
 
 def prepare_slider(df, page='3D'):
@@ -140,7 +144,7 @@ def produce_plot(df, opacity, plot_type, discrete):
             cmin=df.tc_mipPt.min(),
             cmax=df.tc_mipPt.max(),
             showscale=True,
-            colorbar=dict(title=dict(text="[mip\u209c]", side="right"), ticks="outside", x=1)
+            colorbar=dict(title=dict(text='Transverse mip', font=dict(size=16), side="right"), ticks="outside", x=1)
         ))
         listdata.append(datum)
     return listdata

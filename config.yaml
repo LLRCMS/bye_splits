@@ -125,15 +125,15 @@ varGeometry:
 
 3Ddisplay:
   PU0:
-    photons: 'photons_0PU_cluster.hdf5'
-    electrons: 'electrons_0PU_cluster.hdf5'
-    pions: 'pions_0PU_cluster.hdf5'
+    photons: 'photons_0PU_cluster'
+    electrons: 'electrons_0PU_cluster'
+    pions: 'pions_0PU_cluster'
   PU200:
-    photons: 'photons_200PU_cluster.hdf5'
-    electrons: 'electrons_200PU_cluster.hdf5'
-    pions: 'pions_200PU_cluster.hdf5'
+    photons: 'photons_200PU_cluster'
+    electrons: 'electrons_200PU_cluster'
+    pions: 'pions_200PU_cluster'
   reprocess: False
-  coefs: [0.006,0.010,0.014,0.018,0.022,0.026,0.030]
+  coefs: [0.010, 0.015, 0.020, 0.025]
 
 clusterStudies:
   localDir: /home/llr/cms/mchiusi/event_display/bye_splits/data/new_algos/
