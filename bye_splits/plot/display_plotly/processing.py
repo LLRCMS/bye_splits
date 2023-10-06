@@ -8,6 +8,7 @@ parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
 from dash import dcc, html
+import dash_daq as daq
 import h5py
 import re
 import plotly.express.colors as px
@@ -29,6 +30,8 @@ class Processing():
 
         self.reprocess = self.cfg['3Ddisplay']['reprocess']
         self.coefs = self.cfg['3Ddisplay']['coefs']
+        self.chain = {'default' : 'Default chain',
+                      'cs'      : 'Coarse seeding chain'}
         self.ds_geom = GeometryData(reprocess=False, logger=log, library='plotly').provide()
         self.filename = None
         self.list_events = None
@@ -37,7 +40,7 @@ class Processing():
         return random.choice(self.list_events)
 
     def filestore(self, particles, pu):
-        self.filename = self.cfg["clusterStudies"]["localDir"] + self.cfg["3Ddisplay"][f"PU{pu}"][particles]
+        self.filename = self.cfg["clusterStudies"]["localDir"] + self.cfg["3Ddisplay"][f"PU{pu}"][particles] + ".hdf5"
 
     def get_data(self, pars, particles, pu_str, event = ''):
         pu = re.search(r'(\d+) pileup', pu_str).group(1)
@@ -61,9 +64,11 @@ class Processing():
     def get_event(self, event):
         """   Load dataframes of a particular event from the hdf5 file   """
         dic = {}
-        for coef in self.coefs:
-            key = '/ev_'+str(event)+'/coef_'+str(coef)[2:]
-            dic[coef] = pd.read_hdf(self.filename, key)
+        for chain in self.chain:
+          dic[chain] = {}
+          for coef in self.coefs:
+            key = '/ev_'+str(event)+'/'+chain+'/coef_'+str(coef)[2:] # deleting 0. in the coef strings
+            dic[chain][coef] = pd.read_hdf(self.filename, key)
         dic['gen'] = pd.read_hdf(self.filename, '/ev_'+str(event)+'/gen_info')
         return dic
     
@@ -100,8 +105,9 @@ class Processing():
         self.ds_geom['sci'] = self.ds_geom['sci'].rename(columns=sci_update)
        
         for event in dict_events.keys():
-            print('Procesing event '+str(event))
-            dict_event = dict_events[event]
+          print('Procesing event '+str(event))
+          for chain in dict_events[event].keys():
+            dict_event = dict_events[event][chain]
             for coef in dict_event.keys():
                 silicon_df = pd.merge(left=dict_event[coef], right=self.ds_geom['si'], how='inner',
                                       on=['tc_layer', 'tc_wu', 'tc_wv', 'tc_cu', 'tc_cv'])
@@ -114,7 +120,7 @@ class Processing():
                 color_discrete   = common.colorscale(dict_event[coef], 'seed_idx', px.qualitative.Light24, True)
                 dict_event[coef] = dict_event[coef].assign(color_energy=color_continuous, color_clusters=color_discrete)
                 
-            self.store_event('/ev_'+str(event)+'/coef_', dict_event)
+            self.store_event('/ev_'+str(event)+'/'+chain+'/coef_', dict_event)
             self.store_event('/ev_'+str(event)+'/gen_info', gen_info[gen_info.event == event])
 
 
@@ -126,21 +132,18 @@ class Processing():
                 html.Div([dbc.Checklist(options, [], inline=True, id='checkbox', switch=True)], style={"margin-left": "15px"}),
                 html.Div(id='slider-container', children=html.Div(id='out_slider', style={'width':'99%'}), style= {'display': 'block', 'width':'55%'}),
             ], style={'display': 'flex', 'flex-direction': 'row'}),
-        
+
             html.Div([
-                html.Div(["Threshold in [mip\u209C]: ", dcc.Input(id='mip', value=1, type='number', step=0.1)], style={'padding': 10}),
-                html.Div(["Select manually an event: ", dcc.Input(id='event', value=None, type='number')], style={'padding': 10, 'flex': 1}),
-            ], style={'display':'flex', 'flex-direction':'row'}),
-        
-            html.Div([
-                html.Div(["Select a particular clustering radius: "], style={'padding': 10}),
-                html.Div([dcc.Slider(self.coefs[0], self.coefs[-1], 0.004,value=self.coefs[-1],id='slider_cluster', included=False)], style={'width':'40%'}),
-            ], style={'display':'flex', 'flex-direction':'row'}),
-    
+		html.Div([dcc.Markdown('Threshold in mip$_{\\text{T}}$: ', mathjax=True, style={'margin-left': '17px','margin-bottom': '-10px'}), dcc.Input(id='mip', value=1, type='number', step=0.1)], style={'padding': '5px', 'margin-bottom': '0px', 'margin-right': '0px', 'width': '23%'}),
+                html.Div([dcc.Markdown("Select manually an event: ", style={'margin-left': '5px','margin-bottom': '-10px'}), dcc.Input(id='event', value=None, type='number')], style={'padding': '5px', 'margin-right': '20px', 'margin-bottom': '-2px', 'width': '23%'}),
+                html.Div([dcc.Markdown("Select a reconstruction chain: ", style={'margin-left': '15px','margin-bottom': '-15px'}), dcc.Dropdown(id='chain', options=self.chain, value='default')], style={'padding': '5px', 'margin-right': '5px', 'margin-bottom': '0px', 'width': '24%'}),
+                html.Div([dcc.Markdown("Select the clustering radius: ", style={'margin-left': '25px','margin-bottom': '-10px'}), dcc.Slider(self.coefs[0], self.coefs[-1], 0.005, value=self.coefs[-1], id='slider_cluster', included=False)], style={'padding': '5px', 'margin-left': '20px', 'width': '30%'}),
+            ], style={'display':'flex','flex-direction':'row', 'marginRight': 250, 'marginLeft': 0}),
+
             html.Div([
                 dbc.Button(children='Random event', id='event-val', n_clicks=0),
                 dbc.Button(children='Submit selected event', id='submit-val', n_clicks=0, style={'display':'inline-block', "margin-left": "15px"}),
-                html.Div(id='event-display', style={'display':'inline-block', "margin-left": "15px"}), 
+                html.Div(children=[dcc.Markdown(mathjax=True, id='event-display')], style={'display':'inline-block', "margin-left": "15px"}), 
             ], style={'display':'inline-block', "margin-left": "15px"}),
     
             dcc.Loading(id="loading", children=[html.Div(dcc.Graph(id='plot'))], type="circle"),
