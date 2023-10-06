@@ -135,6 +135,27 @@ varGeometry:
   reprocess: False
   coefs: [0.010, 0.015, 0.020, 0.025]
 
+job:
+  user: iehle
+  proxy: ~/.t3/proxy.cert
+  queue: short
+  local: False
+  script: /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/production/submit_scripts/condor_cluster_size.sh
+  arguments: [filename, particles, pileup]
+  read_dir: False # {True: read arguments as paths in <submit_dir>/ntuples, False: read arguments stored on the .txt <files>}
+  photons:
+    submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/photons/
+    files: /data_CMS/cms/ehle/L1HGCAL/PU200/coefs.txt
+    files_per_batch: 1
+  electrons:
+    submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/electrons/
+    files: /data_CMS/cms/ehle/L1HGCAL/PU200/coefs.txt
+    files_per_batch: 1
+  pions:
+    submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/pions/
+    files: /data_CMS/cms/ehle/L1HGCAL/PU200/coefs.txt
+    files_per_batch: 1
+
 clusterStudies:
   localDir: /home/llr/cms/mchiusi/event_display/bye_splits/data/new_algos/
   ehleDir: /eos/user/i/iehle/
@@ -145,7 +166,6 @@ clusterStudies:
   nevents: 100
   pileUp: False
   tree: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple
-  #coeffs: [0.0, 0.05, 50]
   fileBaseName: energy_out
   local: False
 
