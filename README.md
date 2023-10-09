@@ -5,6 +5,7 @@
 2.  [Data production](#dataprod)
     1.  [Skimming](#skim)
     2.  [Data sources](#sources)
+    3.  [Job Submission](#job-submission)
 3.  [Reconstruction Chain](#org0bc224d)
     1.  [Cluster Size Studies](#orgc33e2a6)
 4.  [Event Visualization](#org44a4071)
@@ -98,6 +99,11 @@ This framework relies on photon-, electron- and pion-gun samples produced via CR
 </table>
 
 The `PU0` files above were merged and are stored under `/data_CMS/cms/alves/L1HGCAL/`, accessible to LLR users and under `/eos/user/b/bfontana/FPGAs/new_algos/`, accessible to all lxplus and LLR users. The latter is used since it is well interfaced with CERN services. The `PU200` files were merged and stored under `/eos/user/i/iehle/data/PU200/<particle>/`.
+
+<a id="job-submission"></a>
+## Job Submission
+
+Job submission to HT Condor is handled through `bye_splits/production/submit_scripts/job_submit.py` using the `job` section of `config.yaml` for its configuration. The configuration should include usual condor variables, i.e `user`, `proxy`, `queue`, and `local`, as well as a path to the `script` you would like to run on condor and a list of `arguments` that the script accepts. It then contains a section for each particle type which should contain a `submit_dir`, i.e. the directory in which to read and write submission related files, `files` which should be a `.txt` file containing the values you would like to iterate over, and `files_per_batch` which can be any number between 1 and the total number of values you would like to run.
 
 
 <a id="org0bc224d"></a>
