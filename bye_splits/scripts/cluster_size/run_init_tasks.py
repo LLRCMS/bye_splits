@@ -48,21 +48,22 @@ def start_chain(pars, cfg):
         print(f"{particles}: {eta_tag}")
 
         fill_d = params.read_task_params("fill")
-        for key in ("FillOut", "FillOutComp", "FillOutPlot"):
+        #for key in ("FillOut", "FillOutComp", "FillOutPlot"):
+        for key in ("FillOut", "FillOutGenCl", "FillOutTcAll"):
             name = fill_d[key]
-            fill_d[key] = "{}_{}_{}_{}_17juillet".format(particles, pileup, name, eta_tag)
+            fill_d[key] = "{}_{}_{}_{}_9oct".format(particles, pileup, name, eta_tag)
         tasks.fill.fill(pars, df_gen, df_cl, df_tc, **fill_d)
 
         smooth_d = params.read_task_params("smooth")
         for key in ("SmoothIn", "SmoothOut"):
             name = smooth_d[key]
-            smooth_d[key] =  "{}_{}_{}_{}_17juillet".format(particles, pileup, name, eta_tag)
+            smooth_d[key] =  "{}_{}_{}_{}_9oct".format(particles, pileup, name, eta_tag)
         tasks.smooth.smooth(pars, **smooth_d)
 
         seed_d = params.read_task_params("seed")
         for key in ("SeedIn", "SeedOut"):
             name = seed_d[key]
-            seed_d[key] = "{}_{}_{}_{}_17juillet".format(particles, pileup, name, eta_tag)
+            seed_d[key] = "{}_{}_{}_{}_9oct".format(particles, pileup, name, eta_tag)
         tasks.seed.seed(pars, **seed_d)
 
 if __name__ == "__main__":
@@ -74,8 +75,9 @@ if __name__ == "__main__":
     with open(params.CfgPath, "r") as afile:
         cfg = yaml.safe_load(afile)
 
+    cfg["selection"]["particles"] = "pions"
     start_chain(common.dot_dict(vars(FLAGS)), cfg)
 
-    for particles in ("photons", "electrons", "pions"):
+    '''for particles in ("photons", "electrons", "pions"):
         cfg["selection"]["particles"] = particles
-        start_chain(common.dot_dict(vars(FLAGS)), cfg)
+        start_chain(common.dot_dict(vars(FLAGS)), cfg)'''

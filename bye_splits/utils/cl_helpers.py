@@ -9,11 +9,12 @@ sys.path.insert(0, parent_dir)
 import numpy as np
 import pandas as pd
 
-from bye_splits.utils import common, parsing, params
+#from bye_splits.utils import common, parsing, params
+from bye_splits.utils import common, params
 
-parser = argparse.ArgumentParser(description="Seeding standalone step.")
+'''parser = argparse.ArgumentParser(description="Seeding standalone step.")
 parsing.add_parameters(parser)
-FLAGS = parser.parse_args()
+FLAGS = parser.parse_args()'''
 
 
 def get_last_version(name):
@@ -154,8 +155,31 @@ def get_input_files(base_path, pile_up=False):
 
     return input_files
 
+def read_weights(dir, cfg, version="final", mode="weights"):
+    weights_by_particle = {}
+    #for particle in ("photons", "electrons", "pions"):
+    for particle in ("photons", "pions"):
+        basename = "optimization_selectOneEffRms_maxSeed_bc_stc" if particle == "pions" else "optimization_selectOneStd_adjustMaxWeight_maxSeed"
+        
+        version_dir = "{}/".format(version)
+        particle_dir = "{}{}/optimization/official/{}".format(dir, particle, version_dir)
 
-def get_output_files(cfg):
+        files = [f for f in os.listdir(particle_dir) if basename in f]
+        weights_by_radius = {}
+        for file in files:
+            radius = float(file.replace(".hdf5","").replace(f"{basename}_","").replace("r0","0").replace("p","."))
+            infile = particle_dir+file
+            with pd.HDFStore(infile, "r") as optWeights:
+                weights_by_radius[radius] = optWeights[mode]
+    
+        weights_by_particle[particle] = weights_by_radius
+    
+    weights_by_particle["electrons"] = weights_by_particle["photons"]
+    
+    return weights_by_particle
+
+
+'''def get_output_files(cfg):
     """Accepts a configuration file containing the base directory, a file basename, local (Bool) and pileUp (Bool).
     Finds the full paths of the files created by cluster_size.py, and returns
     a dictionary corresponding to particles:[file_paths]."""
@@ -194,4 +218,4 @@ def get_output_files(cfg):
         for key in output_files.keys():
             output_files[key] = list(set(output_files[key]))
 
-    return output_files
+    return output_files'''

@@ -72,7 +72,7 @@ varEvents:
     geta: 'good_genpart_exeta'
     gphi: 'good_genpart_exphi'
     gen: 'good_genpart_energy'
-    gpt: 'good_genpart_pt'
+#    gpt: 'good_genpart_pt'
   tc:
     event: 'event'
     wu: 'good_tc_waferu'
@@ -161,10 +161,13 @@ clusterStudies:
   ehleDir: /eos/user/i/iehle/
   dataFolder: data/
   reinit: True #False
-  clusterSizeBaseName: cluster_size
+  reprocess: False # Reproduce .parquet file
+  parquetTag: jobTest
+  clusterSizeBaseName: cluster_size_jobTest_yesWeight
   coeffs: [0.0, 0.5, 50]
-  nevents: 100
-  pileUp: False
+  #nevents: 100
+  nevents: -1
+  pileup: False
   tree: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple
   fileBaseName: energy_out
   local: False
