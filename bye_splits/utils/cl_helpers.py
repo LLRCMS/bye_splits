@@ -9,13 +9,7 @@ sys.path.insert(0, parent_dir)
 import numpy as np
 import pandas as pd
 
-#from bye_splits.utils import common, parsing, params
 from bye_splits.utils import common, params
-
-'''parser = argparse.ArgumentParser(description="Seeding standalone step.")
-parsing.add_parameters(parser)
-FLAGS = parser.parse_args()'''
-
 
 def get_last_version(name):
     """Takes a template path, such as '/full/path/to/my_file.ext' and returns the path to the latest version
@@ -25,7 +19,6 @@ def get_last_version(name):
     base, ext = os.path.splitext(base)
     dir = os.path.dirname(name)
     if os.path.exists:
-        # pattern = rf"{base}_v(\d{ext})"
         pattern = r"{}_v(\d{})".format(base, ext)
         matches = [re.match(pattern, file) for file in os.listdir(dir)]
         version = max(
@@ -37,16 +30,11 @@ def get_last_version(name):
         )
     return version
 
-
 def update_version_name(name):
     """Takes the same template path as get_last_version(), and uses it to update the version number."""
     base, ext = os.path.splitext(name)
     version = 0 if not os.path.exists(name) else get_last_version(name)
     return f"{base}_v{str(version+1)}{ext}"
-
-
-# def_k = 0.0
-
 
 def closest(list, k=0.0):
     """Find the element of a list containing strings ['coef_{float_1}', 'coef_{float_2}', ...] which is closest to some float_i"""
@@ -157,7 +145,6 @@ def get_input_files(base_path, pile_up=False):
 
 def read_weights(dir, cfg, version="final", mode="weights"):
     weights_by_particle = {}
-    #for particle in ("photons", "electrons", "pions"):
     for particle in ("photons", "pions"):
         basename = "optimization_selectOneEffRms_maxSeed_bc_stc" if particle == "pions" else "optimization_selectOneStd_adjustMaxWeight_maxSeed"
         
@@ -177,45 +164,3 @@ def read_weights(dir, cfg, version="final", mode="weights"):
     weights_by_particle["electrons"] = weights_by_particle["photons"]
     
     return weights_by_particle
-
-
-'''def get_output_files(cfg):
-    """Accepts a configuration file containing the base directory, a file basename, local (Bool) and pileUp (Bool).
-    Finds the full paths of the files created by cluster_size.py, and returns
-    a dictionary corresponding to particles:[file_paths]."""
-
-    output_files = {"photons": [], "pions": [], "electrons": []}
-    template = os.path.basename(
-        common.fill_path(cfg["clusterStudies"]["fileBaseName"], **vars(FLAGS))
-    )
-    template = re.split("_", template)
-    if cfg["clusterStudies"]["local"]:
-        base_path = cfg["clusterStudies"]["localDir"]
-    else:
-        base_path = (
-            params.EOSStorage(FLAGS.user, "data/PU0/")
-            if not cfg["clusterStudies"]["pileUp"]
-            else params.EOSStorage(FLAGS.user, "data/PU200/")
-        )
-    for particles in output_files.keys():
-        particle_dir = (
-            base_path + particles + "/" if cfg["clusterStudies"]["local"] else base_path
-        )
-        files = [re.split("_", file) for file in os.listdir(particle_dir)]
-        for filename in files:
-            if set(template).issubset(set(filename)):
-                path = os.path.join(f"{particle_dir}{'_'.join(filename)}")
-                with pd.HDFStore(path, "r") as File:
-                    if len(File.keys()) > 0:
-                        if ("photon" in filename) or ("photons" in filename):
-                            output_files["photons"].append(path)
-                        elif ("electron" in filename) or ("electrons" in filename):
-                            output_files["electrons"].append(path)
-                        else:
-                            output_files["pions"].append(path)
-
-        # Get rid of duplicates that the dictionary filling produced
-        for key in output_files.keys():
-            output_files[key] = list(set(output_files[key]))
-
-    return output_files'''

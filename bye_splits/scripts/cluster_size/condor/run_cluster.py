@@ -1,6 +1,6 @@
 # coding: utf-8
 
-_all_ = []
+_all_ = ['cluster_radius']
 
 import os
 import sys
@@ -21,6 +21,11 @@ import pandas as pd
 import yaml
 
 def cluster_radius(pars, cfg):
+    """Runs the default clustering algorithm using the
+    specified radius. Runs on both negative and positive
+    eta files, and adds layer weights to the cluster
+    kwargs if specified."""
+    
     cluster_d = params.read_task_params("cluster")
 
     particles = pars["particles"]
@@ -37,19 +42,20 @@ def cluster_radius(pars, cfg):
     if "weights" in cfg:
         cluster_d["weights"] = cfg["weights"]
 
-    for key in ("ClusterInTC", "ClusterInSeeds", "ClusterOutPlot", "ClusterOutValidation"):
-        name = cluster_d[key]
+    for eta_tag in ("negEta", "posEta"):
+        for key in ("ClusterInTC", "ClusterInSeeds", "ClusterOutPlot", "ClusterOutValidation"):
+            name = cluster_d[key]
 
-        cluster_d[key] =  "{}_{}_{}_posEta_9oct".format(particles, pileup, name)
-    
-    nevents_end = tasks.cluster.cluster_default(pars, **cluster_d)
+            cluster_d[key] =  "{}_{}_{}_{}".format(particles, pileup, name, eta_tag)
+        
+        nevents_end = tasks.cluster.cluster_default(pars, **cluster_d)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("--radius", help="Coefficient to use as the max cluster radius", required=True, type=float)
     parser.add_argument("--particles", choices=("photons", "electrons", "pions"), required=True)
     parser.add_argument("--pileup", help="tag for PU200 vs PU0", choices=("PU0", "PU200"), required=True)
-    parser.add_argument("--weighted", help="Apply pre-calculated layer weights", default=False)
+    parser.add_argument("--weighted", help="Apply pre-caluclated layer weights", action="store_true")
     parsing.add_parameters(parser)
     
     FLAGS = parser.parse_args()

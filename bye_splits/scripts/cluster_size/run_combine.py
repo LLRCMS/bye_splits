@@ -1,6 +1,6 @@
 # coding: utf-8
 
-_all_ = []
+_all_ = ['split_dfs', 'combine_normalize', 'combine_files_by_coef', 'split_and_norm', 'combine_cluster']
 
 import os
 import sys
@@ -9,14 +9,13 @@ import argparse
 parent_dir = os.path.abspath(__file__ + 3 * "/..")
 sys.path.insert(0, parent_dir)
 
-from utils import params, common
+from utils import params, common, parsing
 
 from data_handle.data_process import get_data_reco_chain_start
 
 import random
 import re
 
-random.seed(10)
 import numpy as np
 import pandas as pd
 import sys
@@ -25,6 +24,9 @@ import yaml
 from tqdm import tqdm
 
 def split_dfs(cl_df):
+    """Splits the dataframe created by cluster() into an
+    unweighted dataframe and a weighted dataframe."""
+
     weighted_cols = [col for col in cl_df.keys() if "weighted" in col]
     weighted_cols += [col for col in cl_df.keys() if "layer" in col]
     original_cols = [col.replace("weighted_","") for col in weighted_cols]
@@ -36,7 +38,12 @@ def split_dfs(cl_df):
 
     return original_df, weighted_df
 
-def normalize_df(cl_df, gen_df, dRThresh):
+def combine_normalize(cl_df, gen_df, dRThresh):
+    """Combines a cluster dataframe with an associated
+    gen-level dataframe. Useful variables that may or may not
+    be present are added to the combined dataframe before
+    normalized energy and pt columns are added."""
+
     cl_df=cl_df.reset_index().set_index(["event","seed_idx"])
     combined_df = cl_df.join(
         gen_df.set_index("event"), on="event", how="inner"
@@ -56,6 +63,10 @@ def normalize_df(cl_df, gen_df, dRThresh):
     return combined_df
 
 def combine_files_by_coef(in_dir, file_pattern):
+    """Combines .hdf5 cluster files of individual
+    radii into one .hdf5 file containing dataframes
+    for all radii."""
+
     files = [
         file for file in os.listdir(in_dir) if re.search(file_pattern, file) != None and "valid" not in file
     ]
@@ -70,11 +81,10 @@ def combine_files_by_coef(in_dir, file_pattern):
 
 def split_and_norm(df_cl, df_gen, dRthresh):
     original_df, weighted_df = split_dfs(df_cl)
-    normed_df, normed_weighted_df = normalize_df(original_df, df_gen, dRthresh), normalize_df(weighted_df, df_gen, dRthresh)
+    normed_df, normed_weighted_df = combine_normalize(original_df, df_gen, dRthresh), combine_normalize(weighted_df, df_gen, dRthresh)
     df_dict = {"original": normed_df,
                 "weighted": normed_weighted_df}
-    df_cl = pd.Series(df_dict)
-    return df_cl
+    return pd.Series(df_dict)
 
 def combine_cluster(cfg, **pars):
     """Originally designed to combine the files returned by cluster for each radii,
@@ -85,9 +95,9 @@ def combine_cluster(cfg, **pars):
     unweighted = pars["unweighted"] if "unweighted" in pars.keys() else False
 
     particles = cfg["particles"]
-    nevents = cfg["clusterStudies"]["nevents"]
+    nevents = pars.nevents
 
-    if input_file_path == None:
+    if input_file_path is None:
         pileup = "PU0" if not cfg["clusterStudies"]["pileup"] else "PU200"
 
         basename = cfg["clusterStudies"]["combination"][pileup][particles]["basename"]
@@ -106,25 +116,25 @@ def combine_cluster(cfg, **pars):
         df_gen, _, _ = get_data_reco_chain_start(
             particles=particles, nevents=nevents, reprocess=False, tag = cfg["clusterStudies"]["parquetTag"]
         )
-        #if "negEta" in sub_dir:
         if "negEta" in cl_size_out:
             df_gen = df_gen[ df_gen.gen_eta < 0 ]
             df_gen["gen_eta"] = abs(df_gen.gen_eta)
         else:
             df_gen = df_gen[ df_gen.gen_eta > 0 ]
         dRthresh = cfg["selection"]["deltarThreshold"]
-        if input_file_path != None:
-            clSizeOut["data"] = split_and_norm(clSizeOut["data"], df_gen, dRthresh) if not unweighted else normalize_df(clSizeOut["data"], df_gen, dRthresh)
+        if input_file_path is not None:
+            clSizeOut["data"] = split_and_norm(clSizeOut["data"], df_gen, dRthresh) if not unweighted else combine_normalize(clSizeOut["data"], df_gen, dRthresh)
         else:
             coef_keys = clSizeOut.keys()
             print("\nNormalizing Files:\n")
             for coef in tqdm(coef_keys):
-                clSizeOut[coef] = split_and_norm(clSizeOut[coef], df_gen, dRthresh) if not unweighted else normalize_df(clSizeOut[coef], df_gen, dRthresh)
+                clSizeOut[coef] = split_and_norm(clSizeOut[coef], df_gen, dRthresh) if not unweighted else combine_normalize(clSizeOut[coef], df_gen, dRthresh)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("--file", type=str)
     parser.add_argument("--unweighted", action="store_true")
+    parsing.add_parameters(parser)
 
     FLAGS = parser.parse_args()
     pars = common.dot_dict(vars(FLAGS))
@@ -134,4 +144,4 @@ if __name__ == "__main__":
 
     for particles in ("photons", "electrons", "pions"):
         cfg.update({"particles": particles})
-        combine_cluster(cfg)
+        combine_cluster(cfg, pars)
