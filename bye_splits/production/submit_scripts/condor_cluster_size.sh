@@ -2,10 +2,30 @@
 
 cd /home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/scripts/cluster_size/condor/
 
-# Coefficients (radii) stored in .txt file, run cluster step on each radius
-coef_file=$1
-particles=$2
-pileup=$3
-while read -r line; do
-    python run_cluster.py --coef "$line" --particles "$particles" --pileup "$pileup"
-done <$coef_file
+radius=()
+particles=""
+pileup=""
+
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --radius)
+            IFS=";" read -ra radius <<< "${2:1:-1}"
+            shift 2
+            ;;
+        --particles)
+            particles="$2"
+            shift 2
+            ;;
+        --pileup)
+            pileup="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unrecognized argument $1"
+            exit 1;;
+    esac
+done
+
+for rad in ${radius[@]}; do
+    python run_cluster.py --radius "$rad" --particles "$particles" --pileup "$pileup"
+done

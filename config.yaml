@@ -141,12 +141,21 @@ job:
   queue: short
   local: False
   script: /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/production/submit_scripts/condor_cluster_size.sh
-  arguments: [filename, particles, pileup]
+  iterOver: radius
+  arguments:
+    radius: [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009,
+            0.01 , 0.011, 0.012, 0.013, 0.014, 0.015, 0.016, 0.017, 0.018,
+            0.019, 0.02 , 0.021, 0.022, 0.023, 0.024, 0.025, 0.026, 0.027,
+            0.028, 0.029, 0.03 , 0.031, 0.032, 0.033, 0.034, 0.035, 0.036,
+            0.037, 0.038, 0.039, 0.04 , 0.041, 0.042, 0.043, 0.044, 0.045,
+            0.046, 0.047, 0.048, 0.049, 0.05 ]
+    particles: pions
+    pileup: PU0
   read_dir: False # {True: read arguments as paths in <submit_dir>/ntuples, False: read arguments stored on the .txt <files>}
   photons:
     submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/photons/
     files: /data_CMS/cms/ehle/L1HGCAL/PU200/coefs.txt
-    files_per_batch: 1
+    files_per_batch: 10
   electrons:
     submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/electrons/
     files: /data_CMS/cms/ehle/L1HGCAL/PU200/coefs.txt
@@ -154,7 +163,7 @@ job:
   pions:
     submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/pions/
     files: /data_CMS/cms/ehle/L1HGCAL/PU200/coefs.txt
-    files_per_batch: 1
+    files_per_batch: 10
 
 clusterStudies:
   localDir: /home/llr/cms/mchiusi/event_display/bye_splits/data/new_algos/

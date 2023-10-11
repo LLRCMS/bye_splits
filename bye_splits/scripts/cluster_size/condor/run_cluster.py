@@ -20,19 +20,19 @@ import pandas as pd
 
 import yaml
 
-def cluster_coef(pars, cfg):
+def cluster_radius(pars, cfg):
     cluster_d = params.read_task_params("cluster")
 
     particles = pars["particles"]
     pileup = pars["pileup"]
-    coef = pars["coef"]
+    radius = pars["radius"]
 
-    cl_size_coef = "{}_coef_{}".format(
+    cl_size_radius = "{}_radius_{}".format(
         cfg["clusterStudies"]["clusterSizeBaseName"],
-        str(round(coef, 3)).replace(".", "p"),
+        str(round(radius, 3)).replace(".", "p"),
     )
-    cluster_d["ClusterOutPlot"], cluster_d["ClusterOutValidation"] = cl_size_coef, cl_size_coef+"_valid"
-    cluster_d["CoeffA"] = [coef] * 50
+    cluster_d["ClusterOutPlot"], cluster_d["ClusterOutValidation"] = cl_size_radius, cl_size_radius+"_valid"
+    cluster_d["CoeffA"] = [radius] * 50
     
     if "weights" in cfg:
         cluster_d["weights"] = cfg["weights"]
@@ -46,7 +46,7 @@ def cluster_coef(pars, cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--coef", help="Coefficient to use as the max cluster radius", required=True, type=float)
+    parser.add_argument("--radius", help="Coefficient to use as the max cluster radius", required=True, type=float)
     parser.add_argument("--particles", choices=("photons", "electrons", "pions"), required=True)
     parser.add_argument("--pileup", help="tag for PU200 vs PU0", choices=("PU0", "PU200"), required=True)
     parser.add_argument("--weighted", help="Apply pre-calculated layer weights", default=False)
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     FLAGS = parser.parse_args()
     pars = common.dot_dict(vars(FLAGS))
 
-    radius = round(pars.coef, 3)
+    radius_str = round(pars.radius, 3)
 
     with open(params.CfgPath, "r") as afile:
         cfg = yaml.safe_load(afile)
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     if pars.weighted:
         weight_dir = "{}/PU0/".format(params.LocalStorage)
         weights_by_particle = cl_helpers.read_weights(weight_dir, cfg)
-        weights = weights_by_particle[pars.particles][radius]
+        weights = weights_by_particle[pars.particles][radius_str]
         cfg["weights"] = weights
 
-    cluster_coef(pars, cfg)
+    cluster_radius(pars, cfg)
