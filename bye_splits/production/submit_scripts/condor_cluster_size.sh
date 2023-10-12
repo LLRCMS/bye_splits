@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-cd /home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/scripts/cluster_size/condor/
+cd /home/llr/cms/${USER}/NewRepos/bye_splits/bye_splits/scripts/cluster_size/condor/
 
 radius=()
 particles=""

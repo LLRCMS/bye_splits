@@ -12,12 +12,8 @@ import tasks
 from utils import params, common, parsing, cl_helpers
 
 import argparse
-import random
-
-random.seed(10)
 import numpy as np
 import pandas as pd
-
 import yaml
 
 def cluster_radius(pars, cfg):
@@ -67,7 +63,7 @@ if __name__ == "__main__":
         cfg = yaml.safe_load(afile)
 
     if pars.weighted:
-        weight_dir = "{}/PU0/".format(params.LocalStorage)
+        weight_dir = os.path.join(params.LocalStorage, "PU0/")
         weights_by_particle = cl_helpers.read_weights(weight_dir, cfg)
         weights = weights_by_particle[pars.particles][radius_str]
         cfg["weights"] = weights

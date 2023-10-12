@@ -1,15 +1,15 @@
 import os
 import sys
-import re
-import argparse
 
 parent_dir = os.path.abspath(__file__ + 3 * "/..")
 sys.path.insert(0, parent_dir)
 
+from bye_splits.utils import common, params
+
 import numpy as np
 import pandas as pd
-
-from bye_splits.utils import common, params
+import re
+import argparse
 
 def get_last_version(name):
     """Takes a template path, such as '/full/path/to/my_file.ext' and returns the path to the latest version
@@ -19,11 +19,11 @@ def get_last_version(name):
     base, ext = os.path.splitext(base)
     dir = os.path.dirname(name)
     if os.path.exists:
-        pattern = r"{}_v(\d{})".format(base, ext)
+        pattern = r"{}_v(\d){}".format(base, ext)
         matches = [re.match(pattern, file) for file in os.listdir(dir)]
         version = max(
             [
-                int(match.group(1).replace(ext, ""))
+                int(match.group(1))
                 for match in matches
                 if not match is None
             ]
@@ -36,19 +36,15 @@ def update_version_name(name):
     version = 0 if not os.path.exists(name) else get_last_version(name)
     return f"{base}_v{str(version+1)}{ext}"
 
-def closest(list, k=0.0):
+def closest(coef_list, k=0.0):
     """Find the element of a list containing strings ['coef_{float_1}', 'coef_{float_2}', ...] which is closest to some float_i"""
-    try:
-        list = np.reshape(np.asarray(list), 1)
-    except ValueError:
-        list = np.asarray(list)
+    coef_list = np.asarray(coef_list)
     if isinstance(k, str):
         k_num = float(re.split("coef_", k)[1].replace("p", "."))
     else:
         k_num = k
-    id = (np.abs(list - k_num)).argmin()
-    return list[id]
-
+    id = (np.abs(coef_list - k_num)).argmin()
+    return coef_list[id]
 
 def get_str(coef, df_dict):
     """Accepts a coefficient, either as a float or string starting with coef_, along with a dictionary of coefficient:DataFrame pairs.
@@ -65,7 +61,6 @@ def get_str(coef, df_dict):
         new_coef = closest(coef_list, coef)
         coef_str = "/coef_{}".format(str(new_coef).replace(".", "p"))
     return coef_str
-
 
 # Old Naming Conventions used different column names in the dataframes
 column_matching = {
@@ -161,6 +156,10 @@ def read_weights(dir, cfg, version="final", mode="weights"):
     
         weights_by_particle[particle] = weights_by_radius
     
+    '''Weights are calculated from pt_norm distributions, which
+    are distorted by brem events for electrons. As this is
+    a physics effect uncorrelated to the TPG response, we correct
+    electrons with weights derived from photon pt_norm distributions'''
     weights_by_particle["electrons"] = weights_by_particle["photons"]
     
     return weights_by_particle

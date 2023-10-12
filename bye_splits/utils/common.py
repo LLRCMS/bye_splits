@@ -16,9 +16,6 @@ import yaml
 import numpy as np
 import pandas as pd
 
-import re
-
-
 def binConv(vals, dist, amin):
     """
     Converts bin indexes back to values (central values in the bin).

@@ -10,8 +10,8 @@ sys.path.insert(0, parent_dir)
 
 _all_ = ['increment_version', 'grab_most_recent', 'compare_file_contents', 'write_file_version', 'conditional_write']
 
-# Accepts a template for a full path to a file and increments the version
 def increment_version(file_path):
+    """Accepts a template for a full path to a file and increments the version"""
     dir, file = os.path.split(file_path)
     base, ext = os.path.splitext(file)
     i = 0
@@ -21,8 +21,8 @@ def increment_version(file_path):
         file_path = "{}/{}_v{}{}".format(dir, base, i, ext)
     return file_path
 
-# Grab the most recent version of the file corresponding to the template file_path (or return all matches)
 def grab_most_recent(file_path, return_all=False):
+    """Grab the most recent version of the file corresponding to the template file_path (or return all matches)"""
     dir, file = os.path.split(file_path)
     base, ext = os.path.splitext(file)
     files = os.listdir(dir)
@@ -37,6 +37,8 @@ def grab_most_recent(file_path, return_all=False):
         else:
             file_path = [dir + "/" + base + "_v" + str(f) + ext for f in matches]
         return file_path
+    else:
+        raise ValueError("There are no versions of the passed file: {}".format(file_path))
 
 def compare_file_contents(file_path, buffer_list):
     """
@@ -64,7 +66,7 @@ def conditional_write(file_versions, file_template, current_version):
     <current_version> to an updated version number whose basename corresponds to
     <file_template>.
     """
-    if file_versions != None:
+    if file_versions is not None:
         identical_version = False
         for file in file_versions:
             if not compare_file_contents(file, current_version):

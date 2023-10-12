@@ -2,13 +2,13 @@
 
 import os
 import sys
-from datetime import datetime
 
 parent_dir = os.path.abspath(__file__ + 5 * "../")
 sys.path.insert(0, parent_dir)
 
 from bye_splits.utils import params, common, job_helpers
 
+from datetime import datetime
 import subprocess
 import yaml
 
@@ -53,10 +53,10 @@ class CondJobBase:
         """Writes the line containing the argument
         names to the buffer list."""
         
-        arg_keys = ["Arguments ="]
+        arg_keys = "Arguments ="
         for arg in self.args.keys():
-            arg_keys.append("$({})".format(arg))
-        arg_keys = " ".join(arg_keys) + "\n"
+            arg_keys += " $({})".format(arg)
+        arg_keys += "\n"
 
         current_version.append(arg_keys)
 
@@ -92,11 +92,11 @@ class CondJobBase:
 
     def prepare_batch_submission(self):
         """Writes the .sh script that constitutes the executable
-        in the .sub script. The basename will be the same as the fundamental
-        script, followed by a version number. Stores the contents in a list that's
-        used as a buffer and checked against the content in previous
-        versions, only writing the file if an identical file doesn't
-        already exist. The version number will be incrimented in this case."""
+        in the .sub script. The basename will be the same as the running script, i.e.
+        the script set in the configuration file. This is then followed by a version number.
+        Stores the contents in a list that's used as a buffer and checked against the content
+        in previous versions, only writing the file if an identical file doesn't already exist.
+        The version number will be incrimented in this case."""
 
         sub_dir = "{}subs/".format(self.particle_dir)
 

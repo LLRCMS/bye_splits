@@ -4,22 +4,17 @@ _all_ = ['split_dfs', 'combine_normalize', 'combine_files_by_coef', 'split_and_n
 
 import os
 import sys
-import argparse
 
 parent_dir = os.path.abspath(__file__ + 3 * "/..")
 sys.path.insert(0, parent_dir)
 
 from utils import params, common, parsing
-
 from data_handle.data_process import get_data_reco_chain_start
 
-import random
+import argparse
 import re
-
 import numpy as np
 import pandas as pd
-import sys
-
 import yaml
 from tqdm import tqdm
 
@@ -68,7 +63,7 @@ def combine_files_by_coef(in_dir, file_pattern):
     for all radii."""
 
     files = [
-        file for file in os.listdir(in_dir) if re.search(file_pattern, file) != None and "valid" not in file
+        file for file in os.listdir(in_dir) if re.search(file_pattern, file) is not None and "valid" not in file
     ]
     coef_pattern = r"coef_0p(\d+)"
     out_path = common.fill_path(file_pattern, data_dir=in_dir)
@@ -80,10 +75,10 @@ def combine_files_by_coef(in_dir, file_pattern):
                 clusterSizeOut[key] = clSizeCoef["/data"]
 
 def split_and_norm(df_cl, df_gen, dRthresh):
-    original_df, weighted_df = split_dfs(df_cl)
-    normed_df, normed_weighted_df = combine_normalize(original_df, df_gen, dRthresh), combine_normalize(weighted_df, df_gen, dRthresh)
+    o_df, w_df = split_dfs(df_cl)
+    normed_df, normed_w_df = combine_normalize(o_df, df_gen, dRthresh), combine_normalize(w_df, df_gen, dRthresh)
     df_dict = {"original": normed_df,
-                "weighted": normed_weighted_df}
+                "weighted": normed_w_df}
     return pd.Series(df_dict)
 
 def combine_cluster(cfg, **pars):

@@ -10,14 +10,10 @@ sys.path.insert(0, parent_dir)
 
 import tasks
 from utils import params, common, parsing
-
 from data_handle.data_process import get_data_reco_chain_start
 
 import argparse
 import random
-
-import sys
-
 import yaml
 
 def start_chain(pars, cfg):
@@ -25,10 +21,10 @@ def start_chain(pars, cfg):
     negative and positive eta samples."""
 
     particles = cfg["selection"]["particles"]
-    pileup    = "PU0" if not cfg["clusterStudies"]["pileup"] else "PU200"
     reprocess = cfg["clusterStudies"]["reprocess"]
     tag       = cfg["clusterStudies"]["parquetTag"]
     nevents   = pars.nevents
+    pileup    = pars.pileup
 
     df_gen, df_cl, df_tc = get_data_reco_chain_start(
         particles=particles, nevents=nevents, reprocess=reprocess, tag=tag
@@ -74,6 +70,7 @@ def start_chain(pars, cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--pileup", help="tag for pileup choice", default="PU0")
     parsing.add_parameters(parser)
 
     FLAGS = parser.parse_args()
