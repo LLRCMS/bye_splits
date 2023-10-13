@@ -175,6 +175,11 @@ clusterStudies:
   tree: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple
   fileBaseName: energy_out
   local: True
+  weights:
+    subDir: optimization/official/final/
+    layer:
+      photons: optimization_selectOneStd_adjustMaxWeight_maxSeed
+      pions:  optimization_selectOneEffRms_maxSeed_bc_stc
 
 base:
   NbinsRz: 42

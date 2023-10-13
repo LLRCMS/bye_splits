@@ -138,13 +138,12 @@ def get_input_files(base_path, pile_up=False):
 
     return input_files
 
-def read_weights(dir, cfg, version="final", mode="weights"):
+def read_weights(dir, cfg, version="layer", mode="weights"):
     weights_by_particle = {}
-    for particle in ("photons", "pions"):
-        basename = "optimization_selectOneEffRms_maxSeed_bc_stc" if particle == "pions" else "optimization_selectOneStd_adjustMaxWeight_maxSeed"
+    weight_path_templates = cfg["clusterStudies"]["weights"][version]
+    for particle, basename in weight_path_templates.items():
         
-        version_dir = "{}/".format(version)
-        particle_dir = "{}{}/optimization/official/{}".format(dir, particle, version_dir)
+        particle_dir = os.path.join(dir, particle, cfg["clusterStudies"]["weights"]["subDir"])
 
         files = [f for f in os.listdir(particle_dir) if basename in f]
         weights_by_radius = {}

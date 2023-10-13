@@ -33,7 +33,7 @@ def cluster_radius(pars, cfg):
         str(round(radius, 3)).replace(".", "p"),
     )
     cluster_d["ClusterOutPlot"], cluster_d["ClusterOutValidation"] = cl_size_radius, cl_size_radius+"_valid"
-    cluster_d["CoeffA"] = [radius] * 50
+    cluster_d["CoeffA"] = [radius] * (cfg["geometry"]["nlayersCEE"]+cfg["geometry"]["nlayersCEH"]) # Radii in each of the HGCAL layers
     
     if "weights" in cfg:
         cluster_d["weights"] = cfg["weights"]

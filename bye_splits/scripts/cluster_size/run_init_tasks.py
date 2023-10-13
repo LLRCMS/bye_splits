@@ -1,6 +1,6 @@
 # coding: utf-8
 
-_all_ = []
+_all_ = ['start_chain']
 
 import os
 import sys

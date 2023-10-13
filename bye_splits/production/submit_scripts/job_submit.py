@@ -77,7 +77,8 @@ class CondJobBase:
             [0.01;0.02], photon
         )
         correctly assigns radius="[0.01, 0.02]", particle="photon"
-        """   
+        """
+        if "particles" in self.args.keys(): self.args["particles"] = self.particle
         arg_keys = ", ".join(self.args.keys())
         arg_keys = "queue " + arg_keys + " from (\n"
         current_version.append(arg_keys)
