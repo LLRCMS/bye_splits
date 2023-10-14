@@ -22,7 +22,8 @@ def increment_version(file_path):
     return file_path
 
 def grab_most_recent(file_path, return_all=False):
-    """Grab the most recent version of the file corresponding to the template file_path (or return all matches)"""
+    """Grab the most recent version of the file corresponding to the template file_path (or return all matches).
+    Returns None if no files mathing template <file_path> have been written."""
     dir, file = os.path.split(file_path)
     base, ext = os.path.splitext(file)
     files = os.listdir(dir)
@@ -38,7 +39,7 @@ def grab_most_recent(file_path, return_all=False):
             file_path = [dir + "/" + base + "_v" + str(f) + ext for f in matches]
         return file_path
     else:
-        raise ValueError("There are no versions of the passed file: {}".format(file_path))
+        return None
 
 def compare_file_contents(file_path, buffer_list):
     """
@@ -64,7 +65,7 @@ def conditional_write(file_versions, file_template, current_version):
     to the current version. If an identical version is found, the function
     breaks and does nothing. Otherwise, it will write the contents in
     <current_version> to an updated version number whose basename corresponds to
-    <file_template>.
+    <file_template>. If file_versions is None, writes the v0 version.
     """
     if file_versions is not None:
         identical_version = False

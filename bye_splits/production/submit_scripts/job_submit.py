@@ -27,11 +27,11 @@ class JobBatches:
         self.particle_var = lambda part, var: config["job"][part][var]
 
     def setup_batches(self):
-        total = self.config["job"]["arguments"][self.iterOver]
+        total_vals = self.config["job"]["arguments"][self.iterOver]
 
         vals_per_batch = self.particle_var(self.particle, "args_per_batch")    
 
-        batches = [total[i: i + vals_per_batch] for i in range(0, len(total), vals_per_batch)]
+        batches = [total_vals[i: i + vals_per_batch] for i in range(0, len(total_vals), vals_per_batch)]
         
         return batches
     
@@ -86,7 +86,7 @@ class CondJobBase:
             sub_args = list(self.args.keys())[1:]
             arg_vals = [self.args[key] for key in sub_args]
             all_vals = ["{}".format(batch).replace(", ", ";")]+arg_vals
-            all_vals = ", ".join(all_vals) + "\n"
+            all_vals = ", ".join(map(str, all_vals)) + "\n"
             current_version.append(all_vals)
 
         current_version.append(")")

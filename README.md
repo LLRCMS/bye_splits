@@ -103,8 +103,70 @@ The `PU0` files above were merged and are stored under `/data_CMS/cms/alves/L1HG
 <a id="job-submission"></a>
 ## Job Submission
 
-Job submission to HT Condor is handled through `bye_splits/production/submit_scripts/job_submit.py` using the `job` section of `config.yaml` for its configuration. The configuration should include usual condor variables, i.e `user`, `proxy`, `queue`, and `local`, as well as a path to the `script` you would like to run on condor. The `arguments` sub-section should contain `key/value` pairs matching the expected arguments that `script` accepts. The variable that you would like to iterate over should be set in `iterOver` and its value should correspond to a `key` in the `arguments` sub-section whose value is a list containing the values the script should iterate over. It then contains a section for each particle type which should contain a `submit_dir`, i.e. the directory in which to read and write submission related files, and `args_per_batch` which can be any number between 1 and `len(arguments[<iterOver>])`.
+Job submission to HT Condor is handled through `bye_splits/production/submit_scripts/job_submit.py` using the `job` section of `config.yaml` for its configuration. The configuration should include usual condor variables, i.e `user`, `proxy`, `queue`, and `local`, as well as a path to the `script` you would like to run on condor. The `arguments` sub-section should contain `key/value` pairs matching the expected arguments that `script` accepts. The variable that you would like to iterate over should be set in `iterOver` and its value should correspond to a `key` in the `arguments` sub-section whose value is a list containing the values the script should iterate over. It then contains a section for each particle type which should contain a `submit_dir`, i.e. the directory in which to read and write submission related files, and `args_per_batch` which can be any number between 1 and `len(arguments[<iterOver>])`. An example of the `job` configuration settings is as such:
 
+    job:
+        user: iehle
+        proxy: ~/.t3/proxy.cert
+        queue: short
+        local: False
+        script: /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/production/submit_scripts/condor_cluster_size.sh
+        iterOver: radius
+        arguments:
+            radius: [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009,
+                    0.01 , 0.011, 0.012, 0.013, 0.014, 0.015, 0.016, 0.017, 0.018,
+                    0.019, 0.02 , 0.021, 0.022, 0.023, 0.024, 0.025, 0.026, 0.027,
+                    0.028, 0.029, 0.03 , 0.031, 0.032, 0.033, 0.034, 0.035, 0.036,
+                    0.037, 0.038, 0.039, 0.04 , 0.041, 0.042, 0.043, 0.044, 0.045,
+                    0.046, 0.047, 0.048, 0.049, 0.05]
+            particles: photons
+            pileup: PU0
+        photons:
+            submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/photons/
+            args_per_batch: 10
+        electrons:
+            submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/electrons/
+            args_per_batch: 10
+        pions:
+            submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/pions/
+            args_per_batch: 10
+
+After setting the configuration variables, the jobs are created and launched via
+
+    python bye_splits/production/submit_scripts/job_submit.py
+
+and will produce both the executable `.sh` file which will have a form like
+
+    #!/usr/bin/env bash
+    workdir=/grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/production/submit_scripts
+    cd $workdir
+    export VO_CMS_SW_DIR=/cvmfs/cms.cern.ch
+    export SITECONFIG_PATH=$VO_CMS_SW_DIR/SITECONF/T2_FR_GRIF_LLR/GRIF-LLR/
+    source $VO_CMS_SW_DIR/cmsset_default.sh
+    bash /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/production/submit_scripts/condor_cluster_size.sh --radius $1 --particles $2 --pileup $3
+
+and the `.sub` file submitted to HT Condor:
+
+    executable = /data_CMS/cms/ehle/L1HGCAL/PU0/photons/subs/condor_cluster_size_submit_v1.sh
+    Universe              = vanilla
+    Arguments = $(radius) $(particles) $(pileup)
+    output = /data_CMS/cms/ehle/L1HGCAL/PU0/photons/logs/condor_cluster_size_C$(Cluster)P$(Process).out
+    error = /data_CMS/cms/ehle/L1HGCAL/PU0/photons/logs/condor_cluster_size_C$(Cluster)P$(Process).err
+    log = /data_CMS/cms/ehle/L1HGCAL/PU0/photons/logs/condor_cluster_size_C$(Cluster)P$(Process).log
+    getenv                = true
+    T3Queue = short
+    WNTag                 = el7
+    +SingularityCmd       = ""
+    include: /opt/exp_soft/cms/t3/t3queue |
+    queue radius, particles, pileup from (
+    [0.001;0.002;0.003;0.004;0.005;0.006;0.007;0.008;0.009;0.01], photons, PU0
+    [0.011;0.012;0.013;0.014;0.015;0.016;0.017;0.018;0.019;0.02], photons, PU0
+    [0.021;0.022;0.023;0.024;0.025;0.026;0.027;0.028;0.029;0.03], photons, PU0
+    [0.031;0.032;0.033;0.034;0.035;0.036;0.037;0.038;0.039;0.04], photons, PU0
+    [0.041;0.042;0.043;0.044;0.045;0.046;0.047;0.048;0.049;0.05], photons, PU0
+    )
+
+This describes just one example, and other uses can be easily implemented. You may, for example, run the [skimming procedure](#skimming) on HT Condor with a small bash script that accepts `--particles` and `--nevents` as arguments, and update the configuration variables accordingly.
 
 <a id="org0bc224d"></a>
 # Reconstruction Chain
