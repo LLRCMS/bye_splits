@@ -49,16 +49,15 @@ class CondJobBase:
         self.particle_dir = self.batch.particle_var(self.particle, "submit_dir")
         self.batches      = self.batch.setup_batches()
 
-    def _write_arg_keys(self, current_version):
-        """Writes the line containing the argument
-        names to the buffer list."""
+    def _check_script_arguments(self):
+        script_args = subprocess.run([self.script, "--args"], capture_output=True, text=True)
+        if script_args.returncode != 0:
+            result = script_args.stdout.strip().split("\n")
+        else:
+            result = []
         
-        arg_keys = "Arguments ="
-        for arg in self.args.keys():
-            arg_keys += " $({})".format(arg)
-        arg_keys += "\n"
+        assert(result == list(self.args.keys())), "Provided arguments {} do not match accepted arguments {}.".format(list(self.args.keys()), result)
 
-        current_version.append(arg_keys)
 
     def _write_arg_values(self, current_version):
         """Adds the argument values, where the batch lists are converted
@@ -78,57 +77,71 @@ class CondJobBase:
         )
         correctly assigns radius="[0.01, 0.02]", particle="photon"
         """
+        
         if "particles" in self.args.keys(): self.args["particles"] = self.particle
         arg_keys = ", ".join(self.args.keys())
         arg_keys = "queue " + arg_keys + " from (\n"
+
         current_version.append(arg_keys)
+
+        sub_args = list(self.args.keys())
+        sub_args.remove(self.iterOver)
+        arg_vals = [self.args[key] for key in sub_args]
+
         for batch in self.batches:
-            sub_args = list(self.args.keys())[1:]
-            arg_vals = [self.args[key] for key in sub_args]
-            all_vals = ["{}".format(batch).replace(", ", ";")]+arg_vals
+            all_vals = [str(batch).replace(", ", ";")]+arg_vals
             all_vals = ", ".join(map(str, all_vals)) + "\n"
             current_version.append(all_vals)
 
         current_version.append(")")
 
-    def prepare_batch_submission(self):
-        """Writes the .sh script that constitutes the executable
-        in the .sub script. The basename will be the same as the running script, i.e.
-        the script set in the configuration file. This is then followed by a version number.
-        Stores the contents in a list that's used as a buffer and checked against the content
-        in previous versions, only writing the file if an identical file doesn't already exist.
-        The version number will be incrimented in this case."""
-
+    def write_exec_file(self):
+        """"""
+        script_dir, script_name = os.path.split(self.script)
+        basename, ext = os.path.splitext(script_name)
+        
         sub_dir = "{}subs/".format(self.particle_dir)
 
         common.create_dir(sub_dir)
 
         script_basename = os.path.basename(self.script).replace(".sh", "").replace(".py", "")
 
-        submit_file_name_template = "{}{}_submit.sh".format(sub_dir, script_basename)
-        submit_file_versions = job_helpers.grab_most_recent(submit_file_name_template, return_all=True)
+        exec_file_name_template = "{}{}_exec.sh".format(sub_dir, script_basename)
+        exec_file_versions = job_helpers.grab_most_recent(exec_file_name_template, return_all=True)
 
         current_version = []
         current_version.append("#!/usr/bin/env bash\n")
-        current_version.append("workdir={}/bye_splits/production/submit_scripts\n".format(parent_dir))
-        current_version.append("cd $workdir\n")
         current_version.append("export VO_CMS_SW_DIR=/cvmfs/cms.cern.ch\n")
         current_version.append("export SITECONFIG_PATH=$VO_CMS_SW_DIR/SITECONF/T2_FR_GRIF_LLR/GRIF-LLR/\n")
         current_version.append("source $VO_CMS_SW_DIR/cmsset_default.sh\n")
         
-        if len(self.args.keys()) > 0:
-            args = ["bash {}".format(self.script)]
-            for i, key in enumerate(self.args.keys()):
-                args.append("--{} ${}".format(key, i+1))
-            args = " ".join(args)
-            current_version.append(args)
-        else:
-            current_version.append("bash {}".format(self.script))
-            
-        # Write the file only if an identical file doesn't already exist
-        self.sub_file = job_helpers.conditional_write(submit_file_versions, submit_file_name_template, current_version)
+        sub_args = list(self.args.keys())
+        if self.iterOver is not None:
+            sub_args.remove(self.iterOver)
 
-    def prepare_multi_job_condor(self):
+            current_version.append('list=$1\n')
+            current_version.append("cleaned_list=$(echo $list | tr -d '[]' | tr ';' '\n')\n")
+            current_version.append('while IFS=";" read -r val; do\n')
+            
+            python_call = '    python {} --{} "$val"'.format(self.script, self.iterOver)
+            for arg in sub_args:
+                python_call +=' --{} {}'.format(arg, self.args[arg])
+            python_call += "\n"
+
+            current_version.append(python_call)
+            current_version.append('done <<< "$cleaned_list"')
+
+        else:
+            python_call = 'python {}'.format(self.script)
+
+            for arg in sub_args:
+                python_call +=' --{} {}'.format(arg, self.args[arg])   
+
+            current_version.append(python_call)
+
+        self.sub_file = job_helpers.conditional_write(exec_file_versions, exec_file_name_template, current_version)
+
+    def write_sub_file(self):
         """Writes the .sub script that is submitted to HT Condor.
         Follows the same naming convention and conditional_write()
         procedure as the previous function."""
@@ -144,9 +157,23 @@ class CondJobBase:
         current_version = []
         current_version.append("executable = {}\n".format(self.sub_file))
         current_version.append("Universe              = vanilla\n")
+        
+        #self._check_script_arguments()
 
-        if len(self.args) > 0:
-            self._write_arg_keys(current_version)
+        """Add argument keys, requring that the first argument corresponds to <iterOver>.
+        This is because the handling of the iterated argument is handled differently by
+        than the static variables by write_exec_file() which expectes <iterOver> to be
+        passed first."""
+        arg_keys = "Arguments ="
+        sub_args = list(self.args.keys())
+        if self.iterOver is not None:
+            arg_keys += " $({})".format(self.iterOver)
+            sub_args.remove(self.iterOver)
+        for arg in sub_args:
+            arg_keys += " $({})".format(arg)
+        arg_keys += "\n"
+
+        current_version.append(arg_keys)          
 
         current_version.append("output = {}{}_C$(Cluster)P$(Process).out\n".format(log_dir, script_basename))
         current_version.append("error = {}{}_C$(Cluster)P$(Process).err\n".format(log_dir, script_basename))
@@ -180,8 +207,8 @@ class CondJob:
         for d in (config_dir, job_dir, log_dir):
             common.create_dir(d)
 
-        self.base.prepare_batch_submission()
-        self.base.prepare_multi_job_condor()
+        self.base.write_exec_file()
+        self.base.write_sub_file()
 
     def launch_jobs(self):
 
@@ -209,13 +236,17 @@ class CondJob:
             comm = sub_comm + sub_args
 
         print(str(datetime.now()), " ".join(comm))
-        status = subprocess.run(comm)
+        subprocess.run(comm)
 
 if __name__ == "__main__":    
     with open(params.CfgPath, "r") as afile:
         config = yaml.safe_load(afile)
 
-    for particle in ("photons", "electrons", "pions"):
+    job = CondJob("photons", config)
+    job.prepare_jobs()
+    job.launch_jobs()
+
+    '''for particle in ("photons", "electrons", "pions"):
         job = CondJob(particle, config)
         job.prepare_jobs()
-        job.launch_jobs()
+        job.launch_jobs()'''

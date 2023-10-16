@@ -140,7 +140,7 @@ job:
   proxy: ~/.t3/proxy.cert
   queue: short
   local: False
-  script: /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/production/submit_scripts/condor_cluster_size.sh
+  script: /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/scripts/cluster_size/condor/run_cluster.py
   iterOver: radius
   arguments:
     radius: [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009,
@@ -156,10 +156,10 @@ job:
     args_per_batch: 10
   electrons:
     submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/electrons/
-    args_per_batch: 10
+    args_per_batch: 5
   pions:
     submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/pions/
-    args_per_batch: 10
+    args_per_batch: 5
 
 clusterStudies:
   localDir: /home/llr/cms/ehle/NewRepos/bye_splits/data/new_algos/
