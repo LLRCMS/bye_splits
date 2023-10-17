@@ -53,19 +53,19 @@ def start_chain(pars, cfg):
         fill_d = params.read_task_params("fill")
         for key in ("FillOut", "FillOutGenCl", "FillOutTcAll"):
             name = fill_d[key]
-            fill_d[key] = "{}_{}_{}_{}_pt_test".format(particles, pileup, name, eta_tag)
+            fill_d[key] = "{}_{}_{}_{}".format(particles, pileup, name, eta_tag)
         tasks.fill.fill(pars, df_gen, df_cl, df_tc, **fill_d)
 
         smooth_d = params.read_task_params("smooth")
         for key in ("SmoothIn", "SmoothOut"):
             name = smooth_d[key]
-            smooth_d[key] =  "{}_{}_{}_{}_pt_test".format(particles, pileup, name, eta_tag)
+            smooth_d[key] =  "{}_{}_{}_{}".format(particles, pileup, name, eta_tag)
         tasks.smooth.smooth(pars, **smooth_d)
 
         seed_d = params.read_task_params("seed")
         for key in ("SeedIn", "SeedOut"):
             name = seed_d[key]
-            seed_d[key] = "{}_{}_{}_{}_pt_test".format(particles, pileup, name, eta_tag)
+            seed_d[key] = "{}_{}_{}_{}".format(particles, pileup, name, eta_tag)
         tasks.seed.seed(pars, **seed_d)
 
 if __name__ == "__main__":

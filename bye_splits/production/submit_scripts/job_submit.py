@@ -9,7 +9,9 @@ sys.path.insert(0, parent_dir)
 from bye_splits.utils import params, common, job_helpers
 
 from datetime import datetime
+import re
 import subprocess
+import argparse
 import yaml
 
 class JobBatches:
@@ -49,16 +51,6 @@ class CondJobBase:
         self.particle_dir = self.batch.particle_var(self.particle, "submit_dir")
         self.batches      = self.batch.setup_batches()
 
-    def _check_script_arguments(self):
-        script_args = subprocess.run([self.script, "--args"], capture_output=True, text=True)
-        if script_args.returncode != 0:
-            result = script_args.stdout.strip().split("\n")
-        else:
-            result = []
-        
-        assert(result == list(self.args.keys())), "Provided arguments {} do not match accepted arguments {}.".format(list(self.args.keys()), result)
-
-
     def _write_arg_values(self, current_version):
         """Adds the argument values, where the batch lists are converted
         to strings as [val_1, val_2, ...] --> "[val_1;val_2]".
@@ -79,7 +71,14 @@ class CondJobBase:
         """
         
         if "particles" in self.args.keys(): self.args["particles"] = self.particle
-        arg_keys = ", ".join(self.args.keys())
+        
+        arg_keys = list(self.args.keys())
+        # Ensure that the iterated argument is queued first
+        if self.iterOver in self.args.keys():
+            arg_keys.remove(self.iterOver)
+            arg_keys.insert(0, self.iterOver)
+
+        arg_keys = ", ".join(arg_keys)
         arg_keys = "queue " + arg_keys + " from (\n"
 
         current_version.append(arg_keys)
@@ -96,11 +95,19 @@ class CondJobBase:
         current_version.append(")")
 
     def write_exec_file(self):
-        """"""
+        """Writes the .sh file that the condor .sub file runs as the
+        <executable>. This constitutes a few common exports and sourcing,
+        and follows by writing the Python call to <script>, passing the given
+        arguments and values. The contents of this file is written to a buffer
+        list first, and conditional_write() will check the contents of other scripts
+        in the same directory that contain the same basename. If an identical script
+        already exists, will use this script. Otherwise, it will increment the version
+        number (<script_name> + _v<#>). If no versions exist, the v0 version will be written."""
+
         script_dir, script_name = os.path.split(self.script)
         basename, ext = os.path.splitext(script_name)
         
-        sub_dir = "{}subs/".format(self.particle_dir)
+        sub_dir = os.path.join(self.particle_dir, "subs/")
 
         common.create_dir(sub_dir)
 
@@ -146,19 +153,17 @@ class CondJobBase:
         Follows the same naming convention and conditional_write()
         procedure as the previous function."""
 
-        log_dir = "{}logs/".format(self.particle_dir)
+        log_dir = os.path.join(self.particle_dir, "logs/")
 
         script_basename = os.path.basename(self.script).replace(".sh", "").replace(".py", "")
 
-        job_file_name_template = "{}jobs/{}.sub".format(self.particle_dir, script_basename)
+        job_file_name_template = "{}/jobs/{}.sub".format(self.particle_dir, script_basename)
 
         job_file_versions = job_helpers.grab_most_recent(job_file_name_template, return_all=True)
 
         current_version = []
         current_version.append("executable = {}\n".format(self.sub_file))
         current_version.append("Universe              = vanilla\n")
-        
-        #self._check_script_arguments()
 
         """Add argument keys, requring that the first argument corresponds to <iterOver>.
         This is because the handling of the iterated argument is handled differently by
@@ -200,11 +205,8 @@ class CondJob:
 
     def prepare_jobs(self):
 
-        config_dir = self.base.particle_dir + "configs"
-        job_dir    = self.base.particle_dir + "jobs"
-        log_dir    = self.base.particle_dir + "logs"
-
-        for d in (config_dir, job_dir, log_dir):
+        for d in ("jobs", "logs"):
+            d = os.path.join(self.base.particle_dir, d)
             common.create_dir(d)
 
         self.base.write_exec_file()
@@ -242,7 +244,7 @@ if __name__ == "__main__":
     with open(params.CfgPath, "r") as afile:
         config = yaml.safe_load(afile)
 
-    job = CondJob("photons", config)
+    job = CondJob("test", config)
     job.prepare_jobs()
     job.launch_jobs()
 
