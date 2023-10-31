@@ -9,9 +9,33 @@ parent_dir = os.path.abspath(__file__ + 3 * "/..")
 sys.path.insert(0, parent_dir)
 
 from bye_splits.utils import common
+from bye_splits.utils.job_helpers import Arguments
 
 import argparse
 
+arg_dict = {
+    "--float_arg": {
+        "help": "Dummy float",
+        "type": float,
+        "required": True
+    },
+    "--str_arg": {
+        "help": "Dummy string.",
+        "type": str,
+        "required": True,
+    },
+    # Generic argument will be interpreted as a string
+    "--gen_arg": {
+        "help": "Dummy generic.",
+        "required": False,
+        "default": None
+    },
+    "--flag": {
+        "help": "Dummy flag number 2.",
+        "action": "store_true",
+        "required": False
+    }
+}
 
 def dummy(pars):
     """Dummy script for testing HT Condor job submission.
@@ -22,13 +46,6 @@ def dummy(pars):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--float_arg", help="Dummy float", required=True, type=float)
-    parser.add_argument("--str_arg", help="Dummy string.", required=True, type=str)
-    parser.add_argument("--gen_arg", help="Dummy gen.")
-    parser.add_argument("--store_arg", help="Dummy store_strue variable.", action="store_true")
-    
-    FLAGS = parser.parse_args()
-    pars = common.dot_dict(vars(FLAGS))
-
-    dummy(pars)
+    args = Arguments(script=__file__)
+    FLAGS = args.add_args(description="A dummy script to submit.", arg_dict=arg_dict)
+    dummy(FLAGS)

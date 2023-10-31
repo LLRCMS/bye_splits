@@ -7,6 +7,7 @@ parent_dir = os.path.abspath(__file__ + 5 * "../")
 sys.path.insert(0, parent_dir)
 
 from bye_splits.utils import params, common, job_helpers
+from bye_splits.utils.job_helpers import Arguments
 
 from datetime import datetime
 import re
@@ -39,17 +40,37 @@ class JobBatches:
     
 class CondJobBase:
     def __init__(self, particle, config):
-        self.particle     = particle
         self.script       = config["job"]["script"]
-        self.iterOver     = config["job"]["iterOver"]
-        self.args         = config["job"]["arguments"]
         self.queue        = config["job"]["queue"]
         self.proxy        = config["job"]["proxy"]
         self.local        = config["job"]["local"]
         self.user         = config["job"]["user"]
+
+        self.true_args    = Arguments(self.script)
+        self.default_args = {}
+        for arg, val in config["job"]["arguments"].items():
+            self.default_args["--"+arg] = val
+        self.combined_args = self.true_args.verify_args(self.default_args)
+
+        if "--particles" in self.combined_args:
+            self.particle = self.combined_args["--particles"]
+        else:
+            self.particle     = particle
+
         self.batch        = JobBatches(particle, config)
         self.particle_dir = self.batch.particle_var(self.particle, "submit_dir")
+        self.iterOver     = "--"+config["job"]["iterOver"]
         self.batches      = self.batch.setup_batches()
+
+    def _get_condor_args(self):
+        condor_args   = []
+        for arg in self.combined_args:
+            if "action" in self.true_args.accepted_args[arg] and self.true_args.accepted_args[arg]["action"]=="store_true":
+                continue
+            else:
+                condor_args.append(arg.replace("--", ""))
+        
+        return condor_args
 
     def _write_arg_values(self, current_version):
         """Adds the argument values, where the batch lists are converted
@@ -70,28 +91,26 @@ class CondJobBase:
         correctly assigns radius="[0.01, 0.02]", particle="photon"
         """
         
-        if "particles" in self.args.keys(): self.args["particles"] = self.particle
-        
-        arg_keys = list(self.args.keys())
-        # Ensure that the iterated argument is queued first
-        if self.iterOver in self.args.keys():
-            arg_keys.remove(self.iterOver)
-            arg_keys.insert(0, self.iterOver)
+        condor_args = self._get_condor_args()
 
-        arg_keys = ", ".join(arg_keys)
-        arg_keys = "queue " + arg_keys + " from (\n"
-
+        arg_keys = "queue " + ", ".join(condor_args) + " from (\n"
         current_version.append(arg_keys)
-
-        sub_args = list(self.args.keys())
-        sub_args.remove(self.iterOver)
-        arg_vals = [self.args[key] for key in sub_args]
-
-        for batch in self.batches:
-            all_vals = [str(batch).replace(", ", ";")]+arg_vals
-            all_vals = ", ".join(map(str, all_vals)) + "\n"
-            current_version.append(all_vals)
-
+        
+        batch_strs = [str(batch).replace(", ", ";") for batch in self.batches]
+        
+        for batch in batch_strs:
+            inner_test = []
+            for key, val in self.combined_args.items():
+                if "action" in self.true_args.accepted_args[key] and self.true_args.accepted_args[key]["action"]=="store_true":
+                    continue
+                else:
+                    if key != self.iterOver:
+                        inner_test.append(val)
+                    else:
+                        inner_test.append(batch)
+            inner_test = ", ".join(map(str, inner_test)) + "\n"
+            current_version.append(inner_test)
+        
         current_version.append(")")
 
     def write_exec_file(self):
@@ -122,18 +141,22 @@ class CondJobBase:
         current_version.append("export SITECONFIG_PATH=$VO_CMS_SW_DIR/SITECONF/T2_FR_GRIF_LLR/GRIF-LLR/\n")
         current_version.append("source $VO_CMS_SW_DIR/cmsset_default.sh\n")
         
-        sub_args = list(self.args.keys())
+        condor_args = self._get_condor_args()
         if self.iterOver is not None:
-            sub_args.remove(self.iterOver)
+            iter_arg_pos = condor_args.index(self.iterOver.replace("--", ""))
+            current_version.append('list=${}\n'.format(iter_arg_pos + 1))
 
-            current_version.append('list=$1\n')
             current_version.append("cleaned_list=$(echo $list | tr -d '[]' | tr ';' '\n')\n")
             current_version.append('while IFS=";" read -r val; do\n')
+
+            batch_strs = [str(batch).replace(", ", ";") for batch in self.batches]
+
+            self.default_args[self.iterOver] = '"$val"'
             
-            python_call = '    python {} --{} "$val"'.format(self.script, self.iterOver)
-            for arg in sub_args:
-                python_call +=' --{} {}'.format(arg, self.args[arg])
-            python_call += "\n"
+
+            """write_comm() combines default_args with the command-line arguments,
+            verifies that they're accepted by the script, and then returns the python command."""
+            python_call = "    " + " ".join(self.true_args.write_comm(self.default_args)) + "\n"
 
             current_version.append(python_call)
             current_version.append('done <<< "$cleaned_list"')
@@ -142,7 +165,7 @@ class CondJobBase:
             python_call = 'python {}'.format(self.script)
 
             for arg in sub_args:
-                python_call +=' --{} {}'.format(arg, self.args[arg])   
+                python_call +=' --{} {}'.format(arg, self.default_args[arg])   
 
             current_version.append(python_call)
 
@@ -165,16 +188,9 @@ class CondJobBase:
         current_version.append("executable = {}\n".format(self.sub_file))
         current_version.append("Universe              = vanilla\n")
 
-        """Add argument keys, requring that the first argument corresponds to <iterOver>.
-        This is because the handling of the iterated argument is handled differently by
-        than the static variables by write_exec_file() which expectes <iterOver> to be
-        passed first."""
         arg_keys = "Arguments ="
-        sub_args = list(self.args.keys())
-        if self.iterOver is not None:
-            arg_keys += " $({})".format(self.iterOver)
-            sub_args.remove(self.iterOver)
-        for arg in sub_args:
+        condor_args = self._get_condor_args()
+        for arg in self._get_condor_args():
             arg_keys += " $({})".format(arg)
         arg_keys += "\n"
 
@@ -189,7 +205,7 @@ class CondJobBase:
         current_version.append('+SingularityCmd       = ""\n')
         current_version.append("include: /opt/exp_soft/cms/t3/t3queue |\n")
         
-        if len(self.args.keys()) > 0:
+        if len(self.default_args.keys()) > 0:
             self._write_arg_values(current_version)
 
         # Write the file only if an identical file doesn't already exist

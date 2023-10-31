@@ -151,12 +151,14 @@ job:
 #            0.046, 0.047, 0.048, 0.049, 0.05]
 #    particles: pions
 #    pileup: PU0
+#    weighted: False
   script: /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/tests/submission/dummy_submit.py
   iterOver: gen_arg
   arguments:
     float_arg: 0.11
     str_arg: a_string
     gen_arg: [gen, 3.14, work, broke, 9, False, 12.9, hello]
+    flag: False
   test:
     submit_dir: /home/llr/cms/ehle/NewRepos/bye_splits/tests/submission/
     args_per_batch: 2

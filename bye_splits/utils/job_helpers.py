@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
-import re
-
 import os
 import sys
 
 parent_dir = os.path.abspath(__file__ + 5 * "../")
 sys.path.insert(0, parent_dir)
+
+import re
+import argparse
+import subprocess
+import inspect
+import importlib.util
 
 _all_ = ['increment_version', 'grab_most_recent', 'compare_file_contents', 'write_file_version', 'conditional_write']
 
@@ -82,3 +86,98 @@ def conditional_write(file_versions, file_template, current_version):
     else:
         file_path = write_file_version(file_template, current_version)
     return file_path
+
+class Arguments:
+
+  def __init__(self, script):
+    self.script       = script
+    self.called_file  = inspect.stack()[1].filename
+    if self.script != self.called_file:
+      spec = importlib.util.spec_from_file_location("script", self.script)
+      original_script = importlib.util.module_from_spec(spec)
+      spec.loader.exec_module(original_script)
+      self.accepted_args = original_script.arg_dict
+
+  def _get_options(self):
+    return subprocess.run(["python", self.script, "-h"], capture_output=True, text=True).stdout
+
+  def get_running_args(self):
+    """Returns dictionary of command-line
+    argument key/value pairs."""
+    running_args = sys.argv[1:]
+    run_arg_dict = {}
+    for i, arg in enumerate(running_args):
+      if arg.startswith("--"):
+        arg_name = arg
+        if i + 1 < len(running_args):
+          if running_args[i + 1].startswith("--"):
+            run_arg_dict[arg_name] = True
+          else:
+            run_arg_dict[arg_name] = running_args[i + 1]
+        else:
+          run_arg_dict[arg_name] = True
+
+    return run_arg_dict
+
+  def combine_args(self, passed_args_dict):
+    """Combines the passed argument dictionary
+    with the command-line argument dictionary."""
+    running_args = self.get_running_args()
+
+    combined_args = {}
+    for key in set(passed_args_dict.keys()).union(set(running_args.keys())):
+      if key in running_args:
+        combined_args[key] = running_args[key]
+      else:
+        combined_args[key] = passed_args_dict[key]
+    
+    return combined_args
+
+
+  def verify_args(self, passed_args_dict):
+    """Verifies that the arguments dictionary (passed+command_line)
+    is a valid set of arguments for the script."""
+    
+    combined_args = self.combine_args(passed_args_dict)
+
+    true_keys     = set(self.accepted_args.keys()).union({'"--$val"'})
+    combined_keys = set(combined_args.keys())
+
+    if combined_keys.issubset(true_keys):
+      for arg, arg_info in self.accepted_args.items():
+        if "required" in arg_info.keys() and arg not in \
+        combined_keys and arg_info["required"] is True:
+          raise Exception("Required argument not passed: {}".format(arg))
+      return combined_args
+    else:
+      raise Exception("Passed arguments not in script: {}\n{}".format(
+          combined_keys.difference(true_keys), self._get_options()))
+
+  def write_comm(self, arg_dict):
+    """Verifies arguments and writes python command."""
+    full_args = self.verify_args(arg_dict)
+    comm = ["python", self.script]
+    for arg_name, arg_value in full_args.items():
+      if "action" in self.accepted_args[arg_name] and \
+      self.accepted_args[arg_name]["action"] == "store_true":
+        if arg_value is True:
+          comm.append(arg_name)
+      else:
+        comm.append(arg_name)
+        comm.append(str(arg_value))
+    return comm
+
+  def add_args(self, arg_dict, description=None):
+    """Adds the arguments to the script's argument list,
+    and returns the updated argument list."""
+
+    parser = argparse.ArgumentParser(description=description)
+    for arg_name, arg_info in arg_dict.items():
+        parser.add_argument(arg_name, **arg_info)
+
+    self.args = vars(parser.parse_args())
+    return self.args
+
+  def run_script(self, arg_dict):
+    comm = self.write_comm(arg_dict)
+    subprocess.run(comm)

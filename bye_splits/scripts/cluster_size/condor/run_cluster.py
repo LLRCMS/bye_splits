@@ -10,11 +10,32 @@ sys.path.insert(0, parent_dir)
 
 import tasks
 from utils import params, common, parsing, cl_helpers
+from utils.job_helpers import Arguments
 
-import argparse
 import numpy as np
 import pandas as pd
 import yaml
+
+arg_dict = {
+    "--radius": {
+        "help": "Coefficient to use as the max cluster radius",
+        "required": True,
+        "type": float
+    },
+    "--particles": {
+        "choices": ("photons", "electrons", "pions"),
+        "required": True
+    }, 
+    "--pileup": {
+        "help": "tag for PU200 vs PU0",
+        "choices": ("PU0", "PU200"),
+        "required": True
+    },
+    "--weighted": {
+        "help": "Apply pre-calculated layer weights",
+        "action": "store_true"
+    }
+}
 
 def cluster_radius(pars, cfg):
     """Runs the default clustering algorithm using the
@@ -47,15 +68,10 @@ def cluster_radius(pars, cfg):
         nevents_end = tasks.cluster.cluster_default(pars, **cluster_d)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--radius", help="Coefficient to use as the max cluster radius", required=True, type=float)
-    parser.add_argument("--particles", choices=("photons", "electrons", "pions"), required=True)
-    parser.add_argument("--pileup", help="tag for PU200 vs PU0", choices=("PU0", "PU200"), required=True)
-    parser.add_argument("--weighted", help="Apply pre-caluclated layer weights", action="store_true")
-    parsing.add_parameters(parser)
-    
-    FLAGS = parser.parse_args()
-    pars = common.dot_dict(vars(FLAGS))
+
+    args = Arguments(script=__file__)
+    FLAGS = args.add_args(description="Cluster size script.", arg_dict=arg_dict)
+    pars = common.dot_dict(FLAGS)
 
     radius_str = round(pars.radius, 3)
 
