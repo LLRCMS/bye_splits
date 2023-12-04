@@ -32,7 +32,7 @@ This repository reproduces the CMS HGCAL L1 Stage2 reconstruction chain in Pytho
 # Installation
 
     # setup conda environment
-    create -n <EnvName> python=3 pandas uproot pytables h5py
+    conda create -n <EnvName> python=3 pandas uproot pytables h5py
     conda activate <EnvName>
     
     # setup a ssh key if not yet done and clone the repository
@@ -41,6 +41,14 @@ This repository reproduces the CMS HGCAL L1 Stage2 reconstruction chain in Pytho
     git config core.hooksPath .githooks
 
 The user could also use [Mamba](https://mamba.readthedocs.io/en/latest/index.html), a fast and robust package manager. It is fully compatible with conda packages and supports most of conda’s commands.
+
+#For cmsenv users-
+ ```source /cvmfs/cms.cern.ch/cmsset_default.sh``` 
+ ```cmsenv```  (run this everytime to have the necessary environment for running the package)
+ ```source .venv/bin/activate``` (run this everytime to have the necessary environment for running the package)
+ Change the path of file for production to ```/data_CMS/cms/alves/L1HGCAL/photons_0PU_bc_stc_hadd.root```
+One must use python3 with this setup.
+
 
 
 <a id="dataprod"></a>
@@ -53,7 +61,7 @@ To make the size of the files more manageable, a skimming step was implemented t
 
 ```
 python bye_splits/production/produce.py --nevents -1 --particles photons
-```
+``
 
 where "-1" represents all events, and the input file is defined in ```config.yaml```. 
 
@@ -105,9 +113,11 @@ The `PU0` files above were merged and are stored under `/data_CMS/cms/alves/L1HG
 
 The reconstruction chain is implemented in Python. To run it:
 
-    python bye_splits/run_chain.py
+    python bye_splits/run_default_chain.py
 
 where one can use the `-h` flag to visualize available options. To use the steps separately in your own script use the functions defined under `bye_splits/tasks/`, just as done in the `iterative_optimization.py` script.
+One can also specify lxplus username (if it is different from llrcms username) by using –user <username>.
+One possible error could be the failure to find a directory. This is because the code doesnot create a directory. Do this manually at the moment by going to /eos/user/t/tdebnath/ and mkdir -p www/L1/SeedCSStudies
 
 For plotting results as a function of the optimization trigger cell parameter:
 
