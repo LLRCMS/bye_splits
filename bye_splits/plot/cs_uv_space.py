@@ -89,7 +89,6 @@ def dist(u1, v1, u2, v2):
     return (abs(u1-u2) + abs(v1-v2) + abs(s1-s2)) / 2
     
 def cs_event_loop(pars, **kw):
-    in_tcs = common.fill_path(kw['SeedIn'], **pars)
     uv_vars = ['univ_u', 'univ_v', 'tc_cu', 'tc_cv', 'tc_wu', 'tc_wv']
     tabs = []
     
@@ -150,6 +149,7 @@ def cs_event_loop(pars, **kw):
         plot_all_css([panel], 'uv_to_square_fullcs.html')
         
     else:
+        in_tcs = common.fill_path(kw['SeedIn'], **pars)
         store_cs = pd.HDFStore(in_tcs, mode='r')
         unev = [x for x in store_cs.keys() if 'central' not in x]
         inspect_events = ('165405',)
@@ -209,7 +209,7 @@ def add_bokeh_coord_convention(df, varu, varv):
     return df
 
 def create_cs_tab(df):
-    width, height = 800, 800
+    width, height = 1200, 1200
     title = r''
     basic_tools = 'pan,save,reset,undo,box_select'
 
@@ -293,7 +293,7 @@ def create_cs_tab(df):
     return layout([[p_uv, p_xy], [table]])
 
 def plot_all_css(tabs, out):
-    adir = '/eos/user/b/bfontana/www/L1/SeedCSStudies/'
+    adir = '/eos/home-b/bfontana/www/L1/SeedCSStudies/'
     output_file(os.path.join(adir, out))
     save(bmd.Tabs(tabs=tabs))
 
