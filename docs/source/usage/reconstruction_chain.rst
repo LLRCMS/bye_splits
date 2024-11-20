@@ -1,0 +1,87 @@
+Reconstruction Chain
+********************
+
+Description
+===========
+
+The backend Stage 2 of the CMS HGCAL Trigger reconstruction chain is split into several steps.
+Its layout is evolving, but can be currently summarized as follows (see also `this presentation <https://indico.jlab.org/event/459/contributions/11376/>`_):
+
+.. figure:: ../img/reconstruction_chain.png
+   :alt: alternate text
+   :align: center
+
+   The Backend Stage 2, from Trigger Cells (TCs, top left) to building Trigger Primitives (TPs) to send to the Level-1 Trigger.
+
+All the steps are implemented in separate files stored under ``tasks/``.
+One can add and/or remove tasks from the chain by modifying ``scripts/run_default_chain.py`` (or other similar scripts in the same folder).
+The output of every task is stored in dedicated HDF5 files, which can be used for validation.
+
+.. warning::
+   HDF5 files are created either via the convenient ``pandas`` API or using ``h5py`` directly.
+   This implies that the corresponding technologies have to be employed to read such files, and they are not exchangeable.
+   A possible future improvement could be to use the same structure everywhere.
+
+The framework often uses vectorized operations for speed-up.
+A series of customisation options is available under ``config.yaml``.
+
+Histogramming
+-------------
+
+Implemented in ``tasks/fill.py``, includes the TC mapping and assignment to a projective 2D bin space.
+
+TCs are mapped to the (ϕ, :math:`\:\text{R}/z`) two-dimensional projective space, where the binning is customisable.
+Only the needed information is stored for efficiency.
+For each event, information on generated and clustered particles is stored for later validation.
+
+
+Smearing
+-------------
+
+Implemented in ``tasks/smooth.py``, smears the bin energy across both dimensions.
+It was originally added to mitigate cluster splits.
+Given `available alternatives <https://indico.jlab.org/event/459/contributions/11376/>`_ it is not clear any longer whether it will be required.
+
+The width of the smearing kernel is customisable.
+Multiple smearing kernels are supported, and implementing additional ones is straightforward using ``--kernel``.
+
+Seeding
+-------------
+
+Implemented in ``tasks/seed.py``, it finds local energy maxima.
+A variant using hexagonal coordinates is available in ``tasks/seed_cs.py``.
+
+The seeding window size is customisable in both dimensions.
+
+
+Clustering
+-------------
+
+Implemented in ``tasks/cluster.py``, defines the properties of clusters based on the seed and surrounding TCs.
+Each seed originates one cluster.
+
+Two algorithms are available, ``min_distance`` and ``max_energy``.
+The former prioritized the distance of TCs to seeds, and the latter prioritizes the TC energy.
+Both algorithms only consider TCs within a given radius.
+
+Validation
+----------
+
+Implemented in ``tasks/validation.py``.
+Some simples validation checks are performed to compare clusters reconstructed with CMSSW (and stored in the histogramming step) with clusters reconstructed with this custom framework.
+
+
+Running the framework
+=====================
+
+To run the entire Stage 2:
+
+.. code-block:: shell
+				
+    python bye_splits/scripts/run_default_chain.py
+
+where one can use the ``-h`` flag to visualize available options.
+One can also create their own custom chain under ``scripts/``, using the tasks under ``tasks/``.
+
+To use the steps separately in your own script use the functions defined under ``bye_splits/tasks/``, just as done in the ``iterative_optimization.py`` script.
+Before including any task one must build the required dataframes, as done for instance using ``data_handle.data_process.get_data_reco_chain_start``.
