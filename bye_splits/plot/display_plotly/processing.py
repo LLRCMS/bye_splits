@@ -7,6 +7,11 @@ import sys
 parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
+import yaml
+import pandas as pd
+import numpy as np
+import dash_bootstrap_components as dbc
+
 from dash import dcc, html
 import dash_daq as daq
 import h5py
@@ -16,12 +21,10 @@ import random
 import logging
 log = logging.getLogger(__name__)
 
-from bye_splits.plot.display_plotly import yaml, np, pd, go, dbc
 from utils import params, common 
 from data_handle.data_process import *
 from data_handle.geometry import GeometryData
 from scripts.run_radii_chain import run_radii_chain
-import plot_event
 
 class Processing():
     def __init__(self):

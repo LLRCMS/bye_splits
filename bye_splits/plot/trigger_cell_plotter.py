@@ -1,7 +1,6 @@
 import numpy as np
 
-from airflow.airflow_dag import base_kwargs
-    
+from utils import params
 from bokeh.io import output_file, show
 from bokeh.layouts import layout
 from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
@@ -15,6 +14,7 @@ from bokeh.palettes import viridis as _palette
 
 def plot_trigger_cells(rzslices):
     mypalette = _palette(50)
+    base_kwargs = params.read_task_params("base")
     title = r'{} vs {} bins'.format(base_kwargs['NbinsPhi'],
                                     base_kwargs['NbinsRz'])
 

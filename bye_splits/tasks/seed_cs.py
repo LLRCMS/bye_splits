@@ -41,10 +41,13 @@ def calc_universal_coordinates(df, varu='univ_u', varv='univ_v'):
 def create_histo_uv(arr, fill, umin, umax, vmin, vmax):
     """
     Creates a 2D histogram with fixed (u,v) size.
+    
     - arr: array where the inner axis encodes, in order:
-      - 1: TC u
-      - 2: TC v
-      - 3: Value of interest ("counts" of the histogram, the "z axis")
+
+        - 1: TC u
+        - 2: TC v
+        - 3: Value of interest ("counts" of the histogram, the "z axis")
+
     - fill stores the dummy value to fill the histogram
     - remaining variables serve to cut around the central region of the CS
     """
@@ -75,9 +78,10 @@ def create_histo_uv(arr, fill, umin, umax, vmin, vmax):
 def define_histo_cuts(cs_df, wsizeu, wsizev, varu, varv, centrals):
     """
     Define u/v cuts to be applied to the histogram.
-    - cs_df: dataframe containing all TCs of a CSclOut
-    - centrals: u/v of the central wafer of the CS
-    - wsize: seeding window size    
+    
+    - `cs_df`: dataframe containing all TCs of a CSclOut
+    - `centrals`: u/v of the central wafer of the CS
+    - `wsize`: seeding window size    
     """
     if centrals is not None:
         central_df = cs_df[(cs_df.tc_wu==centrals[0]) & (cs_df.tc_wv==centrals[1])][[varu,varv]]

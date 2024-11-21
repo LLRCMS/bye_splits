@@ -14,8 +14,8 @@ import tasks
 from tasks import validation
 import utils
 from utils import params, common, parsing
-from run_default_chain import run_default_chain
-from run_new_chain import run_new_chain
+from scripts.run_default_chain import run_default_chain
+from scripts.run_new_chain import run_new_chain
 from plot import chain_plotter
 
 def avoid_single_chain_validation(pars):

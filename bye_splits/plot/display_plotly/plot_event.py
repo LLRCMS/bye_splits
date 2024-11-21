@@ -1,14 +1,18 @@
-# coding: utf-8
-
-_all_ = []
+_all_ = [ ]
 
 import os
 from pathlib import Path
 import sys
-parent_dir = os.path.abspath(__file__ + 2 * '/..')
+
+parent_dir = os.path.abspath(__file__ + 3 * '/..')
 sys.path.insert(0, parent_dir)
 
-from bye_splits.plot.display_plotly import yaml, np, pd, go, dcc
+import yaml
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import dash.dcc as dcc
+
 from bye_splits.tasks.coarse_seeding import cs_dummy_calculator
 
 def geom_selection(df_dict):

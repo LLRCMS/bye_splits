@@ -45,9 +45,9 @@ def common_props(p):
 with open(params.CfgPath, 'r') as afile:
     cfg = yaml.safe_load(afile)
 
-data_part_opt = dict(tag='mytag', reprocess=False, debug=True, logger=log)
-myparticles = ('pions',)
-data_particle = {x: EventDataParticle(particles=x, **data_part_opt) for x in myparticles}
+data_part_opt = dict(tag='mytag', reprocess=False, logger=log)
+myparticles = () #'pions',
+data_particle = {x: EventDataParticle(particles=x, pu=0, **data_part_opt) for x in myparticles}
 geom_data = GeometryData(reprocess=False, logger=log)
 mode = 'ev'
 

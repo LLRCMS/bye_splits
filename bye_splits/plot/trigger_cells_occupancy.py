@@ -1,8 +1,10 @@
 # coding: utf-8
 """
 Plots TC distributions and particular events, before and after:
+
 - smoothing
 - trigger cell movement
+
 The full TC distributions show the distributions *before* TC movement.
 
 There is some code duplication with `_full/_f` and `_sel/_s` suffixes

@@ -1,14 +1,32 @@
 Reconstruction Chain
 ********************
 
+The framework refers to HGCAL, a novel calorimeter for the CMS High-Luminosity phase.
+
+.. figure:: ../img/HGCAL.png
+   :align: center
+
+   Longitudinal slice of the HGCAL, which is a sampling calorimeter to be deployed in the CMS endcaps during the future High-Luminosity phase.
+   It comprises two detection technologies.
+
+
 Description
 ===========
+   
+The CMS HGCAL Trigger reconstruction chain is split into several steps:
 
-The backend Stage 2 of the CMS HGCAL Trigger reconstruction chain is split into several steps.
-Its layout is evolving, but can be currently summarized as follows (see also `this presentation <https://indico.jlab.org/event/459/contributions/11376/>`_):
+
+.. figure:: ../img/TriggerDataFlow.png
+   :align: center
+
+   The HGCAL trigger data flow, from the on-detector electronics to Stage 2. The latter produces Trigger Primitives.
+
+
+The backend Stage 2 produces Trigger Primitives, which are objects that serve as building blocks for the Level-1 Trigger decision, which decides if an event is worth keeping at 750kHz.
+
+The layout of the Stage 2 is evolving, but can be currently summarized as follows (see also `this presentation <https://indico.jlab.org/event/459/contributions/11376/>`_):
 
 .. figure:: ../img/reconstruction_chain.png
-   :alt: alternate text
    :align: center
 
    The Backend Stage 2, from Trigger Cells (TCs, top left) to building Trigger Primitives (TPs) to send to the Level-1 Trigger.
@@ -45,6 +63,14 @@ Given `available alternatives <https://indico.jlab.org/event/459/contributions/1
 The width of the smearing kernel is customisable.
 Multiple smearing kernels are supported, and implementing additional ones is straightforward using ``--kernel``.
 
+.. figure:: ../img/smearing.png
+   :scale: 50 %
+   :align: center
+
+   Representation of two possible smearing kernels along the ϕ direction, where bins counts refer to the total TC energy.
+   The "flat top" kernel assigns an equal weight to the two first neighbours (left and right) of any given bin.
+   
+   
 Seeding
 -------------
 
@@ -53,6 +79,14 @@ A variant using hexagonal coordinates is available in ``tasks/seed_cs.py``.
 
 The seeding window size is customisable in both dimensions.
 
+.. figure:: ../img/seeding.png
+   :align: center
+
+   Representation of the seeding step with a seeding window of size 1, which covers 9 bins.
+   The window assesses whether the central bin is a seed, comparing it with its 8 neighbours.
+   It then moves to the next position, with unit stride.
+   
+   
 
 Clustering
 -------------
@@ -63,6 +97,16 @@ Each seed originates one cluster.
 Two algorithms are available, ``min_distance`` and ``max_energy``.
 The former prioritized the distance of TCs to seeds, and the latter prioritizes the TC energy.
 Both algorithms only consider TCs within a given radius.
+
+.. figure:: ../img/clustering.png
+   :scale: 35 %
+   :align: center
+
+   Representation of the two clustering algorithms currently supported.
+   The three colors represent three seeds.
+   The algorithms prioritize the distance between seeds and TCs, or TC energy.
+   The two red arrows indicate two TCs which are associated to different seeds depending on the chosen algorithm.
+   
 
 Validation
 ----------

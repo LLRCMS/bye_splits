@@ -16,8 +16,7 @@ import pandas as pd
 import argparse
 
 from bye_splits.utils import parsing, common
-import plot_event as plt
-import processing
+from plot.display_plotly import plot_event as pltev
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 app.title = '3D Visualization' 
@@ -76,10 +75,10 @@ def update_event(particle, pu, n_click, submit_event, event, page):
     df_dict, event = process.get_data(common.dot_dict(vars(args)), particle, pu, event)
     
     gen_info = next(reversed(df_dict.values()))
-    slider = plt.prepare_slider(next(iter(df_dict['default'].values())), page)
+    slider = pltev.prepare_slider(next(iter(df_dict['default'].values())), page)
 
     if pu == '200 pileup':
-        df_dict = plt.geom_selection(df_dict)
+        df_dict = pltev.geom_selection(df_dict)
     if particle != 'pions': checkbox = ['Coarse seeding','Layer selection','Seed index']
     else: checkbox = ['Layer selection','Seed index']
 
@@ -117,21 +116,21 @@ def make_graph(data, slider_value, coef, mip, checkbox, chain, page):
         else: discrete = False
         df_no_cluster = df_sel[df_sel['seed_idx'] == df_sel['seed_idx'].max()]
         df_cluster    = df_sel[df_sel['seed_idx'] != df_sel['seed_idx'].max()]
-        fig = plt.set_figure(df_cluster, '3D', discrete)
-        plt.update_figure(fig, df_no_cluster, '3D', discrete)
+        fig = pltev.set_figure(df_cluster, '3D', discrete)
+        pltev.update_figure(fig, df_no_cluster, '3D', discrete)
 
         if 'Coarse seeding' in checkbox:
-            plt.add_CS(fig, df_sel) 
+            pltev.add_CS(fig, df_sel) 
     else:
         df_sel = df_sel[df_sel.tc_layer == slider_value]
 
         if 'Cluster trigger cells' in checkbox: 
             df_no_cluster = df_sel[df_sel.tc_cluster_id == 0]
             df_cluster    = df_sel[df_sel.tc_cluster_id != 0]
-            fig = plt.set_figure(df_cluster, '2D')
-            plt.update_figure(fig, df_no_cluster, '2D')
+            fig = pltev.set_figure(df_cluster, '2D')
+            pltev.update_figure(fig, df_no_cluster, '2D')
         else:
-            fig = plt.set_figure(df_sel, '2D')
+            fig = pltev.set_figure(df_sel, '2D')
   
     if 'Layer selection' not in checkbox and page != '2D':
         status_slider = {'display': 'none', 'width':'1'}
@@ -141,7 +140,8 @@ def make_graph(data, slider_value, coef, mip, checkbox, chain, page):
 
 
 if __name__ == '__main__':
-    args = parsing.parser_display_plotly()
+    from plot.display_plotly import processing
     process = processing.Processing() 
-    
+
+    args = parsing.parser_display_plotly()
     app.run_server(host=args.host, port=args.port, debug=True)

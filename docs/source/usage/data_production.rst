@@ -1,6 +1,12 @@
 Data Production
 ******************
 
+.. figure:: ../img/flowchart.png
+   :align: center
+
+   Code structure.
+
+   
 Skimming
 ===============
 

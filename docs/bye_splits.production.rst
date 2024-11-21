@@ -1,13 +1,11 @@
-production package
-==================
+bye\_splits.production package
+==============================
 
 Submodules
 ----------
 
-production.produce module
--------------------------
 
-.. automodule:: production.produce
+.. automodule:: bye_splits.production.produce
    :members:
    :undoc-members:
    :show-inheritance:
@@ -15,7 +13,7 @@ production.produce module
 Module contents
 ---------------
 
-.. automodule:: production
+.. automodule:: bye_splits.production
    :members:
    :undoc-members:
    :show-inheritance:
