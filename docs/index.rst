@@ -18,20 +18,21 @@ Various presentations based on the framework are available `here <https://github
    :maxdepth: 2
    :caption: Installation
 
-   usage/installation
+   source/usage/installation
    
 .. toctree::
    :maxdepth: 1
    :caption: Contents
 
-   usage/data_production
-   usage/reconstruction_chain
-   usage/event_visualization
-   usage/cluster_radii_studies
-   usage/tikz
+   source/usage/data_production
+   source/usage/reconstruction_chain
+   source/usage/event_visualization
+   source/usage/cluster_radii_studies
+   source/usage/tikz
 
 .. toctree::
    :maxdepth: 2
    :caption: Source code
 
    modules
+   

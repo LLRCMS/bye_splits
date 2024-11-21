@@ -1,7 +1,6 @@
 import os
 import sys
 import re
-import argparse
 
 parent_dir = os.path.abspath(__file__ + 3 * "/..")
 sys.path.insert(0, parent_dir)
@@ -11,13 +10,9 @@ import pandas as pd
 
 from bye_splits.utils import common, parsing, params
 
-parser = argparse.ArgumentParser(description="Seeding standalone step.")
-parsing.add_parameters(parser)
-FLAGS = parser.parse_args()
-
-
 def get_last_version(name):
-    """Takes a template path, such as '/full/path/to/my_file.ext' and returns the path to the latest version
+    """
+    Takes a template path, such as '/full/path/to/my_file.ext' and returns the path to the latest version
     corresponding to '/full/path/to/my_file_vN.ext' where N is the latest version number in the directory.
     """
     base = os.path.basename(name)
@@ -44,9 +39,6 @@ def update_version_name(name):
     return f"{base}_v{str(version+1)}{ext}"
 
 
-# def_k = 0.0
-
-
 def closest(list, k=0.0):
     """Find the element of a list containing strings ['coef_{float_1}', 'coef_{float_2}', ...] which is closest to some float_i"""
     try:
@@ -62,8 +54,9 @@ def closest(list, k=0.0):
 
 
 def get_str(coef, df_dict):
-    """Accepts a coefficient, either as a float or string starting with coef_, along with a dictionary of coefficient:DataFrame pairs.
-    Returns the coefficient string in the dictionary that is the closest to the passed coef.
+    """
+    Accepts a coefficient, either as a float or string starting with 'coef\\_', along with a dictionary of coefficient:DataFrame pairs.
+    Returns the coefficient string in the dictionary that is the closest to the passed coefficient.
     """
     if not isinstance(coef, str):
         coef_str = "coef_{}".format(str(coef).replace(".", "p"))
@@ -77,22 +70,21 @@ def get_str(coef, df_dict):
         coef_str = "/coef_{}".format(str(new_coef).replace(".", "p"))
     return coef_str
 
-
-# Old Naming Conventions used different column names in the dataframes
-column_matching = {
-    "etanew": "eta",
-    "phinew": "phi",
-    "genpart_exphi": "gen_phi",
-    "genpart_exeta": "gen_eta",
-    "genpart_energy": "gen_en",
-}
-
-
 def get_dfs(init_files, coef):
-    """Takes a dictionary of input files (keys corresponding to particles, values corresponding to file paths containing DataFrames by coefficient), with a desired coefficient.
+    """
+    Takes a dictionary of input files (keys corresponding to particles, values corresponding to file paths containing DataFrames by coefficient), with a desired coefficient.
     Returns a new dictionary with the same keys, whose values correspond to the DataFrame of that particular coefficient.
     """
     df_dict = dict.fromkeys(init_files.keys(), [0.0])
+
+    # Old Naming Conventions used different column names in the dataframes
+    column_matching = {
+        "etanew": "eta",
+        "phinew": "phi",
+        "genpart_exphi": "gen_phi",
+        "genpart_exeta": "gen_eta",
+        "genpart_energy": "gen_en",
+    }
 
     for key in init_files.keys():
         if len(init_files[key]) == 0:
@@ -127,10 +119,10 @@ def get_keys(init_files):
 
 
 def get_input_files(base_path, pile_up=False):
-    """Accepts a base bath corresponding to the user's data directory, and returns a dictionary corresponding to particles:[root_files].
-    Note that currently PU0 zero samples are stored in
-    /eos/user/b/bfontana/FPGAs/new_algos/ and PU200 are stored in
-    /eos/user/i/iehle/data/PU200/"""
+    """
+    Accepts a base bath corresponding to the user's data directory, and returns a dictionary corresponding to particles:[root_files].
+    Note that currently PU0 zero samples are stored in /eos/user/b/bfontana/FPGAs/new_algos/ and PU200 are stored in /eos/user/i/iehle/data/PU200/.
+    """
 
     input_files = {"photons": [], "pions": [], "electrons": []}
 
@@ -195,3 +187,10 @@ def get_output_files(cfg):
             output_files[key] = list(set(output_files[key]))
 
     return output_files
+
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Seeding standalone step.")
+    parsing.add_parameters(parser)
+    FLAGS = parser.parse_args()

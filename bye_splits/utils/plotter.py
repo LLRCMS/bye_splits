@@ -378,23 +378,3 @@ class Plotter:
         else:
             output_file(plot_name)
             save(layout)
-
-if __name__ == "__main__":
-    import h5py
-    from airflow.airflow_dag import optimization_kwargs
-    from data_processing import preprocess
-    
-    store_in  = h5py.File(kw['OptimizationIn'],  mode='r')
-
-    assert len(store_in.keys()) == 1
-    data, _, _ = preprocess(
-        data=store_in['data'],
-        nbins_phi=kw['NbinsPhi'],
-        nbins_rz=kw['NbinsRz'],
-        window_size=kw['WindowSize']
-    )
-    rzslices = [ rzslice[:,0] for rzslice in data ]
-    assert len(optimization_kwargs['FesAlgos'])==1
-    plotter = Plotter()
-    plotter.save( rzslices, save=False, **optimization_kwargs )
-    plotter.plot()

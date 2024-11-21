@@ -4,12 +4,12 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'bye_splits'
+project = 'Bye Splits 👋'
 copyright = '2024, Bruno Alves'
 author = 'Bruno Alves'
 
@@ -21,10 +21,11 @@ extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode']
 templates_path = ['_templates']
 exclude_patterns = []
 
+add_module_names = True
 
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_rtd_theme' # 'alabaster'
+html_theme = 'sphinx_rtd_theme' # 'furo'
 html_static_path = ['_static']

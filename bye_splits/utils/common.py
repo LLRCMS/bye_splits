@@ -110,9 +110,11 @@ class SupressSettingWithCopyWarning:
 def get_detector_region_mask(df, region):
     """
     Obtain a mask to filter a specific detector region.
-    subdetectors: - ECAL (1)
-                  - HCAL silicon (2)
-                  - HCAL scintillator (10)
+    Subdetectors:
+
+    - ECAL (1)
+    - HCAL silicon (2)
+    - HCAL scintillator (10)
     """
     if region == "Si":
         subdetCond = (df.subdet == 1) | (df.subdet == 2)
