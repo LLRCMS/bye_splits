@@ -135,19 +135,56 @@ varGeometry:
   reprocess: False
   coefs: [0.010, 0.015, 0.020, 0.025]
 
+job:
+  user: iehle
+  proxy: ~/.t3/proxy.cert
+  queue: short
+  local: False
+#  script: /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/bye_splits/scripts/cluster_size/condor/run_cluster.py
+#  iterOver: radius
+#  arguments:
+#    radius: [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009,
+#            0.01 , 0.011, 0.012, 0.013, 0.014, 0.015, 0.016, 0.017, 0.018,
+#            0.019, 0.02 , 0.021, 0.022, 0.023, 0.024, 0.025, 0.026, 0.027,
+#            0.028, 0.029, 0.03 , 0.031, 0.032, 0.033, 0.034, 0.035, 0.036,
+#            0.037, 0.038, 0.039, 0.04 , 0.041, 0.042, 0.043, 0.044, 0.045,
+#            0.046, 0.047, 0.048, 0.049, 0.05]
+#    particles: pions
+#    pileup: PU0
+#    weighted: False
+  script: /grid_mnt/vol_home/llr/cms/ehle/NewRepos/bye_splits/tests/submission/dummy_submit.py
+  iterOver: gen_arg
+  arguments:
+    float_arg: 0.11
+    str_arg: a_string
+    gen_arg: [gen, 3.14, work, broke, 9, False, 12.9, hello]
+    flag: False
+  test:
+    submit_dir: /home/llr/cms/ehle/NewRepos/bye_splits/tests/submission/
+    args_per_batch: 2
+  photons:
+    submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/photons/
+    args_per_batch: 10
+  electrons:
+    submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/electrons/
+    args_per_batch: 5
+  pions:
+    submit_dir: /data_CMS/cms/ehle/L1HGCAL/PU0/pions/
+    args_per_batch: 5
+
 clusterStudies:
-  localDir: /home/llr/cms/mchiusi/event_display/bye_splits/data/new_algos/
+  localDir: /home/llr/cms/ehle/NewRepos/bye_splits/data/new_algos/
   ehleDir: /eos/user/i/iehle/
   dataFolder: data/
-  reinit: True #False
-  clusterSizeBaseName: cluster_size
-  coeffs: [0.0, 0.5, 50]
-  nevents: 100
-  pileUp: False
-  tree: FloatingpointMixedbcstcrealsig4DummyHistomaxxydr015GenmatchGenclustersntuple/HGCalTriggerNtuple
-  #coeffs: [0.0, 0.05, 50]
-  fileBaseName: energy_out
-  local: False
+  reprocess: True # Reproduce .parquet file
+  parquetTag: pt_test
+  clusterSizeBaseName: cluster_size_jobTest_yesWeight
+  pileup: False
+  weights:
+    subDir: optimization/official/final/
+    layer:
+      photons: optimization_selectOneStd_adjustMaxWeight_maxSeed
+      pions:  optimization_selectOneEffRms_maxSeed_bc_stc
 
 base:
   NbinsRz: 42
