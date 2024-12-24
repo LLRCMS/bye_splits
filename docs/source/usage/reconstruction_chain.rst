@@ -1,3 +1,4 @@
+.. _reco_chain_overview:
 Reconstruction Chain
 ********************
 

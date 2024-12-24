@@ -1,3 +1,4 @@
+.. _data_production:
 Data Production
 ******************
 

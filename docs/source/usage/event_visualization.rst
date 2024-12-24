@@ -2,7 +2,7 @@ Event Visualization
 ********************
 
 The repository creates two web apps that can be visualized in a browser.
-The code is stored under ````bye_splits/plot````.
+The code is stored under ``bye_splits/plot``.
 
 Setup
 ======

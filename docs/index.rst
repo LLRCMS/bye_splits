@@ -22,10 +22,27 @@ Various presentations based on the framework are available `here <https://github
    
 .. toctree::
    :maxdepth: 1
-   :caption: Contents
+   :caption: Overview
 
-   source/usage/data_production
    source/usage/reconstruction_chain
+   source/usage/data_production
+
+.. toctree::
+   :maxdepth: 1
+   :caption: For Developers
+
+   source/usage/dev_intro
+   source/usage/dev_produce
+   source/usage/dev_data_handle
+   source/usage/dev_plot
+   source/usage/dev_scripts
+   source/usage/dev_tasks
+   source/usage/dev_utils
+   
+.. toctree::
+   :maxdepth: 1
+   :caption: Miscellaneous
+
    source/usage/event_visualization
    source/usage/cluster_radii_studies
    source/usage/tikz
