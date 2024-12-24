@@ -6,7 +6,7 @@ It is fully compatible with conda packages and supports most of conda’s comman
 
 .. code-block:: shell
    
-   create -n <EnvName> python=3 pandas uproot pytables h5py plotly
+   mamba create -n <EnvName> python=3 pandas uproot pytables h5py plotly
    mamba activate <EnvName>
 
 
