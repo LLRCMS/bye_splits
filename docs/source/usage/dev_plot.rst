@@ -1,3 +1,4 @@
+.. _plots:
 Plotting the data
 ***********************
 

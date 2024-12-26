@@ -1,12 +1,6 @@
 .. _data_production:
 Data Production
 ******************
-
-.. figure:: ../img/flowchart.png
-   :align: center
-
-   Code structure.
-
    
 Skimming
 ===============

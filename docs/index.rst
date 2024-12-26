@@ -13,12 +13,6 @@ It can also generate a 2D and 3D event visualization apps, since it includes a (
 It was originally used for understanding and fixing the observed cluster splitting.
 
 Various presentations based on the framework are available `here <https://github.com/LLRCMS/bye_splits/wiki/Resources>`_.
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Installation
-
-   source/usage/installation
    
 .. toctree::
    :maxdepth: 1
@@ -26,6 +20,13 @@ Various presentations based on the framework are available `here <https://github
 
    source/usage/reconstruction_chain
    source/usage/data_production
+
+.. toctree::
+   :maxdepth: 2
+   :caption: First Steps
+
+   source/usage/installation
+   source/usage/contact
 
 .. toctree::
    :maxdepth: 1
