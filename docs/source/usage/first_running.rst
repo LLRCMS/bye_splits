@@ -1,12 +1,16 @@
-.. _data_production:
-Data Production
-******************
-   
-Skimming
-===============
+.. _running_framework:
 
+Run the Framework
+**********************
+
+.. _skimming:
+
+Skimming
+==========
+   
 To make the size of the files more manageable, a skimming step was implemented relying on ``ROOT``'s ``RDataFrame``.
 Several cuts are applied, and additionally many type conversions are run for ``uproot`` usage at later steps.
+
 To run it:
 
 .. code-block:: shell
@@ -35,10 +39,6 @@ The output files include, among many others, the following variables:
 | ``tc_mipPt``  | Energy of a TC in transverse MIP units                            |
 +---------------+-------------------------------------------------------------------+
 
-
-Data sources
-==============
-
 This framework relies on photon-, electron- and pion-gun samples produced via CRAB.
 The most up to date versions are currently stored under:
 
@@ -55,3 +55,19 @@ The most up to date versions are currently stored under:
 +------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Electrons (PU200)      | ``/eos/user/i/iehle/data/PU200/electrons/ntuples``                                                                                                                                                   |
 +------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+
+.. _run_chains:
+
+Run the Reconstruction Chains
+=============================
+
+Once the skimmed data is available for a particular particle type and pile-up value, one can run a reconstruction chain.
+To run the full TPG Stage 2, using the default script:
+
+.. code-block:: shell
+				
+    python bye_splits/scripts/run_default_chain.py
+
+where one can use the ``-h`` flag to visualize available options.
+One can also create their own custom chain under ``scripts/``, using the tasks under ``tasks/``.
