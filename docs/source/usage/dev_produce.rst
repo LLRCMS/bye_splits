@@ -3,7 +3,7 @@ Production (skimming)
 
 This section refers to the ``bye_splits/produce/`` directory. The ``C++`` code is kept for reference only, including the ``include/`` and ``src/`` directory; you should use the ``produce.py`` (single) executable.
 
-To get instructions on **how** to run this step, please go to the :ref:`data_production` section. In the following the ``produce.py`` script is described.
+To get instructions on **how** to run this step, please go to the :ref:`skimming` section. In the following the ``produce.py`` script is described.
 
 The code is implemented in ``Python`` to ease the production task for the user, skipping the need to compile the source code with the required ``ROOT`` packages, and avoiding the usage of two programming languages in the same context.
 This enables the user, for instance, to use the same ``config.yaml`` file for everything, without additional conversion steps.

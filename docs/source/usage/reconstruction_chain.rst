@@ -1,4 +1,5 @@
 .. _reco_chain_overview:
+
 Reconstruction Chain
 ********************
 
@@ -34,7 +35,7 @@ The layout of the Stage 2 is evolving, but can be currently summarized as follow
 
 All the steps are implemented in separate files stored under ``tasks/``.
 One can add and/or remove tasks from the chain by modifying ``scripts/run_default_chain.py`` (or other similar scripts in the same folder).
-The output of every task is stored in dedicated HDF5 files, which can be used for validation.
+The output of every task is stored in dedicated `HDF5 <https://docs.h5py.org/en/stable/index.html>`_ files, which can be used for validation.
 
 .. warning::
    HDF5 files are created either via the convenient ``pandas`` API or using ``h5py`` directly.
@@ -114,19 +115,3 @@ Validation
 
 Implemented in ``tasks/validation.py``.
 Some simples validation checks are performed to compare clusters reconstructed with CMSSW (and stored in the histogramming step) with clusters reconstructed with this custom framework.
-
-
-Running the framework
-=====================
-
-To run the entire Stage 2:
-
-.. code-block:: shell
-				
-    python bye_splits/scripts/run_default_chain.py
-
-where one can use the ``-h`` flag to visualize available options.
-One can also create their own custom chain under ``scripts/``, using the tasks under ``tasks/``.
-
-To use the steps separately in your own script use the functions defined under ``bye_splits/tasks/``, just as done in the ``iterative_optimization.py`` script.
-Before including any task one must build the required dataframes, as done for instance using ``data_handle.data_process.get_data_reco_chain_start``.
